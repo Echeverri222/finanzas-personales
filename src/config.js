@@ -1,5 +1,5 @@
 // Configuración centralizada de la aplicación
-export const API_URL = 'https://script.google.com/macros/s/AKfycbzCTgifF_5uSdxjnXsFDLPgidEPZivVl_fTf2MDieDLToeRpbk91uOut5g5VBs6K8nD/exec';
+export const API_URL = 'https://script.google.com/macros/s/AKfycbzbxuXZHC9rmPD3n4CsOEIFntjNqAl4RLv_sDYFTVxba_LDNR8eiApLhta8n0PMvveN/exec';
 
 // Tipos de movimientos disponibles
 export const TIPOS_MOVIMIENTO = [

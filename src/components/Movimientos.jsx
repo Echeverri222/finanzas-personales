@@ -61,47 +61,47 @@ export default function Movimientos() {
     return null;
   };
 
-  const handleSubmit = async () => {
+  const guardarMovimiento = async () => {
+    const dataToSend = {
+      ...formData,
+      type: 'movimientos'
+    };
+
     try {
-      setError(null);
-      setLoading(true);
-
-      const validationError = validateForm();
-      if (validationError) {
-        setError(validationError);
-        setLoading(false);
-        return;
-      }
-
-      const dataToSend = {
-        fecha: formData.fecha,
-        nombre: formData.nombre,
-        importe: formData.importe.toString(),
-        tipo_movimiento: formData.tipo_movimiento,
-        type: 'movimientos'
-      };
-
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dataToSend)
+        body: JSON.stringify(dataToSend),
+        headers: { 'Content-Type': 'application/json' }
       });
 
-      const responseText = await response.text();
-      
-      if (responseText.includes('success') || responseText.includes('Successfully')) {
+      const responseJson = await response.json();
+
+      if (responseJson.result === 'success') {
         await cargarMovimientos();
-        resetForm();
+        setFormData({ fecha: '', nombre: '', importe: '', tipo_movimiento: '' });
         setShowForm(false);
       } else {
         throw new Error('Error al guardar los datos');
       }
-
     } catch (err) {
-      console.error("Error al guardar:", err);
-      setError("Error al guardar. Por favor, intenta de nuevo.");
+      console.error("ERROR:", err);
+      alert("Error al guardar.");
+    }
+  };
+
+  const handleSubmit = async () => {
+    setError(null);
+    setLoading(true);
+
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      await guardarMovimiento();
     } finally {
       setLoading(false);
     }

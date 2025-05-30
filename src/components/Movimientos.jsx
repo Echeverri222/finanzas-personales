@@ -57,13 +57,18 @@ export default function Movimientos() {
   };
 
   const guardarMovimiento = async () => {
+    // Formatear los datos antes de enviar
     const dataToSend = {
       ...formData,
+      importe: Number(formData.importe), // Asegurar que importe sea número
+      fecha: new Date(formData.fecha).toISOString().split('T')[0], // Formatear fecha como YYYY-MM-DD
       type: 'movimientos'
     };
 
     try {
       setLoading(true);
+      console.log('Enviando datos:', dataToSend); // Para debug
+
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
@@ -72,11 +77,17 @@ export default function Movimientos() {
         body: JSON.stringify(dataToSend)
       });
 
+      console.log('Response status:', response.status); // Para debug
+
       if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Error response:', errorText); // Para debug
+        throw new Error(`Error del servidor: ${response.status} - ${errorText}`);
       }
 
       const responseJson = await response.json();
+      console.log('Response JSON:', responseJson); // Para debug
+
       if (responseJson.result === 'success') {
         await cargarMovimientos();
         setFormData({ fecha: '', nombre: '', importe: '', tipo_movimiento: '' });

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from 'recharts';
-import { API_URL } from '../config';
+import { supabase } from '../supabaseClient';
 
 const COLORS = {
   Ingresos: '#4ade80',
@@ -26,23 +26,22 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`${API_URL}?type=movimientos`);
-      if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
+      const { data, error: supabaseError } = await supabase
+        .from('movimientos')
+        .select('*')
+        .order('fecha', { ascending: false });
+
+      if (supabaseError) {
+        throw new Error(supabaseError.message);
       }
 
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        // Convert fecha strings to Date objects
-        const processedData = data.map(mov => ({
-          ...mov,
-          fecha: new Date(mov.fecha),
-          importe: parseFloat(mov.importe)
-        }));
-        setMovimientos(processedData);
-      } else {
-        throw new Error('Formato de datos inválido');
-      }
+      // Convert fecha strings to Date objects and importe to numbers
+      const processedData = (data || []).map(mov => ({
+        ...mov,
+        fecha: new Date(mov.fecha),
+        importe: Number(mov.importe)
+      }));
+      setMovimientos(processedData);
     } catch (err) {
       console.error("Error al obtener movimientos:", err);
       setError(`Error: ${err.message}`);
@@ -53,6 +52,25 @@ export default function Dashboard() {
 
   useEffect(() => {
     cargarMovimientos();
+
+    // Suscribirse a cambios en tiempo real
+    const subscription = supabase
+      .channel('movimientos_changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'movimientos' 
+        }, 
+        () => {
+          cargarMovimientos();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Filter data based on selected filters

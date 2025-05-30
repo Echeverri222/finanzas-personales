@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { API_URL } from '../config';
+import { supabase } from '../supabaseClient';
 
 export default function Metas() {
   const [metas, setMetas] = useState([]);
@@ -17,14 +17,16 @@ export default function Metas() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`${API_URL}?type=metas`);
-      if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
+      const { data, error: supabaseError } = await supabase
+        .from('metas')
+        .select('*')
+        .order('fecha_meta', { ascending: true });
+
+      if (supabaseError) {
+        throw new Error(supabaseError.message);
       }
 
-      const data = await response.json();
-      const filtrados = data.filter(item => item.nombre && item.meta_total);
-      setMetas(filtrados);
+      setMetas(data || []);
     } catch (err) {
       console.error("Error al obtener metas:", err);
       setError(`Error: ${err.message}`);
@@ -35,6 +37,25 @@ export default function Metas() {
 
   useEffect(() => {
     cargarMetas();
+
+    // Suscribirse a cambios en tiempo real
+    const subscription = supabase
+      .channel('metas_changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'metas' 
+        }, 
+        () => {
+          cargarMetas();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleChange = (e) => {
@@ -44,29 +65,25 @@ export default function Metas() {
   const agregarMeta = async () => {
     try {
       setLoading(true);
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...nueva,
-          type: 'metas'
-        })
-      });
+      setError(null);
 
-      if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
+      const metaData = {
+        nombre: nueva.nombre,
+        meta_total: Number(nueva.meta_total),
+        fecha_meta: new Date(nueva.fecha_meta).toISOString(),
+        descripcion: nueva.descripcion
+      };
+
+      const { error: supabaseError } = await supabase
+        .from('metas')
+        .insert([metaData]);
+
+      if (supabaseError) {
+        throw new Error(supabaseError.message);
       }
 
-      const responseJson = await response.json();
-      if (responseJson.result === 'success') {
-        await cargarMetas();
-        setNueva({ nombre: '', meta_total: '', fecha_meta: '', descripcion: '' });
-        setError(null);
-      } else {
-        throw new Error(responseJson.error || 'Error al guardar los datos');
-      }
+      setNueva({ nombre: '', meta_total: '', fecha_meta: '', descripcion: '' });
+      await cargarMetas();
     } catch (err) {
       console.error("Error al guardar meta:", err);
       setError(err.message || "Error al guardar los datos");
@@ -75,11 +92,39 @@ export default function Metas() {
     }
   };
 
-  const formatDate = (fecha) => {
+  const handleDelete = async (id) => {
     try {
-      return new Date(fecha).toLocaleDateString("es-CO");
-    } catch {
-      return fecha;
+      setLoading(true);
+      setError(null);
+
+      const { error: deleteError } = await supabase
+        .from('metas')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+
+      await cargarMetas();
+    } catch (err) {
+      console.error("Error al eliminar:", err);
+      setError(err.message || "Error al eliminar la meta");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('es-CO', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit'
+      });
+    } catch (err) {
+      return dateStr;
     }
   };
 
@@ -151,15 +196,24 @@ export default function Metas() {
               <th className="border p-2">Monto Objetivo</th>
               <th className="border p-2">Fecha Objetivo</th>
               <th className="border p-2">Descripción</th>
+              <th className="border p-2">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {metas.map((meta, index) => (
-              <tr key={index}>
+            {metas.map((meta) => (
+              <tr key={meta.id}>
                 <td className="border p-2">{meta.nombre}</td>
                 <td className="border p-2">${Number(meta.meta_total).toLocaleString('es-CO')}</td>
                 <td className="border p-2">{formatDate(meta.fecha_meta)}</td>
                 <td className="border p-2">{meta.descripcion}</td>
+                <td className="border p-2">
+                  <button
+                    onClick={() => handleDelete(meta.id)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    🗑️ Eliminar
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { API_URL } from '../config';
+import { supabase } from '../supabaseClient';
 
 export default function Ahorros() {
   const [ahorros, setAhorros] = useState([]);
@@ -16,17 +16,16 @@ export default function Ahorros() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`${API_URL}?type=ahorros`);
-      if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
+      const { data, error: supabaseError } = await supabase
+        .from('ahorros')
+        .select('*')
+        .order('fecha', { ascending: false });
+
+      if (supabaseError) {
+        throw new Error(supabaseError.message);
       }
 
-      const data = await response.json();
-      const filtrados = data.filter(item => {
-        const montoNum = Number(item.monto);
-        return item.fecha && !isNaN(montoNum) && montoNum > 0;
-      });
-      setAhorros(filtrados);
+      setAhorros(data || []);
     } catch (err) {
       console.error("Error al obtener ahorros:", err);
       setError(`Error: ${err.message}`);
@@ -37,6 +36,25 @@ export default function Ahorros() {
 
   useEffect(() => {
     cargarAhorros();
+
+    // Suscribirse a cambios en tiempo real
+    const subscription = supabase
+      .channel('ahorros_changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'ahorros' 
+        }, 
+        () => {
+          cargarAhorros();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleChange = (e) => {
@@ -46,29 +64,24 @@ export default function Ahorros() {
   const agregarAhorro = async () => {
     try {
       setLoading(true);
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...nuevo,
-          type: 'ahorros'
-        })
-      });
+      setError(null);
 
-      if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
+      const ahorroData = {
+        fecha: new Date(nuevo.fecha).toISOString(),
+        monto: Number(nuevo.monto),
+        descripcion: nuevo.descripcion
+      };
+
+      const { error: supabaseError } = await supabase
+        .from('ahorros')
+        .insert([ahorroData]);
+
+      if (supabaseError) {
+        throw new Error(supabaseError.message);
       }
 
-      const responseJson = await response.json();
-      if (responseJson.result === 'success') {
-        await cargarAhorros();
-        setNuevo({ fecha: '', monto: '', descripcion: '' });
-        setError(null);
-      } else {
-        throw new Error(responseJson.error || 'Error al guardar los datos');
-      }
+      setNuevo({ fecha: '', monto: '', descripcion: '' });
+      await cargarAhorros();
     } catch (err) {
       console.error("Error al guardar ahorro:", err);
       setError(err.message || "Error al guardar los datos");
@@ -77,11 +90,39 @@ export default function Ahorros() {
     }
   };
 
-  const formatDate = (fecha) => {
+  const handleDelete = async (id) => {
     try {
-      return new Date(fecha).toLocaleDateString("es-CO");
-    } catch {
-      return fecha;
+      setLoading(true);
+      setError(null);
+
+      const { error: deleteError } = await supabase
+        .from('ahorros')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+
+      await cargarAhorros();
+    } catch (err) {
+      console.error("Error al eliminar:", err);
+      setError(err.message || "Error al eliminar el ahorro");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('es-CO', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit'
+      });
+    } catch (err) {
+      return dateStr;
     }
   };
 
@@ -144,14 +185,23 @@ export default function Ahorros() {
               <th className="border p-2">Fecha</th>
               <th className="border p-2">Monto</th>
               <th className="border p-2">Descripción</th>
+              <th className="border p-2">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {ahorros.map((ahorro, index) => (
-              <tr key={index}>
+            {ahorros.map((ahorro) => (
+              <tr key={ahorro.id}>
                 <td className="border p-2">{formatDate(ahorro.fecha)}</td>
                 <td className="border p-2">${Number(ahorro.monto).toLocaleString('es-CO')}</td>
                 <td className="border p-2">{ahorro.descripcion || '-'}</td>
+                <td className="border p-2">
+                  <button
+                    onClick={() => handleDelete(ahorro.id)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    🗑️ Eliminar
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

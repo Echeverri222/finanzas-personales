@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { API_URL, TIPOS_MOVIMIENTO } from '../config';
+import { TIPOS_MOVIMIENTO } from '../config';
+import { supabase } from '../supabaseClient';
 
 export default function Movimientos() {
   const [movimientos, setMovimientos] = useState([]);
@@ -21,17 +22,16 @@ export default function Movimientos() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`${API_URL}?type=movimientos`);
-      if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
+      const { data, error: supabaseError } = await supabase
+        .from('movimientos')
+        .select('*')
+        .order('fecha', { ascending: false });
+
+      if (supabaseError) {
+        throw new Error(supabaseError.message);
       }
 
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setMovimientos(data);
-      } else {
-        throw new Error('Formato de datos inválido');
-      }
+      setMovimientos(data || []);
     } catch (err) {
       console.error("Error al cargar movimientos:", err);
       setError(`Error: ${err.message}`);
@@ -42,6 +42,25 @@ export default function Movimientos() {
 
   useEffect(() => {
     cargarMovimientos();
+
+    // Suscribirse a cambios en tiempo real
+    const subscription = supabase
+      .channel('movimientos_changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'movimientos' 
+        }, 
+        () => {
+          cargarMovimientos();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleChange = (e) => {
@@ -57,45 +76,37 @@ export default function Movimientos() {
   };
 
   const guardarMovimiento = async () => {
-    // Formatear los datos antes de enviar
-    const dataToSend = {
-      ...formData,
-      importe: Number(formData.importe), // Asegurar que importe sea número
-      fecha: new Date(formData.fecha).toISOString().split('T')[0], // Formatear fecha como YYYY-MM-DD
-      type: 'movimientos'
-    };
-
     try {
       setLoading(true);
-      console.log('Enviando datos:', dataToSend); // Para debug
+      setError(null);
 
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(dataToSend)
-      });
+      const movimientoData = {
+        fecha: new Date(formData.fecha).toISOString(),
+        nombre: formData.nombre,
+        importe: Number(formData.importe),
+        tipo_movimiento: formData.tipo_movimiento
+      };
 
-      console.log('Response status:', response.status); // Para debug
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response:', errorText); // Para debug
-        throw new Error(`Error del servidor: ${response.status} - ${errorText}`);
-      }
-
-      const responseJson = await response.json();
-      console.log('Response JSON:', responseJson); // Para debug
-
-      if (responseJson.result === 'success') {
-        await cargarMovimientos();
-        setFormData({ fecha: '', nombre: '', importe: '', tipo_movimiento: '' });
-        setShowForm(false);
-        setError(null);
+      let response;
+      if (editingId) {
+        response = await supabase
+          .from('movimientos')
+          .update(movimientoData)
+          .eq('id', editingId);
       } else {
-        throw new Error(responseJson.error || 'Error al guardar los datos');
+        response = await supabase
+          .from('movimientos')
+          .insert([movimientoData]);
       }
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      setFormData({ fecha: '', nombre: '', importe: '', tipo_movimiento: '' });
+      setEditingId(null);
+      setShowForm(false);
+      await cargarMovimientos();
     } catch (err) {
       console.error("ERROR:", err);
       setError(err.message || "Error al guardar los datos");
@@ -130,12 +141,35 @@ export default function Movimientos() {
     setFormData({
       fecha: mov.fecha.split('T')[0],
       nombre: mov.nombre,
-      importe: mov.importe,
+      importe: mov.importe.toString(),
       tipo_movimiento: mov.tipo_movimiento
     });
     setEditingId(mov.id);
     setShowForm(true);
     setError(null);
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { error: deleteError } = await supabase
+        .from('movimientos')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+
+      await cargarMovimientos();
+    } catch (err) {
+      console.error("Error al eliminar:", err);
+      setError(err.message || "Error al eliminar el movimiento");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDate = (dateStr) => {
@@ -287,8 +321,8 @@ export default function Movimientos() {
               </tr>
             </thead>
             <tbody>
-              {filteredMovimientos.map((mov, index) => (
-                <tr key={index} className="hover:bg-gray-50">
+              {filteredMovimientos.map((mov) => (
+                <tr key={mov.id} className="hover:bg-gray-50">
                   <td className="border p-2">{formatDate(mov.fecha)}</td>
                   <td className="border p-2">{mov.nombre}</td>
                   <td className="border p-2 text-right">
@@ -296,12 +330,20 @@ export default function Movimientos() {
                   </td>
                   <td className="border p-2">{mov.tipo_movimiento}</td>
                   <td className="border p-2">
-                    <button
-                      onClick={() => handleEdit(mov)}
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      ✏️ Editar
-                    </button>
+                    <div className="flex gap-2 justify-center">
+                      <button
+                        onClick={() => handleEdit(mov)}
+                        className="text-blue-500 hover:text-blue-700"
+                      >
+                        ✏️ Editar
+                      </button>
+                      <button
+                        onClick={() => handleDelete(mov.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        🗑️ Eliminar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

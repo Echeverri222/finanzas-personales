@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { API_URL, TIPOS_MOVIMIENTO } from '../config';
-import { useGoogleLogin, googleLogout } from '@react-oauth/google';
 
 export default function Movimientos() {
   const [movimientos, setMovimientos] = useState([]);
@@ -10,7 +9,6 @@ export default function Movimientos() {
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [accessToken, setAccessToken] = useState(null);
   const [formData, setFormData] = useState({
     fecha: '',
     nombre: '',
@@ -18,30 +16,12 @@ export default function Movimientos() {
     tipo_movimiento: ''
   });
 
-  const login = useGoogleLogin({
-    onSuccess: tokenResponse => {
-      console.log('Token obtenido:', tokenResponse);
-      setAccessToken(tokenResponse.access_token);
-      cargarMovimientos(tokenResponse.access_token);
-    },
-    onError: error => {
-      console.error('Error de login:', error);
-      setError('Error al autenticar con Google');
-    },
-    scope: 'https://www.googleapis.com/auth/spreadsheets',
-  });
-
-  const cargarMovimientos = async (token) => {
+  const cargarMovimientos = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`${API_URL}?type=movimientos`, {
-        headers: {
-          'Authorization': `Bearer ${token || accessToken}`
-        }
-      });
-
+      const response = await fetch(`${API_URL}?type=movimientos`);
       if (!response.ok) {
         throw new Error(`Error del servidor: ${response.status}`);
       }
@@ -54,28 +34,18 @@ export default function Movimientos() {
       }
     } catch (err) {
       console.error("Error al cargar movimientos:", err);
-      if (err.message.includes('401')) {
-        setError('Sesión expirada. Por favor, vuelve a iniciar sesión.');
-        login(); // Reintentar login si el token expiró
-      } else {
-        setError(`Error: ${err.message}`);
-      }
+      setError(`Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!accessToken) {
-      login();
-    } else {
-      cargarMovimientos();
-    }
+    cargarMovimientos();
   }, []);
 
   const handleChange = (e) => {
-    const value = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
-    setFormData({...formData, [e.target.name]: value});
+    setFormData({...formData, [e.target.name]: e.target.value});
   };
 
   const validateForm = () => {
@@ -87,38 +57,26 @@ export default function Movimientos() {
   };
 
   const guardarMovimiento = async () => {
-    if (!accessToken) {
-      setError('No hay sesión activa. Por favor, inicia sesión.');
-      login();
-      return;
-    }
-
     const dataToSend = {
       ...formData,
       type: 'movimientos'
     };
 
     try {
+      setLoading(true);
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(dataToSend)
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
-          setError('Sesión expirada. Por favor, vuelve a iniciar sesión.');
-          login();
-          return;
-        }
         throw new Error(`Error del servidor: ${response.status}`);
       }
 
       const responseJson = await response.json();
-
       if (responseJson.result === 'success') {
         await cargarMovimientos();
         setFormData({ fecha: '', nombre: '', importe: '', tipo_movimiento: '' });
@@ -130,32 +88,20 @@ export default function Movimientos() {
     } catch (err) {
       console.error("ERROR:", err);
       setError(err.message || "Error al guardar los datos");
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const handleLogout = () => {
-    googleLogout();
-    setAccessToken(null);
-    setMovimientos([]);
-    setError('Sesión cerrada. Inicia sesión para continuar.');
   };
 
   const handleSubmit = async () => {
     setError(null);
-    setLoading(true);
-
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
-      setLoading(false);
       return;
     }
 
-    try {
-      await guardarMovimiento();
-    } finally {
-      setLoading(false);
-    }
+    await guardarMovimiento();
   };
 
   const resetForm = () => {
@@ -198,38 +144,23 @@ export default function Movimientos() {
     .filter(mov => mov.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
+  if (loading && !showForm) {
+    return <div className="p-4 text-center">Cargando...</div>;
+  }
+
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Movimientos</h2>
-        <div className="flex gap-2">
-          {accessToken ? (
-            <>
-              <button 
-                onClick={() => {
-                  setShowForm(!showForm);
-                  if (!showForm) resetForm();
-                }} 
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-              >
-                {showForm ? '❌ Cancelar' : '➕ Agregar Movimiento'}
-              </button>
-              <button
-                onClick={handleLogout}
-                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-              >
-                Cerrar Sesión
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => login()}
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-            >
-              Iniciar Sesión con Google
-            </button>
-          )}
-        </div>
+        <button 
+          onClick={() => {
+            setShowForm(!showForm);
+            if (!showForm) resetForm();
+          }} 
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          {showForm ? '❌ Cancelar' : '➕ Agregar Movimiento'}
+        </button>
       </div>
 
       {error && (
@@ -331,16 +262,8 @@ export default function Movimientos() {
         </button>
       </div>
 
-      {/* Loading State */}
-      {loading && !showForm && (
-        <div className="text-center py-4">
-          <span className="animate-spin text-2xl">⏳</span>
-          <p>Cargando...</p>
-        </div>
-      )}
-
       {/* Table */}
-      {showTable && !loading && (
+      {showTable && (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse border border-gray-300">
             <thead className="bg-gray-100">

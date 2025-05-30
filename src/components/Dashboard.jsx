@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from 'recharts';
 import { API_URL } from '../config';
+import { useGoogleLogin, googleLogout } from '@react-oauth/google';
 
 const COLORS = {
   Ingresos: '#4ade80',
@@ -18,32 +19,77 @@ export default function Dashboard() {
   const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
   const [monthFilter, setMonthFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [accessToken, setAccessToken] = useState(null);
+
+  const login = useGoogleLogin({
+    onSuccess: tokenResponse => {
+      console.log('Token obtenido:', tokenResponse);
+      setAccessToken(tokenResponse.access_token);
+      cargarMovimientos(tokenResponse.access_token);
+    },
+    onError: error => {
+      console.error('Error de login:', error);
+      setError('Error al autenticar con Google');
+    },
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
+  });
+
+  const cargarMovimientos = async (token) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${API_URL}?type=movimientos`, {
+        headers: {
+          'Authorization': `Bearer ${token || accessToken}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error del servidor: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        // Convert fecha strings to Date objects
+        const processedData = data.map(mov => ({
+          ...mov,
+          fecha: new Date(mov.fecha),
+          importe: parseFloat(mov.importe)
+        }));
+        setMovimientos(processedData);
+      } else {
+        throw new Error('Formato de datos inválido');
+      }
+    } catch (err) {
+      console.error("Error al obtener movimientos:", err);
+      if (err.message.includes('401')) {
+        setError('Sesión expirada. Por favor, vuelve a iniciar sesión.');
+        login();
+      } else {
+        setError(`Error: ${err.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch(`${API_URL}?type=movimientos`)
-      .then(res => res.text())
-      .then(data => {
-        try {
-          const jsonData = JSON.parse(data);
-          if (Array.isArray(jsonData)) {
-            // Convert fecha strings to Date objects
-            const processedData = jsonData.map(mov => ({
-              ...mov,
-              fecha: new Date(mov.fecha),
-              importe: parseFloat(mov.importe)
-            }));
-            setMovimientos(processedData);
-          }
-        } catch (e) {
-          console.error("Error al procesar datos:", e);
-          setMovimientos([]);
-        }
-      })
-      .catch(err => {
-        console.error("Error al obtener movimientos:", err);
-        setMovimientos([]);
-      });
+    if (!accessToken) {
+      login();
+    } else {
+      cargarMovimientos();
+    }
   }, []);
+
+  const handleLogout = () => {
+    googleLogout();
+    setAccessToken(null);
+    setMovimientos([]);
+    setError('Sesión cerrada. Inicia sesión para continuar.');
+  };
 
   // Filter data based on selected filters
   const filteredMovimientos = movimientos.filter(mov => {
@@ -72,7 +118,7 @@ export default function Dashboard() {
       }, {})
   )
     .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value);  // Sort in descending order
+    .sort((a, b) => b.value - a.value);
 
   // Prepare data for monthly evolution
   const monthlyData = Object.entries(
@@ -109,134 +155,165 @@ export default function Dashboard() {
     { value: '11', label: 'Diciembre' }
   ];
 
+  if (loading) {
+    return <div className="p-4 text-center">Cargando...</div>;
+  }
+
   return (
     <div className="p-4">
-      <h2 className="text-xl font-semibold mb-4">Dashboard Resumen</h2>
-
-      {/* Filters */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <select 
-          value={yearFilter} 
-          onChange={(e) => setYearFilter(parseInt(e.target.value))}
-          className="border p-2 rounded"
-        >
-          {years.map(year => (
-            <option key={year} value={year}>{year}</option>
-          ))}
-        </select>
-
-        <select 
-          value={monthFilter} 
-          onChange={(e) => setMonthFilter(e.target.value)}
-          className="border p-2 rounded"
-        >
-          {months.map(month => (
-            <option key={month.value} value={month.value}>{month.label}</option>
-          ))}
-        </select>
-
-        <select 
-          value={categoryFilter} 
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="border p-2 rounded"
-        >
-          <option value="all">Todas las categorías</option>
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">Dashboard Resumen</h2>
+        {accessToken ? (
+          <button
+            onClick={handleLogout}
+            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          >
+            Cerrar Sesión
+          </button>
+        ) : (
+          <button
+            onClick={() => login()}
+            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+          >
+            Iniciar Sesión con Google
+          </button>
+        )}
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-green-100 p-4 rounded-lg">
-          <h3 className="text-sm text-green-800">Total Ingresos</h3>
-          <p className="text-2xl font-bold text-green-600">${totalIngresos.toLocaleString('es-CO')}</p>
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
         </div>
-        <div className="bg-red-100 p-4 rounded-lg">
-          <h3 className="text-sm text-red-800">Total Gastos</h3>
-          <p className="text-2xl font-bold text-red-600">${totalGastos.toLocaleString('es-CO')}</p>
-        </div>
-        <div className="bg-blue-100 p-4 rounded-lg">
-          <h3 className="text-sm text-blue-800">Balance Neto</h3>
-          <p className="text-2xl font-bold text-blue-600">${(totalIngresos - totalGastos).toLocaleString('es-CO')}</p>
-        </div>
-      </div>
+      )}
 
-      {/* Charts */}
-      <div className="grid grid-cols-2 gap-6">
-        {/* Pie Chart */}
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Distribución de Gastos</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie 
-                  data={categoryData} 
-                  dataKey="value" 
-                  outerRadius={80} 
-                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => `$${value.toLocaleString('es-CO')}`} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      {accessToken && (
+        <>
+          {/* Filters */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <select 
+              value={yearFilter} 
+              onChange={(e) => setYearFilter(parseInt(e.target.value))}
+              className="border p-2 rounded"
+            >
+              {years.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
 
-        {/* Bar Chart */}
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Gastos por Categoría</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart 
-                data={categoryData} 
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis 
-                  type="category" 
-                  dataKey="name" 
-                  width={80}
-                />
-                <Tooltip formatter={(value) => `$${value.toLocaleString('es-CO')}`} />
-                <Bar 
-                  dataKey="value" 
-                  fill="#4f46e5"
-                  barSize={20}
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+            <select 
+              value={monthFilter} 
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="border p-2 rounded"
+            >
+              {months.map(month => (
+                <option key={month.value} value={month.value}>{month.label}</option>
+              ))}
+            </select>
 
-        {/* Line Chart - Monthly Evolution */}
-        <div className="col-span-2 bg-white p-4 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Evolución Mensual</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => `$${value.toLocaleString('es-CO')}`} />
-                <Legend />
-                <Line type="monotone" dataKey="ingresos" stroke="#4ade80" name="Ingresos" />
-                <Line type="monotone" dataKey="gastos" stroke="#f87171" name="Gastos" />
-              </LineChart>
-            </ResponsiveContainer>
+            <select 
+              value={categoryFilter} 
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="border p-2 rounded"
+            >
+              <option value="all">Todas las categorías</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
           </div>
-        </div>
-      </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-green-100 p-4 rounded-lg">
+              <h3 className="text-sm text-green-800">Total Ingresos</h3>
+              <p className="text-2xl font-bold text-green-600">${totalIngresos.toLocaleString('es-CO')}</p>
+            </div>
+            <div className="bg-red-100 p-4 rounded-lg">
+              <h3 className="text-sm text-red-800">Total Gastos</h3>
+              <p className="text-2xl font-bold text-red-600">${totalGastos.toLocaleString('es-CO')}</p>
+            </div>
+            <div className="bg-blue-100 p-4 rounded-lg">
+              <h3 className="text-sm text-blue-800">Balance Neto</h3>
+              <p className="text-2xl font-bold text-blue-600">${(totalIngresos - totalGastos).toLocaleString('es-CO')}</p>
+            </div>
+          </div>
+
+          {/* Charts */}
+          <div className="grid grid-cols-2 gap-6">
+            {/* Pie Chart */}
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-lg font-semibold mb-4">Distribución de Gastos</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie 
+                      data={categoryData} 
+                      dataKey="value" 
+                      outerRadius={80} 
+                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `$${value.toLocaleString('es-CO')}`} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Bar Chart */}
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-lg font-semibold mb-4">Gastos por Categoría</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={categoryData} 
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis 
+                      type="category" 
+                      dataKey="name" 
+                      width={80}
+                    />
+                    <Tooltip formatter={(value) => `$${value.toLocaleString('es-CO')}`} />
+                    <Bar 
+                      dataKey="value" 
+                      fill="#4f46e5"
+                      barSize={20}
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Line Chart - Monthly Evolution */}
+            <div className="col-span-2 bg-white p-4 rounded-lg shadow">
+              <h3 className="text-lg font-semibold mb-4">Evolución Mensual</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => `$${value.toLocaleString('es-CO')}`} />
+                    <Legend />
+                    <Line type="monotone" dataKey="ingresos" stroke="#4ade80" name="Ingresos" />
+                    <Line type="monotone" dataKey="gastos" stroke="#f87171" name="Gastos" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 } 

@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
-
-// URL del API
-const API_URL = 'https://script.google.com/macros/s/AKfycbwrYbgURYW3kr6pNwjqA2L7vPB7gJ-2zwkaSsaYDStbPx7U0q_W_KwwuNktsWSfg0M/exec';
+import { API_URL, TIPOS_MOVIMIENTO } from '../config';
 
 export default function Movimientos() {
   const [movimientos, setMovimientos] = useState([]);
@@ -17,17 +15,6 @@ export default function Movimientos() {
     importe: '',
     tipo_movimiento: ''
   });
-
-  const tiposMovimiento = [
-    "Ingresos",
-    "Alimentacion",
-    "Gastos fijos",
-    "Transporte",
-    "Otros",
-    "Salidas",
-    "Compras",
-    "Ahorro"
-  ];
 
   const cargarMovimientos = async () => {
     try {
@@ -233,7 +220,7 @@ export default function Movimientos() {
               required
             >
               <option value="">Seleccione tipo</option>
-              {tiposMovimiento.map((tipo, index) => (
+              {TIPOS_MOVIMIENTO.map((tipo, index) => (
                 <option key={index} value={tipo}>{tipo}</option>
               ))}
             </select>

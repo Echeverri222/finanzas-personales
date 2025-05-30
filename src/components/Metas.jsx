@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
-
-// URL de tu Apps Script para Hoja 3 (Metas)
-const API_URL = 'https://script.google.com/macros/s/AKfycbwrYbgURYW3kr6pNwjqA2L7vPB7gJ-2zwkaSsaYDStbPx7U0q_W_KwwuNktsWSfg0M/exec?type=metas';
+import { API_URL } from '../config';
 
 export default function Metas() {
   const [metas, setMetas] = useState([]);

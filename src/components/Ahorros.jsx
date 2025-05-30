@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
-
-// URL para la hoja de Ahorros (API ya creada)
-const API_URL = 'https://script.google.com/macros/s/AKfycbwrYbgURYW3kr6pNwjqA2L7vPB7gJ-2zwkaSsaYDStbPx7U0q_W_KwwuNktsWSfg0M/exec?type=ahorros';
+import { API_URL } from '../config';
 
 export default function Ahorros() {
   const [ahorros, setAhorros] = useState([]);

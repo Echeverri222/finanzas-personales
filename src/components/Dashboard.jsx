@@ -125,14 +125,24 @@ export default function Dashboard() {
       if (!acc[monthYear]) {
         acc[monthYear] = { month: monthYear };
       }
-      if (mov.tipo_movimiento === 'Ingresos') {
-        acc[monthYear].ingresos = (acc[monthYear].ingresos || 0) + mov.importe;
-      } else {
-        acc[monthYear].gastos = (acc[monthYear].gastos || 0) + mov.importe;
+      if (categoryFilter === 'all') {
+        if (mov.tipo_movimiento === 'Ingresos') {
+          acc[monthYear].ingresos = (acc[monthYear].ingresos || 0) + mov.importe;
+        } else {
+          acc[monthYear].gastos = (acc[monthYear].gastos || 0) + mov.importe;
+        }
+      } else if (mov.tipo_movimiento === categoryFilter) {
+        acc[monthYear].categoria = (acc[monthYear].categoria || 0) + mov.importe;
       }
       return acc;
     }, {})
-  ).map(([_, data]) => data);
+  )
+    .map(([_, data]) => data)
+    .sort((a, b) => {
+      const [monthA, yearA] = a.month.split(' ');
+      const [monthB, yearB] = b.month.split(' ');
+      return yearA - yearB || monthA.localeCompare(monthB);
+    });
 
   // Get unique years and categories for filters
   const years = [...new Set(movimientos.map(mov => mov.fecha.getFullYear()))];
@@ -443,11 +453,11 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 gap-6">
         {categoryFilter === 'all' ? (
           <>
-            <div className="bg-white p-6 rounded-xl shadow-md">
-              <h3 className="text-lg font-semibold text-gray-800 mb-6">Distribución de Gastos</h3>
+            <div className="bg-white p-4 rounded-xl shadow-md">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Distribución de Gastos</h3>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
+                  <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <Pie 
                       data={categoryData} 
                       dataKey="value" 
@@ -470,21 +480,21 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-md">
-              <h3 className="text-lg font-semibold text-gray-800 mb-6">Gastos por Categoría</h3>
+            <div className="bg-white p-4 rounded-xl shadow-md">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Gastos por Categoría</h3>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
                     data={categoryData} 
                     layout="vertical"
-                    margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
+                    margin={{ top: 5, right: 20, left: 60, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis type="number" />
                     <YAxis 
                       type="category" 
                       dataKey="name" 
-                      width={80}
+                      width={60}
                       tick={{ fill: '#4B5563' }}
                     />
                     <Tooltip content={<CustomTooltip />} />
@@ -507,11 +517,14 @@ export default function Dashboard() {
           </>
         ) : (
           // Gráficos específicos para la categoría seleccionada
-          <div className="col-span-2 bg-white p-6 rounded-xl shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-6">Evolución de {categoryFilter}</h3>
+          <div className="col-span-2 bg-white p-4 rounded-xl shadow-md">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Evolución de {categoryFilter}</h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={monthlyData}>
+                <LineChart 
+                  data={monthlyData}
+                  margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis 
                     dataKey="month" 
@@ -526,7 +539,7 @@ export default function Dashboard() {
                   <Legend />
                   <Line 
                     type="monotone" 
-                    dataKey={categoryFilter.toLowerCase()}
+                    dataKey="categoria"
                     stroke={COLORS[categoryFilter]}
                     strokeWidth={2}
                     dot={{ fill: COLORS[categoryFilter], stroke: COLORS[categoryFilter], strokeWidth: 2 }}
@@ -540,11 +553,14 @@ export default function Dashboard() {
         )}
 
         {categoryFilter === 'all' && (
-          <div className="col-span-2 bg-white p-6 rounded-xl shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-6">Evolución Mensual</h3>
+          <div className="col-span-2 bg-white p-4 rounded-xl shadow-md">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Evolución Mensual</h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={monthlyData}>
+                <LineChart 
+                  data={monthlyData}
+                  margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis 
                     dataKey="month" 

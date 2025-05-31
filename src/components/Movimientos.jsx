@@ -10,6 +10,9 @@ export default function Movimientos() {
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
+  const [dateFilter, setDateFilter] = useState({ startDate: '', endDate: '' });
+  const [typeFilter, setTypeFilter] = useState('all');
   const [formData, setFormData] = useState({
     fecha: '',
     nombre: '',
@@ -80,8 +83,12 @@ export default function Movimientos() {
       setLoading(true);
       setError(null);
 
+      // Asegurarse de que la fecha se guarde en formato ISO
+      const fecha = new Date(formData.fecha);
+      fecha.setHours(12); // Establecer hora para evitar problemas de zona horaria
+
       const movimientoData = {
-        fecha: new Date(formData.fecha).toISOString(),
+        fecha: fecha.toISOString(),
         nombre: formData.nombre,
         importe: Number(formData.importe),
         tipo_movimiento: formData.tipo_movimiento
@@ -176,10 +183,10 @@ export default function Movimientos() {
     try {
       const date = new Date(dateStr);
       return date.toLocaleDateString('es-CO', {
-        day: '2-digit',
+        year: 'numeric',
         month: '2-digit',
-        year: '2-digit'
-      });
+        day: '2-digit'
+      }).replace(/\//g, '/');
     } catch (err) {
       return dateStr;
     }
@@ -194,9 +201,53 @@ export default function Movimientos() {
     }).format(value);
   };
 
-  const filteredMovimientos = movimientos
-    .filter(mov => mov.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
-    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortedMovimientos = (movs) => {
+    const sortedMovs = [...movs];
+    sortedMovs.sort((a, b) => {
+      if (sortConfig.key === 'fecha') {
+        return sortConfig.direction === 'asc'
+          ? new Date(a.fecha) - new Date(b.fecha)
+          : new Date(b.fecha) - new Date(a.fecha);
+      }
+      if (sortConfig.key === 'importe') {
+        return sortConfig.direction === 'asc'
+          ? a.importe - b.importe
+          : b.importe - a.importe;
+      }
+      if (sortConfig.key === 'nombre' || sortConfig.key === 'tipo_movimiento') {
+        return sortConfig.direction === 'asc'
+          ? a[sortConfig.key].localeCompare(b[sortConfig.key])
+          : b[sortConfig.key].localeCompare(a[sortConfig.key]);
+      }
+      return 0;
+    });
+    return sortedMovs;
+  };
+
+  const filteredMovimientos = getSortedMovimientos(
+    movimientos.filter(mov => {
+      const matchesSearch = mov.nombre.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === 'all' || mov.tipo_movimiento === typeFilter;
+      const matchesDate = (!dateFilter.startDate || new Date(mov.fecha) >= new Date(dateFilter.startDate)) &&
+                         (!dateFilter.endDate || new Date(mov.fecha) <= new Date(dateFilter.endDate));
+      return matchesSearch && matchesType && matchesDate;
+    })
+  );
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) {
+      return '↕️';
+    }
+    return sortConfig.direction === 'asc' ? '↑' : '↓';
+  };
 
   if (loading && !showForm) {
     return (
@@ -246,23 +297,59 @@ export default function Movimientos() {
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="relative">
-        <input
-          type="text"
-          placeholder="Buscar por nombre..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-        <svg 
-          className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
+      {/* Filtros */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Buscar por nombre..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <svg 
+            className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Fecha Inicio</label>
+          <input
+            type="date"
+            value={dateFilter.startDate}
+            onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Fecha Fin</label>
+          <input
+            type="date"
+            value={dateFilter.endDate}
+            onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Tipo</label>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">Todos</option>
+            {TIPOS_MOVIMIENTO.map((tipo, index) => (
+              <option key={index} value={tipo}>{tipo}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Form */}
@@ -364,11 +451,33 @@ export default function Movimientos() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('fecha')}
+                >
+                  Fecha {getSortIcon('fecha')}
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('nombre')}
+                >
+                  Nombre {getSortIcon('nombre')}
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('importe')}
+                >
+                  Importe {getSortIcon('importe')}
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('tipo_movimiento')}
+                >
+                  Tipo {getSortIcon('tipo_movimiento')}
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">

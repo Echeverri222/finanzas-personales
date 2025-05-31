@@ -5,7 +5,6 @@ import { supabase } from '../supabaseClient';
 export default function Movimientos({ showForm: initialShowForm = false, defaultType = '', onFormClose }) {
   const [movimientos, setMovimientos] = useState([]);
   const [showForm, setShowForm] = useState(initialShowForm);
-  const [showTable, setShowTable] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -34,7 +33,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
         tipo_movimiento: defaultType === 'Ingresos' ? 'Ingresos' : ''
       }));
     }
-  }, [initialShowForm, defaultType]);
+  }, [initialShowForm, defaultType, today]);
 
   const cargarMovimientos = async () => {
     try {
@@ -461,23 +460,35 @@ export default function Movimientos({ showForm: initialShowForm = false, default
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                  <th 
+                    onClick={() => handleSort('fecha')}
+                    className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  >
                     Fecha {getSortIcon('fecha')}
                   </th>
-                  <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                  <th 
+                    onClick={() => handleSort('nombre')}
+                    className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  >
                     Nombre {getSortIcon('nombre')}
                   </th>
-                  <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                  <th 
+                    onClick={() => handleSort('importe')}
+                    className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  >
                     Importe {getSortIcon('importe')}
                   </th>
-                  <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                  <th 
+                    onClick={() => handleSort('tipo_movimiento')}
+                    className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  >
                     Tipo {getSortIcon('tipo_movimiento')}
                   </th>
                   <th className="px-4 md:px-6 py-3 text-right text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
-            </tr>
-          </thead>
+                </tr>
+              </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredMovimientos.map((mov) => (
                   <React.Fragment key={mov.id}>

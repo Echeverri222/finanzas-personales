@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { TIPOS_MOVIMIENTO } from '../config';
 
 export default function Ahorros() {
   const [ahorros, setAhorros] = useState([]);

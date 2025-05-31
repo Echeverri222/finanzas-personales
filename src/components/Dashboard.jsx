@@ -275,18 +275,18 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">
+    <div className="p-2 md:p-6 space-y-4 md:space-y-6 bg-gray-50">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800">
           {categoryFilter === 'all' ? 'Dashboard Financiero' : `Análisis de ${categoryFilter}`}
         </h2>
         
-        {/* Filtros con diseño moderno */}
-        <div className="flex gap-4">
+        {/* Filtros con diseño moderno y responsivo */}
+        <div className="flex flex-col md:flex-row gap-2 md:gap-4">
           <select 
             value={yearFilter} 
             onChange={(e) => setYearFilter(parseInt(e.target.value))}
-            className="px-4 py-2 rounded-lg border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 md:px-4 py-2 rounded-lg border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
           >
             {years.map(year => (
               <option key={year} value={year}>{year}</option>
@@ -296,7 +296,7 @@ export default function Dashboard() {
           <select 
             value={monthFilter} 
             onChange={(e) => setMonthFilter(e.target.value)}
-            className="px-4 py-2 rounded-lg border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 md:px-4 py-2 rounded-lg border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
           >
             {months.map(month => (
               <option key={month.value} value={month.value}>{month.label}</option>
@@ -306,7 +306,7 @@ export default function Dashboard() {
           <select 
             value={categoryFilter} 
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-4 py-2 rounded-lg border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 md:px-4 py-2 rounded-lg border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
           >
             <option value="all">Todas las categorías</option>
             {categories.filter(cat => cat !== 'Ingresos').map(cat => (
@@ -317,7 +317,7 @@ export default function Dashboard() {
       </div>
 
       {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg text-sm md:text-base">
           <p className="font-bold">Error</p>
           <p>{error}</p>
         </div>
@@ -325,8 +325,7 @@ export default function Dashboard() {
 
       {/* Tarjetas de resumen */}
       {categoryFilter === 'all' ? (
-        // Mostrar resumen general cuando no hay categoría seleccionada
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
           <div className="bg-white rounded-xl shadow-md overflow-hidden transition-transform hover:scale-105">
             <div className="p-6">
               <div className="flex items-center justify-between">
@@ -398,8 +397,7 @@ export default function Dashboard() {
           </div>
         </div>
       ) : (
-        // Mostrar KPIs específicos de la categoría cuando está seleccionada
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           <div className="bg-white rounded-xl shadow-md overflow-hidden">
             <div className="p-6">
               <div className="flex items-center justify-between">
@@ -483,12 +481,12 @@ export default function Dashboard() {
       )}
 
       {/* Gráficos */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         {categoryFilter === 'all' ? (
           <>
             <div className="bg-white p-4 rounded-xl shadow-md">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Distribución de Gastos</h3>
-              <div className="h-80">
+              <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Distribución de Gastos</h3>
+              <div className="h-60 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <Pie 
@@ -514,8 +512,8 @@ export default function Dashboard() {
             </div>
 
             <div className="bg-white p-4 rounded-xl shadow-md">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Gastos por Categoría</h3>
-              <div className="h-80">
+              <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Gastos por Categoría</h3>
+              <div className="h-60 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
                     data={categoryData} 
@@ -549,10 +547,9 @@ export default function Dashboard() {
             </div>
           </>
         ) : (
-          // Gráficos específicos para la categoría seleccionada
-          <div className="col-span-2 bg-white p-4 rounded-xl shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Evolución de {categoryFilter}</h3>
-            <div className="h-80">
+          <div className="col-span-1 md:col-span-2 bg-white p-4 rounded-xl shadow-md">
+            <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Evolución de {categoryFilter}</h3>
+            <div className="h-60 md:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart 
                   data={monthlyData}
@@ -586,9 +583,9 @@ export default function Dashboard() {
         )}
 
         {categoryFilter === 'all' && (
-          <div className="col-span-2 bg-white p-4 rounded-xl shadow-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Evolución Mensual</h3>
-            <div className="h-80">
+          <div className="col-span-1 md:col-span-2 bg-white p-4 rounded-xl shadow-md">
+            <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Evolución Mensual</h3>
+            <div className="h-60 md:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart 
                   data={monthlyData}

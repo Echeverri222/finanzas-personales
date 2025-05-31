@@ -83,9 +83,9 @@ export default function Movimientos() {
       setLoading(true);
       setError(null);
 
-      // Asegurarse de que la fecha se guarde en formato ISO
-      const fecha = new Date(formData.fecha);
-      fecha.setHours(12); // Establecer hora para evitar problemas de zona horaria
+      // Crear la fecha en UTC para evitar problemas de zona horaria
+      const [year, month, day] = formData.fecha.split('-').map(Number);
+      const fecha = new Date(Date.UTC(year, month - 1, day));
 
       const movimientoData = {
         fecha: fecha.toISOString(),
@@ -145,8 +145,11 @@ export default function Movimientos() {
   };
 
   const handleEdit = (mov) => {
+    // Convertir la fecha ISO a formato YYYY-MM-DD para el input date
+    const fecha = mov.fecha.split('T')[0];
+    
     setFormData({
-      fecha: mov.fecha.split('T')[0],
+      fecha: fecha,
       nombre: mov.nombre,
       importe: mov.importe.toString(),
       tipo_movimiento: mov.tipo_movimiento
@@ -181,12 +184,16 @@ export default function Movimientos() {
 
   const formatDate = (dateStr) => {
     try {
-      const date = new Date(dateStr);
+      // Convertir la fecha ISO a UTC
+      const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+      const date = new Date(Date.UTC(year, month - 1, day));
+      
       return date.toLocaleDateString('es-CO', {
         year: 'numeric',
         month: '2-digit',
-        day: '2-digit'
-      }).replace(/\//g, '/');
+        day: '2-digit',
+        timeZone: 'UTC' // Importante: usar UTC para evitar ajustes de zona horaria
+      });
     } catch (err) {
       return dateStr;
     }

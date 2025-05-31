@@ -91,8 +91,9 @@ export default function Dashboard() {
 
   // Filter data based on selected filters
   const filteredMovimientos = movimientos.filter(mov => {
-    const matchesYear = mov.fecha.getFullYear() === yearFilter;
-    const matchesMonth = monthFilter === 'all' || mov.fecha.getMonth() === parseInt(monthFilter);
+    const movDate = new Date(Date.UTC(mov.fecha.getFullYear(), mov.fecha.getMonth(), mov.fecha.getDate()));
+    const matchesYear = movDate.getUTCFullYear() === yearFilter;
+    const matchesMonth = monthFilter === 'all' || movDate.getUTCMonth() === parseInt(monthFilter);
     const matchesCategory = categoryFilter === 'all' || mov.tipo_movimiento === categoryFilter;
     return matchesYear && matchesMonth && matchesCategory;
   });
@@ -121,7 +122,13 @@ export default function Dashboard() {
   // Prepare data for monthly evolution
   const monthlyData = Object.entries(
     filteredMovimientos.reduce((acc, mov) => {
-      const monthYear = mov.fecha.toLocaleString('es-CO', { month: 'short', year: '2-digit' });
+      const movDate = new Date(Date.UTC(mov.fecha.getFullYear(), mov.fecha.getMonth(), mov.fecha.getDate()));
+      const monthYear = movDate.toLocaleString('es-CO', { 
+        month: 'short', 
+        year: '2-digit',
+        timeZone: 'UTC'
+      });
+      
       if (!acc[monthYear]) {
         acc[monthYear] = { month: monthYear };
       }
@@ -145,7 +152,10 @@ export default function Dashboard() {
     });
 
   // Get unique years and categories for filters
-  const years = [...new Set(movimientos.map(mov => mov.fecha.getFullYear()))];
+  const years = [...new Set(movimientos.map(mov => {
+    const movDate = new Date(Date.UTC(mov.fecha.getFullYear(), mov.fecha.getMonth(), mov.fecha.getDate()));
+    return movDate.getUTCFullYear();
+  }))];
   const categories = [...new Set(movimientos.map(mov => mov.tipo_movimiento))];
   const months = [
     { value: 'all', label: 'Todos' },

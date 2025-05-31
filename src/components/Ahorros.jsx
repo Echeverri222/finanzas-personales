@@ -76,8 +76,12 @@ export default function Ahorros() {
       setLoading(true);
       setError(null);
 
+      // Crear la fecha en UTC para evitar problemas de zona horaria
+      const [year, month, day] = nuevo.fecha.split('-').map(Number);
+      const fecha = new Date(Date.UTC(year, month - 1, day));
+
       const ahorroData = {
-        fecha: new Date(nuevo.fecha).toISOString(),
+        fecha: fecha.toISOString(),
         monto: Number(nuevo.monto),
         descripcion: nuevo.descripcion
       };
@@ -125,11 +129,15 @@ export default function Ahorros() {
 
   const formatDate = (dateStr) => {
     try {
-      const date = new Date(dateStr);
+      // Convertir la fecha ISO a UTC
+      const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+      const date = new Date(Date.UTC(year, month - 1, day));
+      
       return date.toLocaleDateString('es-CO', {
-        day: '2-digit',
+        year: 'numeric',
         month: '2-digit',
-        year: '2-digit'
+        day: '2-digit',
+        timeZone: 'UTC'
       });
     } catch (err) {
       return dateStr;

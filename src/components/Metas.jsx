@@ -78,10 +78,14 @@ export default function Metas() {
       setLoading(true);
       setError(null);
 
+      // Crear la fecha en UTC para evitar problemas de zona horaria
+      const [year, month, day] = nueva.fecha_meta.split('-').map(Number);
+      const fecha = new Date(Date.UTC(year, month - 1, day));
+
       const metaData = {
         nombre: nueva.nombre,
         meta_total: Number(nueva.meta_total),
-        fecha_meta: new Date(nueva.fecha_meta).toISOString(),
+        fecha_meta: fecha.toISOString(),
         descripcion: nueva.descripcion
       };
 
@@ -128,11 +132,15 @@ export default function Metas() {
 
   const formatDate = (dateStr) => {
     try {
-      const date = new Date(dateStr);
+      // Convertir la fecha ISO a UTC
+      const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+      const date = new Date(Date.UTC(year, month - 1, day));
+      
       return date.toLocaleDateString('es-CO', {
-        day: '2-digit',
+        year: 'numeric',
         month: '2-digit',
-        year: '2-digit'
+        day: '2-digit',
+        timeZone: 'UTC'
       });
     } catch (err) {
       return dateStr;
@@ -150,8 +158,19 @@ export default function Metas() {
 
   const calcularProgreso = (meta) => {
     const hoy = new Date();
-    const fechaMeta = new Date(meta.fecha_meta);
-    const diasTotales = (fechaMeta - new Date(meta.created_at || hoy)) / (1000 * 60 * 60 * 24);
+    const fechaCreacion = meta.created_at ? new Date(Date.UTC(
+      new Date(meta.created_at).getFullYear(),
+      new Date(meta.created_at).getMonth(),
+      new Date(meta.created_at).getDate()
+    )) : hoy;
+    
+    const fechaMeta = new Date(Date.UTC(
+      new Date(meta.fecha_meta).getFullYear(),
+      new Date(meta.fecha_meta).getMonth(),
+      new Date(meta.fecha_meta).getDate()
+    ));
+    
+    const diasTotales = (fechaMeta - fechaCreacion) / (1000 * 60 * 60 * 24);
     const diasRestantes = (fechaMeta - hoy) / (1000 * 60 * 60 * 24);
     return Math.max(0, Math.min(100, ((diasTotales - diasRestantes) / diasTotales) * 100));
   };

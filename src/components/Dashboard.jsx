@@ -29,6 +29,25 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+// Función para crear fecha correcta sin problemas de zona horaria
+const createSafeDate = (dateString) => {
+  if (!dateString) return new Date();
+  
+  // Si es string de fecha (YYYY-MM-DD), crear fecha local
+  if (typeof dateString === 'string' && dateString.includes('-')) {
+    const [year, month, day] = dateString.split('T')[0].split('-');
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  }
+  
+  // Si ya es objeto Date, devolverlo tal como está
+  if (dateString instanceof Date) {
+    return dateString;
+  }
+  
+  // Para otros casos, intentar parsear normalmente
+  return new Date(dateString);
+};
+
 export default function Dashboard() {
   const [movimientos, setMovimientos] = useState([]);
   const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
@@ -54,7 +73,7 @@ export default function Dashboard() {
       // Convert dates to proper format and ensure numbers
       const processedData = (data || []).map(mov => ({
         ...mov,
-        fecha: new Date(mov.fecha),
+        fecha: createSafeDate(mov.fecha), // Usar función segura para fechas
         importe: Number(mov.importe)
       }));
 
@@ -90,9 +109,9 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Filter data based on selected filters
+  // Filter data based on selected filters - CORREGIDO
   const filteredMovimientos = movimientos.filter(mov => {
-    const movDate = new Date(mov.fecha);
+    const movDate = createSafeDate(mov.fecha); // Usar función segura
     const matchesYear = movDate.getFullYear() === yearFilter;
     const matchesMonth = monthFilter === 'all' || movDate.getMonth() === parseInt(monthFilter);
     const matchesCategory = categoryFilter === 'all' || mov.tipo_movimiento === categoryFilter;
@@ -120,19 +139,22 @@ export default function Dashboard() {
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
-  // Prepare data for monthly evolution
+  // Prepare data for monthly evolution - CORREGIDO
   const monthlyData = Object.entries(
     filteredMovimientos.reduce((acc, mov) => {
-      const movDate = new Date(mov.fecha);
-      const monthYear = movDate.toLocaleString('es-CO', { 
-        month: 'short', 
-        year: '2-digit'
-      });
+      const movDate = createSafeDate(mov.fecha); // Usar función segura
+      
+      // Crear clave de mes-año de forma más segura
+      const year = movDate.getFullYear();
+      const month = movDate.getMonth();
+      const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
+                         'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const monthYear = `${monthNames[month]} ${year.toString().slice(-2)}`;
       
       if (!acc[monthYear]) {
         acc[monthYear] = { 
           month: monthYear,
-          timestamp: movDate.getTime() // Guardamos el timestamp para ordenar después
+          timestamp: new Date(year, month, 1).getTime() // Timestamp del primer día del mes
         };
       }
       
@@ -152,9 +174,12 @@ export default function Dashboard() {
     .map(([_, data]) => data)
     .sort((a, b) => a.timestamp - b.timestamp); // Ordenar por timestamp
 
-  // Get unique years from actual data
-  const years = [...new Set(movimientos.map(mov => new Date(mov.fecha).getFullYear()))].sort((a, b) => b - a);
+  // Get unique years from actual data - CORREGIDO
+  const years = [...new Set(movimientos.map(mov => createSafeDate(mov.fecha).getFullYear()))]
+    .sort((a, b) => b - a);
+  
   const categories = [...new Set(movimientos.map(mov => mov.tipo_movimiento))];
+  
   const months = [
     { value: 'all', label: 'Todos' },
     { value: '0', label: 'Enero' },
@@ -185,13 +210,13 @@ export default function Dashboard() {
     return ((current - previous) / previous) * 100;
   };
 
-  // Calculate previous month data correctly
+  // Calculate previous month data correctly - CORREGIDO
   const getPreviousMonthData = () => {
     const today = new Date();
     const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1);
     
     const previousMonthMovimientos = movimientos.filter(mov => {
-      const movDate = new Date(mov.fecha);
+      const movDate = createSafeDate(mov.fecha); // Usar función segura
       return movDate.getMonth() === previousMonth.getMonth() && 
              movDate.getFullYear() === previousMonth.getFullYear();
     });
@@ -217,14 +242,14 @@ export default function Dashboard() {
     const maximo = Math.max(...categoryMovimientos.map(mov => mov.importe), 0);
     const minimo = Math.min(...categoryMovimientos.map(mov => mov.importe), 0);
     
-    // Calcular tendencia (últimos 3 meses)
+    // Calcular tendencia (últimos 3 meses) - CORREGIDO
     const today = new Date();
     const tresMesesAtras = new Date(today.getFullYear(), today.getMonth() - 3);
     
     const movimientosPorMes = categoryMovimientos
-      .filter(mov => new Date(mov.fecha) >= tresMesesAtras)
+      .filter(mov => createSafeDate(mov.fecha) >= tresMesesAtras) // Usar función segura
       .reduce((acc, mov) => {
-        const fecha = new Date(mov.fecha);
+        const fecha = createSafeDate(mov.fecha); // Usar función segura
         const mesKey = `${fecha.getFullYear()}-${fecha.getMonth()}`;
         if (!acc[mesKey]) acc[mesKey] = 0;
         acc[mesKey] += mov.importe;
@@ -607,4 +632,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-} 
+}

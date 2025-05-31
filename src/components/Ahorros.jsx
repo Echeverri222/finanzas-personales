@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { TIPOS_MOVIMIENTO } from '../config';
 
 export default function Ahorros() {
   const [ahorros, setAhorros] = useState([]);
@@ -18,15 +19,30 @@ export default function Ahorros() {
       setError(null);
       
       const { data, error: supabaseError } = await supabase
-        .from('ahorros')
-        .select('*')
+        .from('movimientos')
+        .select(`
+          id,
+          fecha,
+          nombre,
+          importe,
+          tipo_movimiento
+        `)
+        .eq('tipo_movimiento', 'Ahorro')
         .order('fecha', { ascending: false });
 
       if (supabaseError) {
         throw new Error(supabaseError.message);
       }
 
-      setAhorros(data || []);
+      // Transformar los datos para mantener compatibilidad
+      const transformedData = data.map(mov => ({
+        id: mov.id,
+        fecha: mov.fecha,
+        monto: mov.importe,
+        descripcion: mov.nombre
+      }));
+
+      setAhorros(transformedData || []);
     } catch (err) {
       console.error("Error al obtener ahorros:", err);
       setError(`Error: ${err.message}`);
@@ -38,14 +54,15 @@ export default function Ahorros() {
   useEffect(() => {
     cargarAhorros();
 
-    // Suscribirse a cambios en tiempo real
+    // Suscribirse a cambios en tiempo real de movimientos tipo Ahorro
     const subscription = supabase
-      .channel('ahorros_changes')
+      .channel('movimientos_ahorros_changes')
       .on('postgres_changes', 
         { 
           event: '*', 
           schema: 'public', 
-          table: 'ahorros' 
+          table: 'movimientos',
+          filter: 'tipo_movimiento=eq.Ahorro'
         }, 
         () => {
           cargarAhorros();
@@ -80,15 +97,15 @@ export default function Ahorros() {
       const [year, month, day] = nuevo.fecha.split('-').map(Number);
       const fecha = new Date(Date.UTC(year, month - 1, day));
 
-      const ahorroData = {
-        fecha: fecha.toISOString(),
-        monto: Number(nuevo.monto),
-        descripcion: nuevo.descripcion
-      };
-
+      // Ahora insertamos en movimientos en lugar de ahorros
       const { error: supabaseError } = await supabase
-        .from('ahorros')
-        .insert([ahorroData]);
+        .from('movimientos')
+        .insert([{
+          fecha: fecha.toISOString(),
+          nombre: nuevo.descripcion,
+          importe: Number(nuevo.monto),
+          tipo_movimiento: 'Ahorro'
+        }]);
 
       if (supabaseError) {
         throw new Error(supabaseError.message);
@@ -110,7 +127,7 @@ export default function Ahorros() {
       setError(null);
 
       const { error: deleteError } = await supabase
-        .from('ahorros')
+        .from('movimientos')
         .delete()
         .eq('id', id);
 

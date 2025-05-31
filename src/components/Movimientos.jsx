@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { TIPOS_MOVIMIENTO } from '../config';
 import { supabase } from '../supabaseClient';
+import { useUser } from '../context/UserContext';
 
 export default function Movimientos({ showForm: initialShowForm = false, defaultType = '', onFormClose }) {
   const [movimientos, setMovimientos] = useState([]);
@@ -12,6 +13,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
   const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
   const [dateFilter, setDateFilter] = useState({ startDate: '', endDate: '' });
   const [typeFilter, setTypeFilter] = useState('all');
+  const { userProfile } = useUser();
 
   // Get today's date in YYYY-MM-DD format
   const today = new Date().toISOString().split('T')[0];
@@ -36,6 +38,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
   }, [initialShowForm, defaultType, today]);
 
   const cargarMovimientos = async () => {
+    if (!userProfile) return;
+    
     try {
       setLoading(true);
       setError(null);
@@ -43,6 +47,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       const { data, error: supabaseError } = await supabase
         .from('movimientos')
         .select('*')
+        .eq('usuario_id', userProfile.id)
         .order('fecha', { ascending: false });
 
       if (supabaseError) {
@@ -59,27 +64,10 @@ export default function Movimientos({ showForm: initialShowForm = false, default
   };
 
   useEffect(() => {
-    cargarMovimientos();
-
-    // Suscribirse a cambios en tiempo real
-    const subscription = supabase
-      .channel('movimientos_changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'movimientos' 
-        }, 
-        () => {
-          cargarMovimientos();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+    if (userProfile) {
+      cargarMovimientos();
+    }
+  }, [userProfile]);
 
   const handleChange = (e) => {
     setFormData({...formData, [e.target.name]: e.target.value});
@@ -94,11 +82,12 @@ export default function Movimientos({ showForm: initialShowForm = false, default
   };
 
   const guardarMovimiento = async () => {
+    if (!userProfile) return;
+
     try {
       setLoading(true);
       setError(null);
 
-      // Crear la fecha en UTC para evitar problemas de zona horaria
       const [year, month, day] = formData.fecha.split('-').map(Number);
       const fecha = new Date(Date.UTC(year, month - 1, day));
 
@@ -106,7 +95,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
         fecha: fecha.toISOString(),
         nombre: formData.nombre,
         importe: Number(formData.importe),
-        tipo_movimiento: formData.tipo_movimiento
+        tipo_movimiento: formData.tipo_movimiento,
+        usuario_id: userProfile.id
       };
 
       let response;
@@ -114,7 +104,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
         response = await supabase
           .from('movimientos')
           .update(movimientoData)
-          .eq('id', editingId);
+          .eq('id', editingId)
+          .eq('usuario_id', userProfile.id);
       } else {
         response = await supabase
           .from('movimientos')

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from 'recharts';
 import { supabase } from '../supabaseClient';
+import { useAuth } from '../context/AuthContext';
+import { useUser } from '../context/UserContext';
 
 const COLORS = {
   Ingresos: '#10B981',
@@ -55,8 +57,12 @@ export default function Dashboard({ onQuickMovement }) {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { user } = useAuth();
+  const { userProfile } = useUser();
 
   const cargarMovimientos = async () => {
+    if (!userProfile) return;
+
     try {
       setLoading(true);
       setError(null);
@@ -64,6 +70,7 @@ export default function Dashboard({ onQuickMovement }) {
       const { data, error: supabaseError } = await supabase
         .from('movimientos')
         .select('*')
+        .eq('usuario_id', userProfile.id)
         .order('fecha', { ascending: false });
 
       if (supabaseError) {
@@ -73,7 +80,7 @@ export default function Dashboard({ onQuickMovement }) {
       // Convert dates to proper format and ensure numbers
       const processedData = (data || []).map(mov => ({
         ...mov,
-        fecha: createSafeDate(mov.fecha), // Usar función segura para fechas
+        fecha: createSafeDate(mov.fecha),
         importe: Number(mov.importe)
       }));
 
@@ -87,7 +94,9 @@ export default function Dashboard({ onQuickMovement }) {
   };
 
   useEffect(() => {
-    cargarMovimientos();
+    if (userProfile) {
+      cargarMovimientos();
+    }
 
     // Suscribirse a cambios en tiempo real
     const subscription = supabase
@@ -107,7 +116,7 @@ export default function Dashboard({ onQuickMovement }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [userProfile]);
 
   // Filter data based on selected filters - CORREGIDO
   const filteredMovimientos = movimientos.filter(mov => {

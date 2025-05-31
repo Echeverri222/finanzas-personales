@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useUser } from '../context/UserContext';
 
 export default function Metas() {
   const [metas, setMetas] = useState([]);
@@ -12,8 +13,11 @@ export default function Metas() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const { userProfile } = useUser();
 
   const cargarMetas = async () => {
+    if (!userProfile) return;
+
     try {
       setLoading(true);
       setError(null);
@@ -21,6 +25,7 @@ export default function Metas() {
       const { data, error: supabaseError } = await supabase
         .from('metas')
         .select('*')
+        .eq('usuario_id', userProfile.id)
         .order('fecha_meta', { ascending: true });
 
       if (supabaseError) {
@@ -37,27 +42,10 @@ export default function Metas() {
   };
 
   useEffect(() => {
-    cargarMetas();
-
-    // Suscribirse a cambios en tiempo real
-    const subscription = supabase
-      .channel('metas_changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'metas' 
-        }, 
-        () => {
-          cargarMetas();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+    if (userProfile) {
+      cargarMetas();
+    }
+  }, [userProfile]);
 
   const handleChange = (e) => {
     setNueva({...nueva, [e.target.name]: e.target.value});
@@ -74,11 +62,12 @@ export default function Metas() {
   };
 
   const agregarMeta = async () => {
+    if (!userProfile) return;
+
     try {
       setLoading(true);
       setError(null);
 
-      // Crear la fecha en UTC para evitar problemas de zona horaria
       const [year, month, day] = nueva.fecha_meta.split('-').map(Number);
       const fecha = new Date(Date.UTC(year, month - 1, day));
 
@@ -86,7 +75,8 @@ export default function Metas() {
         nombre: nueva.nombre,
         meta_total: Number(nueva.meta_total),
         fecha_meta: fecha.toISOString(),
-        descripcion: nueva.descripcion
+        descripcion: nueva.descripcion,
+        usuario_id: userProfile.id
       };
 
       const { error: supabaseError } = await supabase
@@ -108,6 +98,8 @@ export default function Metas() {
   };
 
   const handleDelete = async (id) => {
+    if (!userProfile) return;
+
     try {
       setLoading(true);
       setError(null);
@@ -115,7 +107,8 @@ export default function Metas() {
       const { error: deleteError } = await supabase
         .from('metas')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('usuario_id', userProfile.id);
 
       if (deleteError) {
         throw new Error(deleteError.message);

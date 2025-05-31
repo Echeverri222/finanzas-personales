@@ -3,11 +3,14 @@ import Dashboard from './components/Dashboard';
 import Movimientos from './components/Movimientos';
 import Ahorros from './components/Ahorros';
 import Metas from './components/Metas';
+import Auth from './components/Auth';
+import { useAuth } from './context/AuthContext';
 
 export default function App() {
   const [view, setView] = useState('dashboard');
   const [showNewMovement, setShowNewMovement] = useState(false);
   const [defaultMovementType, setDefaultMovementType] = useState('');
+  const { user, signOut } = useAuth();
 
   const handleQuickMovement = (type) => {
     setDefaultMovementType(type);
@@ -15,9 +18,24 @@ export default function App() {
     setView('movimientos');
   };
 
+  if (!user) {
+    return <Auth />;
+  }
+
   return (
     <div className="p-2 md:p-4 w-full md:max-w-[98%] mx-auto">
-      <h1 className="text-2xl md:text-3xl font-bold mb-4">Finanzas Personales</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl md:text-3xl font-bold">Finanzas Personales</h1>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-600">{user.email}</span>
+          <button
+            onClick={signOut}
+            className="px-3 py-1 text-sm rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
 
       <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto">
         <button 

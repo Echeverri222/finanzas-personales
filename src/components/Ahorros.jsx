@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { useUser } from '../context/UserContext';
 
 export default function Ahorros() {
   const [ahorros, setAhorros] = useState([]);
@@ -11,8 +12,11 @@ export default function Ahorros() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const { userProfile } = useUser();
 
   const cargarAhorros = async () => {
+    if (!userProfile) return;
+
     try {
       setLoading(true);
       setError(null);
@@ -27,6 +31,7 @@ export default function Ahorros() {
           tipo_movimiento
         `)
         .eq('tipo_movimiento', 'Ahorro')
+        .eq('usuario_id', userProfile.id)
         .order('fecha', { ascending: false });
 
       if (supabaseError) {
@@ -51,28 +56,10 @@ export default function Ahorros() {
   };
 
   useEffect(() => {
-    cargarAhorros();
-
-    // Suscribirse a cambios en tiempo real de movimientos tipo Ahorro
-    const subscription = supabase
-      .channel('movimientos_ahorros_changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'movimientos',
-          filter: 'tipo_movimiento=eq.Ahorro'
-        }, 
-        () => {
-          cargarAhorros();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+    if (userProfile) {
+      cargarAhorros();
+    }
+  }, [userProfile]);
 
   const handleChange = (e) => {
     setNuevo({...nuevo, [e.target.name]: e.target.value});
@@ -88,22 +75,23 @@ export default function Ahorros() {
   };
 
   const agregarAhorro = async () => {
+    if (!userProfile) return;
+
     try {
       setLoading(true);
       setError(null);
 
-      // Crear la fecha en UTC para evitar problemas de zona horaria
       const [year, month, day] = nuevo.fecha.split('-').map(Number);
       const fecha = new Date(Date.UTC(year, month - 1, day));
 
-      // Ahora insertamos en movimientos en lugar de ahorros
       const { error: supabaseError } = await supabase
         .from('movimientos')
         .insert([{
           fecha: fecha.toISOString(),
           nombre: nuevo.descripcion,
           importe: Number(nuevo.monto),
-          tipo_movimiento: 'Ahorro'
+          tipo_movimiento: 'Ahorro',
+          usuario_id: userProfile.id
         }]);
 
       if (supabaseError) {
@@ -121,6 +109,8 @@ export default function Ahorros() {
   };
 
   const handleDelete = async (id) => {
+    if (!userProfile) return;
+
     try {
       setLoading(true);
       setError(null);
@@ -128,7 +118,8 @@ export default function Ahorros() {
       const { error: deleteError } = await supabase
         .from('movimientos')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('usuario_id', userProfile.id);
 
       if (deleteError) {
         throw new Error(deleteError.message);

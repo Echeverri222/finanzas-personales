@@ -48,7 +48,7 @@ const createSafeDate = (dateString) => {
   return new Date(dateString);
 };
 
-export default function Dashboard() {
+export default function Dashboard({ onQuickMovement }) {
   const [movimientos, setMovimientos] = useState([]);
   const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
   const [monthFilter, setMonthFilter] = useState('all');
@@ -333,11 +333,14 @@ export default function Dashboard() {
                   <p className="text-sm font-medium text-gray-600">Total Ingresos</p>
                   <p className="text-2xl font-bold text-green-600">{formatCurrency(totalIngresos)}</p>
                 </div>
-                <div className="bg-green-100 p-3 rounded-full">
+                <button 
+                  onClick={() => onQuickMovement('Ingresos')}
+                  className="bg-green-100 p-3 rounded-full hover:bg-green-200 transition-colors cursor-pointer"
+                >
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                   </svg>
-                </div>
+                </button>
               </div>
               {previousMonthData.ingresos && (
                 <div className="mt-4 flex items-center">
@@ -356,11 +359,14 @@ export default function Dashboard() {
                   <p className="text-sm font-medium text-gray-600">Total Gastos</p>
                   <p className="text-2xl font-bold text-red-600">{formatCurrency(totalGastos)}</p>
                 </div>
-                <div className="bg-red-100 p-3 rounded-full">
+                <button 
+                  onClick={() => onQuickMovement('Gastos')}
+                  className="bg-red-100 p-3 rounded-full hover:bg-red-200 transition-colors cursor-pointer"
+                >
                   <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" />
                   </svg>
-                </div>
+                </button>
               </div>
               {previousMonthData.gastos && (
                 <div className="mt-4 flex items-center">

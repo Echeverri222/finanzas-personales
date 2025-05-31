@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { TIPOS_MOVIMIENTO } from '../config';
 import { supabase } from '../supabaseClient';
 
-export default function Movimientos() {
+export default function Movimientos({ showForm: initialShowForm = false, defaultType = '', onFormClose }) {
   const [movimientos, setMovimientos] = useState([]);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(initialShowForm);
   const [showTable, setShowTable] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState(null);
@@ -13,12 +13,32 @@ export default function Movimientos() {
   const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
   const [dateFilter, setDateFilter] = useState({ startDate: '', endDate: '' });
   const [typeFilter, setTypeFilter] = useState('all');
+
+  // Get today's date in YYYY-MM-DD format
+  const today = new Date().toISOString().split('T')[0];
+
   const [formData, setFormData] = useState({
-    fecha: '',
+    fecha: today,
     nombre: '',
     importe: '',
-    tipo_movimiento: ''
+    tipo_movimiento: defaultType === 'Ingresos' ? 'Ingresos' : ''
   });
+
+  // Update form when defaultType changes
+  useEffect(() => {
+    if (defaultType) {
+      setFormData(prev => ({
+        ...prev,
+        fecha: today,
+        tipo_movimiento: defaultType === 'Ingresos' ? 'Ingresos' : ''
+      }));
+    }
+  }, [defaultType]);
+
+  // Update showForm when initialShowForm changes
+  useEffect(() => {
+    setShowForm(initialShowForm);
+  }, [initialShowForm]);
 
   const cargarMovimientos = async () => {
     try {
@@ -135,13 +155,16 @@ export default function Movimientos() {
 
   const resetForm = () => {
     setFormData({
-      fecha: '',
+      fecha: today,
       nombre: '',
       importe: '',
       tipo_movimiento: ''
     });
     setEditingId(null);
-    setError(null);
+    setShowForm(false);
+    if (onFormClose) {
+      onFormClose();
+    }
   };
 
   const handleEdit = (mov) => {

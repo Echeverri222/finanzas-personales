@@ -6,6 +6,14 @@ import Metas from './components/Metas';
 
 export default function App() {
   const [view, setView] = useState('dashboard');
+  const [showNewMovement, setShowNewMovement] = useState(false);
+  const [defaultMovementType, setDefaultMovementType] = useState('');
+
+  const handleQuickMovement = (type) => {
+    setDefaultMovementType(type);
+    setShowNewMovement(true);
+    setView('movimientos');
+  };
 
   return (
     <div className="p-2 md:p-4 w-full md:max-w-[98%] mx-auto">
@@ -47,8 +55,8 @@ export default function App() {
       </div>
 
       <div className="w-full overflow-x-hidden">
-        {view === 'dashboard' && <Dashboard />}
-        {view === 'movimientos' && <Movimientos />}
+        {view === 'dashboard' && <Dashboard onQuickMovement={handleQuickMovement} />}
+        {view === 'movimientos' && <Movimientos showForm={showNewMovement} defaultType={defaultMovementType} onFormClose={() => setShowNewMovement(false)} />}
         {view === 'ahorros' && <Ahorros />}
         {view === 'metas' && <Metas />}
       </div>

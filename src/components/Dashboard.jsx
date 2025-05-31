@@ -51,12 +51,13 @@ export default function Dashboard() {
         throw new Error(supabaseError.message);
       }
 
-      // Convert fecha strings to Date objects and importe to numbers
+      // Convert dates to proper format and ensure numbers
       const processedData = (data || []).map(mov => ({
         ...mov,
         fecha: new Date(mov.fecha),
         importe: Number(mov.importe)
       }));
+
       setMovimientos(processedData);
     } catch (err) {
       console.error("Error al obtener movimientos:", err);
@@ -122,40 +123,37 @@ export default function Dashboard() {
   // Prepare data for monthly evolution
   const monthlyData = Object.entries(
     filteredMovimientos.reduce((acc, mov) => {
-      const movDate = new Date(Date.UTC(mov.fecha.getFullYear(), mov.fecha.getMonth(), mov.fecha.getDate()));
+      const movDate = new Date(mov.fecha);
       const monthYear = movDate.toLocaleString('es-CO', { 
         month: 'short', 
-        year: '2-digit',
-        timeZone: 'UTC'
+        year: '2-digit'
       });
       
       if (!acc[monthYear]) {
-        acc[monthYear] = { month: monthYear };
+        acc[monthYear] = { 
+          month: monthYear,
+          timestamp: movDate.getTime() // Guardamos el timestamp para ordenar después
+        };
       }
+      
       if (categoryFilter === 'all') {
         if (mov.tipo_movimiento === 'Ingresos') {
-          acc[monthYear].ingresos = (acc[monthYear].ingresos || 0) + mov.importe;
+          acc[monthYear].ingresos = (acc[monthYear].ingresos || 0) + Number(mov.importe);
         } else {
-          acc[monthYear].gastos = (acc[monthYear].gastos || 0) + mov.importe;
+          acc[monthYear].gastos = (acc[monthYear].gastos || 0) + Number(mov.importe);
         }
       } else if (mov.tipo_movimiento === categoryFilter) {
-        acc[monthYear].categoria = (acc[monthYear].categoria || 0) + mov.importe;
+        acc[monthYear].categoria = (acc[monthYear].categoria || 0) + Number(mov.importe);
       }
+      
       return acc;
     }, {})
   )
     .map(([_, data]) => data)
-    .sort((a, b) => {
-      const [monthA, yearA] = a.month.split(' ');
-      const [monthB, yearB] = b.month.split(' ');
-      return yearA - yearB || monthA.localeCompare(monthB);
-    });
+    .sort((a, b) => a.timestamp - b.timestamp); // Ordenar por timestamp
 
-  // Get unique years and categories for filters
-  const years = [...new Set(movimientos.map(mov => {
-    const movDate = new Date(Date.UTC(mov.fecha.getFullYear(), mov.fecha.getMonth(), mov.fecha.getDate()));
-    return movDate.getUTCFullYear();
-  }))];
+  // Get unique years from actual data
+  const years = [...new Set(movimientos.map(mov => new Date(mov.fecha).getFullYear()))].sort((a, b) => b - a);
   const categories = [...new Set(movimientos.map(mov => mov.tipo_movimiento))];
   const months = [
     { value: 'all', label: 'Todos' },
@@ -187,7 +185,7 @@ export default function Dashboard() {
     return ((current - previous) / previous) * 100;
   };
 
-  // Calcular totales del mes anterior para comparación
+  // Calculate previous month data correctly
   const getPreviousMonthData = () => {
     const today = new Date();
     const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1);
@@ -201,10 +199,10 @@ export default function Dashboard() {
     return {
       ingresos: previousMonthMovimientos
         .filter(mov => mov.tipo_movimiento === 'Ingresos')
-        .reduce((sum, mov) => sum + mov.importe, 0),
+        .reduce((sum, mov) => sum + Number(mov.importe), 0),
       gastos: previousMonthMovimientos
         .filter(mov => mov.tipo_movimiento !== 'Ingresos')
-        .reduce((sum, mov) => sum + mov.importe, 0)
+        .reduce((sum, mov) => sum + Number(mov.importe), 0)
     };
   };
 

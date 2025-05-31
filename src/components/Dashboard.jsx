@@ -91,9 +91,9 @@ export default function Dashboard() {
 
   // Filter data based on selected filters
   const filteredMovimientos = movimientos.filter(mov => {
-    const movDate = new Date(Date.UTC(mov.fecha.getFullYear(), mov.fecha.getMonth(), mov.fecha.getDate()));
-    const matchesYear = movDate.getUTCFullYear() === yearFilter;
-    const matchesMonth = monthFilter === 'all' || movDate.getUTCMonth() === parseInt(monthFilter);
+    const movDate = new Date(mov.fecha);
+    const matchesYear = movDate.getFullYear() === yearFilter;
+    const matchesMonth = monthFilter === 'all' || movDate.getMonth() === parseInt(monthFilter);
     const matchesCategory = categoryFilter === 'all' || mov.tipo_movimiento === categoryFilter;
     return matchesYear && matchesMonth && matchesCategory;
   });
@@ -101,11 +101,11 @@ export default function Dashboard() {
   // Calculate totals
   const totalIngresos = filteredMovimientos
     .filter(mov => mov.tipo_movimiento === 'Ingresos')
-    .reduce((sum, mov) => sum + mov.importe, 0);
+    .reduce((sum, mov) => sum + Number(mov.importe), 0);
 
   const totalGastos = filteredMovimientos
     .filter(mov => mov.tipo_movimiento !== 'Ingresos')
-    .reduce((sum, mov) => sum + mov.importe, 0);
+    .reduce((sum, mov) => sum + Number(mov.importe), 0);
 
   // Prepare data for category pie chart
   const categoryData = Object.entries(

@@ -65,7 +65,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
 
   useEffect(() => {
     if (userProfile) {
-      cargarMovimientos();
+    cargarMovimientos();
     }
   }, [userProfile]);
 
@@ -95,8 +95,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
         fecha: fecha.toISOString(),
         nombre: formData.nombre,
         importe: Number(formData.importe),
-        tipo_movimiento: formData.tipo_movimiento,
-        usuario_id: userProfile.id
+        tipo_movimiento: formData.tipo_movimiento
       };
 
       let response;
@@ -109,14 +108,17 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       } else {
         response = await supabase
           .from('movimientos')
-          .insert([movimientoData]);
+          .insert([{
+            ...movimientoData,
+            usuario_id: userProfile.id
+          }]);
       }
 
       if (response.error) {
         throw new Error(response.error.message);
       }
 
-      setFormData({ fecha: '', nombre: '', importe: '', tipo_movimiento: '' });
+      setFormData({ fecha: today, nombre: '', importe: '', tipo_movimiento: '' });
       setEditingId(null);
       setShowForm(false);
       await cargarMovimientos();
@@ -478,8 +480,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                   <th className="px-4 md:px-6 py-3 text-right text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
-                </tr>
-              </thead>
+            </tr>
+          </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredMovimientos.map((mov) => (
                   <React.Fragment key={mov.id}>

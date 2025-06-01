@@ -552,7 +552,10 @@ export default function Dashboard({ onQuickMovement }) {
                     margin={{ top: 5, right: 80, left: 60, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis type="number" />
+                    <XAxis 
+                      type="number"
+                      tickFormatter={value => formatCurrency(value)}
+                    />
                     <YAxis 
                       type="category" 
                       dataKey="name" 
@@ -598,14 +601,13 @@ export default function Dashboard({ onQuickMovement }) {
                     {categoryData.map((entry, index) => (
                       <ReferenceLine
                         key={`ref-${index}`}
-                        y={entry.name}
                         x={entry.meta}
                         stroke="#000"
                         strokeDasharray="3 3"
                         isFront={true}
                         label={{ 
                           value: formatCurrency(entry.meta),
-                          position: 'right',
+                          position: 'top',
                           fill: '#666',
                           fontSize: 12
                         }}

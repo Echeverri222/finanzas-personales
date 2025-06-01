@@ -5,14 +5,25 @@ import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
 
 const COLORS = {
-  Ingresos: '#10B981',
-  Alimentacion: '#60A5FA',
-  Transporte: '#34D399',
-  Compras: '#F87171',
+  'Ingresos': '#10B981',
+  'Alimentacion': '#60A5FA',
+  'Transporte': '#34D399',
+  'Compras': '#F87171',
   'Gastos fijos': '#FBBF24',
-  Ahorro: '#6366F1',
-  Salidas: '#34D399',
-  Otros: '#A78BFA'
+  'Ahorro': '#6366F1',
+  'Salidas': '#34D399',
+  'Otros': '#A78BFA'
+};
+
+const COLORS_EXCEDIDO = {
+  'Ingresos': '#10B981',
+  'Alimentacion': '#EF4444',
+  'Transporte': '#EF4444',
+  'Compras': '#EF4444',
+  'Gastos fijos': '#EF4444',
+  'Ahorro': '#EF4444',
+  'Salidas': '#EF4444',
+  'Otros': '#EF4444'
 };
 
 const PRESUPUESTOS = {
@@ -601,29 +612,25 @@ export default function Dashboard({ onQuickMovement }) {
                       dataKey="value" 
                       radius={[0, 4, 4, 0]}
                     >
-                      {categoryData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={COLORS[entry.name]}
-                          className="transition-opacity hover:opacity-80"
-                        />
-                      ))}
+                      {categoryData.map((entry, index) => {
+                        const presupuesto = PRESUPUESTOS[entry.name] || 0;
+                        let color;
+                        if (entry.name === 'Ahorro') {
+                          // Para Ahorro: rojo si no llega al presupuesto, verde si lo alcanza o supera
+                          color = entry.value >= presupuesto ? '#10B981' : '#EF4444';
+                        } else {
+                          // Para el resto: color normal si está dentro del presupuesto, rojo si lo excede
+                          color = entry.value > presupuesto ? '#EF4444' : COLORS[entry.name];
+                        }
+                        return (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={color}
+                            className="transition-opacity hover:opacity-80"
+                          />
+                        );
+                      })}
                     </Bar>
-                    {Object.entries(PRESUPUESTOS).map(([categoria, presupuesto]) => (
-                      <ReferenceLine
-                        key={`ref-${categoria}`}
-                        x={presupuesto}
-                        stroke="#000"
-                        strokeDasharray="3 3"
-                        isFront={true}
-                        label={{ 
-                          value: formatCurrency(presupuesto),
-                          position: 'top',
-                          fill: '#666',
-                          fontSize: 12
-                        }}
-                      />
-                    ))}
                   </BarChart>
                 </ResponsiveContainer>
               </div>

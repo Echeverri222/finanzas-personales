@@ -88,12 +88,17 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       setLoading(true);
       setError(null);
 
+      // Validar los datos antes de procesar
+      if (!formData.fecha || !formData.nombre || !formData.importe || !formData.tipo_movimiento) {
+        throw new Error("Todos los campos son requeridos");
+      }
+
       const [year, month, day] = formData.fecha.split('-').map(Number);
       const fecha = new Date(Date.UTC(year, month - 1, day));
 
       const movimientoData = {
         fecha: fecha.toISOString(),
-        nombre: formData.nombre,
+        nombre: formData.nombre.trim(),
         importe: Number(formData.importe),
         tipo_movimiento: formData.tipo_movimiento
       };
@@ -103,8 +108,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
         response = await supabase
           .from('movimientos')
           .update(movimientoData)
-          .eq('id', editingId)
-          .eq('usuario_id', userProfile.id);
+          .match({ id: editingId, usuario_id: userProfile.id });
       } else {
         response = await supabase
           .from('movimientos')
@@ -157,13 +161,13 @@ export default function Movimientos({ showForm: initialShowForm = false, default
 
   const handleEdit = (mov) => {
     // Convertir la fecha ISO a formato YYYY-MM-DD para el input date
-    const fecha = mov.fecha.split('T')[0];
+    const fecha = mov.fecha ? mov.fecha.split('T')[0] : '';
     
     setFormData({
       fecha: fecha,
-      nombre: mov.nombre,
-      importe: mov.importe.toString(),
-      tipo_movimiento: mov.tipo_movimiento
+      nombre: mov.nombre || '',
+      importe: mov.importe ? mov.importe.toString() : '',
+      tipo_movimiento: mov.tipo_movimiento || ''
     });
     setEditingId(mov.id);
     setShowForm(true);
@@ -203,7 +207,24 @@ export default function Movimientos({ showForm: initialShowForm = false, default
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
-        timeZone: 'UTC' // Importante: usar UTC para evitar ajustes de zona horaria
+        timeZone: 'UTC'
+      });
+    } catch (err) {
+      return dateStr;
+    }
+  };
+
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return '-';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleString('es-CO', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC'
       });
     } catch (err) {
       return dateStr;
@@ -477,11 +498,14 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                   >
                     Tipo {getSortIcon('tipo_movimiento')}
                   </th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                    Última Modificación
+                  </th>
                   <th className="px-4 md:px-6 py-3 text-right text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
-            </tr>
-          </thead>
+                </tr>
+              </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredMovimientos.map((mov) => (
                   <React.Fragment key={mov.id}>
@@ -509,6 +533,9 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                         }`}>
                           {mov.tipo_movimiento}
                         </span>
+                      </td>
+                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-500">
+                        {formatDateTime(mov.updated_at)}
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right text-xs md:text-sm font-medium">
                         <div className="flex justify-end gap-3">

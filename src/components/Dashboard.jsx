@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, ReferenceLine } from 'recharts';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
@@ -53,7 +53,7 @@ const createSafeDate = (dateString) => {
 export default function Dashboard({ onQuickMovement }) {
   const [movimientos, setMovimientos] = useState([]);
   const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
-  const [monthFilter, setMonthFilter] = useState('all');
+  const [monthFilter, setMonthFilter] = useState(new Date().getMonth().toString());
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -67,21 +67,29 @@ export default function Dashboard({ onQuickMovement }) {
       setLoading(true);
       setError(null);
       
-      const { data, error: supabaseError } = await supabase
+      const { data: movimientosData, error: movimientosError } = await supabase
         .from('movimientos')
-        .select('*')
+        .select(`
+          *,
+          categoria:categorias(
+            id,
+            nombre,
+            meta
+          )
+        `)
         .eq('usuario_id', userProfile.id)
         .order('fecha', { ascending: false });
 
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
+      if (movimientosError) {
+        throw new Error(movimientosError.message);
       }
 
       // Convert dates to proper format and ensure numbers
-      const processedData = (data || []).map(mov => ({
+      const processedData = (movimientosData || []).map(mov => ({
         ...mov,
         fecha: createSafeDate(mov.fecha),
-        importe: Number(mov.importe)
+        importe: Number(mov.importe),
+        tipo_movimiento: mov.categoria?.nombre || mov.tipo_movimiento // Mantener compatibilidad
       }));
 
       setMovimientos(processedData);
@@ -136,16 +144,24 @@ export default function Dashboard({ onQuickMovement }) {
     .filter(mov => mov.tipo_movimiento !== 'Ingresos')
     .reduce((sum, mov) => sum + Number(mov.importe), 0);
 
-  // Prepare data for category pie chart
+  // Prepare data for category pie chart and bar chart
   const categoryData = Object.entries(
     filteredMovimientos
       .filter(mov => mov.tipo_movimiento !== 'Ingresos')
       .reduce((acc, mov) => {
-        acc[mov.tipo_movimiento] = (acc[mov.tipo_movimiento] || 0) + mov.importe;
+        const categoria = mov.categoria?.nombre || mov.tipo_movimiento;
+        if (!acc[categoria]) {
+          acc[categoria] = {
+            name: categoria,
+            value: 0,
+            meta: mov.categoria?.meta || 0
+          };
+        }
+        acc[categoria].value += mov.importe;
         return acc;
       }, {})
   )
-    .map(([name, value]) => ({ name, value }))
+    .map(([_, data]) => data)
     .sort((a, b) => b.value - a.value);
 
   // Prepare data for monthly evolution - CORREGIDO
@@ -527,23 +543,46 @@ export default function Dashboard({ onQuickMovement }) {
             </div>
 
             <div className="bg-white p-4 rounded-xl shadow-md">
-              <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Gastos por Categoría</h3>
+              <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Gastos por Categoría vs Meta Mensual</h3>
               <div className="h-60 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
                     data={categoryData} 
                     layout="vertical"
-                    margin={{ top: 5, right: 20, left: 60, bottom: 5 }}
+                    margin={{ top: 5, right: 80, left: 60, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis type="number" />
                     <YAxis 
                       type="category" 
                       dataKey="name" 
-                      width={60}
+                      width={80}
                       tick={{ fill: '#4B5563' }}
                     />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
+                              <p className="font-semibold">{data.name}</p>
+                              <p style={{ color: COLORS[data.name] }}>
+                                Gasto: {formatCurrency(data.value)}
+                              </p>
+                              <p className="text-gray-600">
+                                Meta: {formatCurrency(data.meta)}
+                              </p>
+                              <p className={data.value > data.meta ? 'text-red-600' : 'text-green-600'}>
+                                {data.value > data.meta 
+                                  ? `${Math.round((data.value - data.meta) / data.meta * 100)}% sobre la meta`
+                                  : `${Math.round((data.meta - data.value) / data.meta * 100)}% bajo la meta`}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
                     <Bar 
                       dataKey="value" 
                       radius={[0, 4, 4, 0]}
@@ -556,6 +595,22 @@ export default function Dashboard({ onQuickMovement }) {
                         />
                       ))}
                     </Bar>
+                    {categoryData.map((entry, index) => (
+                      <ReferenceLine
+                        key={`ref-${index}`}
+                        y={entry.name}
+                        x={entry.meta}
+                        stroke="#000"
+                        strokeDasharray="3 3"
+                        isFront={true}
+                        label={{ 
+                          value: formatCurrency(entry.meta),
+                          position: 'right',
+                          fill: '#666',
+                          fontSize: 12
+                        }}
+                      />
+                    ))}
                   </BarChart>
                 </ResponsiveContainer>
               </div>

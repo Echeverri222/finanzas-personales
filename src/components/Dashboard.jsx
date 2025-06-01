@@ -15,6 +15,16 @@ const COLORS = {
   Otros: '#A78BFA'
 };
 
+const PRESUPUESTOS = {
+  'Alimentacion': 750000,
+  'Transporte': 500000,
+  'Compras': 700000,
+  'Gastos fijos': 950000,
+  'Ahorro': 800000,
+  'Salidas': 300000,
+  'Otros': 200000
+};
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -543,7 +553,7 @@ export default function Dashboard({ onQuickMovement }) {
             </div>
 
             <div className="bg-white p-4 rounded-xl shadow-md">
-              <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Gastos por Categoría vs Meta Mensual</h3>
+              <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Gastos por Categoría vs Presupuesto Mensual</h3>
               <div className="h-60 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
@@ -566,6 +576,7 @@ export default function Dashboard({ onQuickMovement }) {
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
+                          const presupuesto = PRESUPUESTOS[data.name] || 0;
                           return (
                             <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
                               <p className="font-semibold">{data.name}</p>
@@ -573,12 +584,12 @@ export default function Dashboard({ onQuickMovement }) {
                                 Gasto: {formatCurrency(data.value)}
                               </p>
                               <p className="text-gray-600">
-                                Meta: {formatCurrency(data.meta)}
+                                Presupuesto: {formatCurrency(presupuesto)}
                               </p>
-                              <p className={data.value > data.meta ? 'text-red-600' : 'text-green-600'}>
-                                {data.value > data.meta 
-                                  ? `${Math.round((data.value - data.meta) / data.meta * 100)}% sobre la meta`
-                                  : `${Math.round((data.meta - data.value) / data.meta * 100)}% bajo la meta`}
+                              <p className={data.value > presupuesto ? 'text-red-600' : 'text-green-600'}>
+                                {data.value > presupuesto 
+                                  ? `${Math.round((data.value - presupuesto) / presupuesto * 100)}% sobre el presupuesto`
+                                  : `${Math.round((presupuesto - data.value) / presupuesto * 100)}% bajo el presupuesto`}
                               </p>
                             </div>
                           );
@@ -598,15 +609,15 @@ export default function Dashboard({ onQuickMovement }) {
                         />
                       ))}
                     </Bar>
-                    {categoryData.map((entry, index) => (
+                    {Object.entries(PRESUPUESTOS).map(([categoria, presupuesto]) => (
                       <ReferenceLine
-                        key={`ref-${index}`}
-                        x={entry.meta}
+                        key={`ref-${categoria}`}
+                        x={presupuesto}
                         stroke="#000"
                         strokeDasharray="3 3"
                         isFront={true}
                         label={{ 
-                          value: formatCurrency(entry.meta),
+                          value: formatCurrency(presupuesto),
                           position: 'top',
                           fill: '#666',
                           fontSize: 12

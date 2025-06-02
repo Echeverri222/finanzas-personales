@@ -568,7 +568,12 @@ export default function Dashboard({ onQuickMovement }) {
               <div className="h-60 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
-                    data={categoryData} 
+                    data={categoryData.map(item => ({
+                      ...item,
+                      presupuesto: PRESUPUESTOS[item.name] || 0,
+                      valorHastaMeta: Math.min(item.value, PRESUPUESTOS[item.name] || 0),
+                      valorExcedente: Math.max(0, item.value - (PRESUPUESTOS[item.name] || 0))
+                    }))} 
                     layout="vertical"
                     margin={{ top: 5, right: 80, left: 60, bottom: 5 }}
                   >
@@ -587,49 +592,57 @@ export default function Dashboard({ onQuickMovement }) {
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
-                          const presupuesto = PRESUPUESTOS[data.name] || 0;
                           return (
                             <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
                               <p className="font-semibold">{data.name}</p>
                               <p style={{ color: COLORS[data.name] }}>
-                                Gasto: {formatCurrency(data.value)}
+                                Total: {formatCurrency(data.value)}
                               </p>
                               <p className="text-gray-600">
-                                Presupuesto: {formatCurrency(presupuesto)}
+                                Presupuesto: {formatCurrency(data.presupuesto)}
                               </p>
-                              <p className={data.value > presupuesto ? 'text-red-600' : 'text-green-600'}>
-                                {data.value > presupuesto 
-                                  ? `${Math.round((data.value - presupuesto) / presupuesto * 100)}% sobre el presupuesto`
-                                  : `${Math.round((presupuesto - data.value) / presupuesto * 100)}% bajo el presupuesto`}
-                              </p>
+                              {data.value > data.presupuesto ? (
+                                <p className="text-red-600">
+                                  Excedente: {formatCurrency(data.valorExcedente)}
+                                </p>
+                              ) : data.name === 'Ahorro' ? (
+                                <p className="text-red-600">
+                                  Falta: {formatCurrency(data.presupuesto - data.value)}
+                                </p>
+                              ) : null}
                             </div>
                           );
                         }
                         return null;
                       }}
                     />
+                    {/* Barra hasta el presupuesto */}
                     <Bar 
-                      dataKey="value" 
-                      radius={[0, 4, 4, 0]}
+                      dataKey="valorHastaMeta" 
+                      radius={[0, 0, 0, 0]}
+                      stackId="stack"
                     >
-                      {categoryData.map((entry, index) => {
-                        const presupuesto = PRESUPUESTOS[entry.name] || 0;
-                        let color;
-                        if (entry.name === 'Ahorro') {
-                          // Para Ahorro: rojo si no llega al presupuesto, verde si lo alcanza o supera
-                          color = entry.value >= presupuesto ? '#10B981' : '#EF4444';
-                        } else {
-                          // Para el resto: color normal si está dentro del presupuesto, rojo si lo excede
-                          color = entry.value > presupuesto ? '#EF4444' : COLORS[entry.name];
-                        }
-                        return (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={color}
-                            className="transition-opacity hover:opacity-80"
-                          />
-                        );
-                      })}
+                      {categoryData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-base-${index}`} 
+                          fill={COLORS[entry.name]}
+                          className="transition-opacity hover:opacity-80"
+                        />
+                      ))}
+                    </Bar>
+                    {/* Barra del excedente */}
+                    <Bar 
+                      dataKey="valorExcedente" 
+                      radius={[0, 4, 4, 0]}
+                      stackId="stack"
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-excedente-${index}`} 
+                          fill={entry.name === 'Ahorro' ? '#10B981' : '#EF4444'}
+                          className="transition-opacity hover:opacity-80"
+                        />
+                      ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>

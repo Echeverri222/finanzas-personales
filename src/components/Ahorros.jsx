@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useUser } from '../context/UserContext';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Ahorros() {
   const [ahorros, setAhorros] = useState([]);
@@ -32,21 +33,25 @@ export default function Ahorros() {
         `)
         .eq('tipo_movimiento', 'Ahorro')
         .eq('usuario_id', userProfile.id)
-        .order('fecha', { ascending: false });
+        .order('fecha', { ascending: true });
 
       if (supabaseError) {
         throw new Error(supabaseError.message);
       }
 
-      // Transformar los datos para mantener compatibilidad
-      const transformedData = data.map(mov => ({
-        id: mov.id,
-        fecha: mov.fecha,
-        monto: mov.importe,
-        descripcion: mov.nombre
-      }));
+      // Transformar los datos para el gráfico acumulativo
+      let acumulado = 0;
+      const datosGrafico = (data || []).map(mov => {
+        acumulado += mov.importe;
+        return {
+          fecha: formatDate(mov.fecha),
+          monto: mov.importe,
+          acumulado: acumulado,
+          descripcion: mov.nombre
+        };
+      });
 
-      setAhorros(transformedData || []);
+      setAhorros(datosGrafico);
     } catch (err) {
       console.error("Error al obtener ahorros:", err);
       setError(`Error: ${err.message}`);
@@ -160,7 +165,29 @@ export default function Ahorros() {
     }).format(value);
   };
 
-  const totalAhorros = ahorros.reduce((sum, ahorro) => sum + Number(ahorro.monto), 0);
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
+          <p className="font-semibold">{label}</p>
+          <p className="text-green-600">
+            Total Acumulado: {formatCurrency(payload[0].value)}
+          </p>
+          {payload[0].payload.monto && (
+            <p className="text-blue-600">
+              Ahorro del día: {formatCurrency(payload[0].payload.monto)}
+            </p>
+          )}
+          {payload[0].payload.descripcion && (
+            <p className="text-gray-600">
+              Descripción: {payload[0].payload.descripcion}
+            </p>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
 
   if (loading && !showForm) {
     return (
@@ -206,7 +233,9 @@ export default function Ahorros() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Ahorrado</p>
-              <p className="text-2xl md:text-3xl font-bold text-green-600">{formatCurrency(totalAhorros)}</p>
+              <p className="text-2xl md:text-3xl font-bold text-green-600">
+                {formatCurrency(ahorros.length > 0 ? ahorros[ahorros.length - 1].acumulado : 0)}
+              </p>
             </div>
             <div className="bg-green-100 p-3 rounded-full">
               <svg className="w-6 md:w-8 h-6 md:h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -296,47 +325,42 @@ export default function Ahorros() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-md overflow-hidden">
-        <div className="overflow-x-auto">
-          <div className="inline-block min-w-full align-middle">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                  <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">Monto</th>
-                  <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
-                  <th className="px-4 md:px-6 py-3 text-right text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {ahorros.map((ahorro) => (
-                  <tr key={ahorro.id} className="hover:bg-gray-50">
-                    <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-900">
-                      {formatDate(ahorro.fecha)}
-                    </td>
-                    <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm">
-                      <span className="font-medium text-green-600">
-                        {formatCurrency(ahorro.monto)}
-                      </span>
-                    </td>
-                    <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-900">
-                      {ahorro.descripcion || '-'}
-                    </td>
-                    <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right text-xs md:text-sm font-medium">
-                      <button
-                        onClick={() => handleDelete(ahorro.id)}
-                        className="text-red-600 hover:text-red-900 transition-colors"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Gráfico de Evolución de Ahorros */}
+      <div className="bg-white p-4 md:p-6 rounded-xl shadow-md">
+        <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Evolución de Ahorros</h3>
+        <div className="h-[400px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={ahorros}
+              margin={{
+                top: 5,
+                right: 30,
+                left: 20,
+                bottom: 5,
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis 
+                dataKey="fecha" 
+                tick={{ fill: '#4B5563' }}
+                axisLine={{ stroke: '#E5E7EB' }}
+              />
+              <YAxis
+                tick={{ fill: '#4B5563' }}
+                axisLine={{ stroke: '#E5E7EB' }}
+                tickFormatter={(value) => formatCurrency(value)}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Line
+                type="monotone"
+                dataKey="acumulado"
+                stroke="#10B981"
+                strokeWidth={2}
+                dot={{ fill: '#10B981', stroke: '#10B981', strokeWidth: 2 }}
+                activeDot={{ r: 8 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>

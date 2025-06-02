@@ -43,7 +43,7 @@ export default function Metas() {
 
   useEffect(() => {
     if (userProfile) {
-    cargarMetas();
+      cargarMetas();
     }
   }, [userProfile]);
 
@@ -156,7 +156,7 @@ export default function Metas() {
       new Date(meta.created_at).getMonth(),
       new Date(meta.created_at).getDate()
     )) : hoy;
-
+    
     const fechaMeta = new Date(Date.UTC(
       new Date(meta.fecha_meta).getFullYear(),
       new Date(meta.fecha_meta).getMonth(),
@@ -355,15 +355,15 @@ export default function Metas() {
           <div className="inline-block min-w-full align-middle">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
-            <tr>
+                <tr>
                   <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">Monto Objetivo</th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">Fecha Objetivo</th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">Progreso</th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
                   <th className="px-4 md:px-6 py-3 text-right text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-            </tr>
-          </thead>
+                </tr>
+              </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {metas.map((meta) => {
                   const progreso = calcularProgreso(meta);
@@ -412,11 +412,11 @@ export default function Metas() {
                           </svg>
                         </button>
                       </td>
-              </tr>
+                    </tr>
                   );
                 })}
-          </tbody>
-        </table>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

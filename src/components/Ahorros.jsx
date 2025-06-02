@@ -62,7 +62,7 @@ export default function Ahorros() {
 
   useEffect(() => {
     if (userProfile) {
-      cargarAhorros();
+    cargarAhorros();
     }
   }, [userProfile]);
 

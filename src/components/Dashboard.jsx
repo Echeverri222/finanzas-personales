@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, ReferenceLine } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from 'recharts';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
@@ -69,24 +69,7 @@ export default function Dashboard({ onQuickMovement }) {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [importLoading, setImportLoading] = useState(false);
-  const [presupuestos, setPresupuestos] = useState({});
-  const [showPresupuestosForm, setShowPresupuestosForm] = useState(false);
-  const [editingPresupuestos, setEditingPresupuestos] = useState({});
-  const { user } = useAuth();
   const { userProfile } = useUser();
-
-  // Categorías predeterminadas
-  const CATEGORIAS_DEFAULT = [
-    { nombre: 'Ingresos', meta: 0 },
-    { nombre: 'Alimentacion', meta: 750000 },
-    { nombre: 'Transporte', meta: 500000 },
-    { nombre: 'Compras', meta: 700000 },
-    { nombre: 'Gastos fijos', meta: 950000 },
-    { nombre: 'Ahorro', meta: 800000 },
-    { nombre: 'Salidas', meta: 300000 },
-    { nombre: 'Otros', meta: 200000 }
-  ];
 
   const cargarMovimientos = async () => {
     if (!userProfile) return;
@@ -121,144 +104,10 @@ export default function Dashboard({ onQuickMovement }) {
     }
   };
 
-  const cargarPresupuestos = async () => {
-    if (!userProfile) return;
-
-    try {
-      // Obtener las categorías del usuario
-      const { data: categoriasUsuario, error: categoriasError } = await supabase
-        .from('categorias')
-        .select('id, nombre, meta')
-        .eq('usuario_id', userProfile.id);
-
-      if (categoriasError) {
-        throw new Error(categoriasError.message);
-      }
-
-      // Si el usuario no tiene categorías, crear las predeterminadas
-      if (!categoriasUsuario || categoriasUsuario.length === 0) {
-        const categoriasParaInsertar = CATEGORIAS_DEFAULT.map(cat => ({
-          id: cat.id,
-          nombre: cat.nombre,
-          meta: cat.meta,
-          usuario_id: userProfile.id
-        }));
-
-        const { error: insertError } = await supabase
-          .from('categorias')
-          .insert(categoriasParaInsertar);
-
-        if (insertError) {
-          throw new Error(`Error al crear categorías predeterminadas: ${insertError.message}`);
-        }
-
-        // Recargar las categorías después de insertarlas
-        const { data: newCategorias, error: reloadError } = await supabase
-          .from('categorias')
-          .select('id, nombre, meta')
-          .eq('usuario_id', userProfile.id);
-
-        if (reloadError) {
-          throw new Error(reloadError.message);
-        }
-
-        const presupuestosObj = {};
-        newCategorias.forEach(cat => {
-          presupuestosObj[cat.nombre] = cat.meta || 0;
-        });
-        setPresupuestos(presupuestosObj);
-        setEditingPresupuestos(presupuestosObj);
-      } else {
-        // Convertir array a objeto
-        const presupuestosObj = {};
-        categoriasUsuario.forEach(cat => {
-          presupuestosObj[cat.nombre] = cat.meta || 0;
-        });
-        setPresupuestos(presupuestosObj);
-        setEditingPresupuestos(presupuestosObj);
-      }
-    } catch (err) {
-      console.error("Error al cargar presupuestos:", err);
-      setError(`Error: ${err.message}`);
-    }
-  };
-
-  const guardarPresupuestos = async () => {
-    if (!userProfile) {
-      setError("No hay usuario autenticado");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Primero eliminar todas las categorías existentes del usuario
-      const { error: deleteError } = await supabase
-        .from('categorias')
-        .delete()
-        .eq('usuario_id', userProfile.id);
-
-      if (deleteError) {
-        throw new Error(`Error al eliminar categorías existentes: ${deleteError.message}`);
-      }
-
-      // Preparar las nuevas categorías para inserción
-      const categoriasParaInsertar = Object.entries(editingPresupuestos).map(([nombre, meta]) => {
-        // Encontrar el ID predeterminado para esta categoría
-        const categoriaDefault = CATEGORIAS_DEFAULT.find(cat => cat.nombre === nombre);
-        return {
-          id: categoriaDefault ? categoriaDefault.id : null, // Usar el ID predeterminado si existe
-          nombre: nombre,
-          meta: Number(meta),
-          usuario_id: userProfile.id
-        };
-      });
-
-      // Insertar las nuevas categorías
-      const { error: insertError } = await supabase
-        .from('categorias')
-        .insert(categoriasParaInsertar);
-
-      if (insertError) {
-        throw new Error(`Error al crear categorías: ${insertError.message}`);
-      }
-
-      setPresupuestos(editingPresupuestos);
-      setShowPresupuestosForm(false);
-      await cargarPresupuestos();
-    } catch (err) {
-      console.error("Error al guardar presupuestos:", err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (userProfile) {
       cargarMovimientos();
-      cargarPresupuestos();
     }
-
-    // Suscribirse a cambios en tiempo real
-    const subscription = supabase
-      .channel('movimientos_changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'movimientos' 
-        }, 
-        () => {
-          cargarMovimientos();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, [userProfile]);
 
   // Filter data based on selected filters - CORREGIDO
@@ -297,7 +146,7 @@ export default function Dashboard({ onQuickMovement }) {
           acc[categoria] = {
             name: categoria,
             value: 0,
-            meta: presupuestos[categoria] || 0
+            meta: 0
           };
         }
         acc[categoria].value += mov.importe;
@@ -449,19 +298,6 @@ export default function Dashboard({ onQuickMovement }) {
         </h2>
         
         <div className="flex flex-col md:flex-row gap-2 md:gap-4">
-          <button
-            onClick={() => {
-              setEditingPresupuestos({...presupuestos});
-              setShowPresupuestosForm(true);
-            }}
-            className="px-4 py-2 rounded-lg text-white bg-indigo-500 hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Editar Presupuestos
-          </button>
-
           <select 
             value={yearFilter} 
             onChange={(e) => setYearFilter(parseInt(e.target.value))}
@@ -488,7 +324,7 @@ export default function Dashboard({ onQuickMovement }) {
             className="px-3 md:px-4 py-2 rounded-lg border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
           >
             <option value="all">Todas las categorías</option>
-            {categories.filter(cat => cat !== 'Ingresos').map(cat => (
+            {TIPOS_MOVIMIENTO.filter(cat => cat !== 'Ingresos').map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
@@ -672,7 +508,7 @@ export default function Dashboard({ onQuickMovement }) {
             <div className="bg-white p-4 rounded-xl shadow-md">
               <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Distribución de Gastos</h3>
               <div className="h-60 md:h-80">
-          <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <Pie 
                       data={categoryData} 
@@ -688,25 +524,20 @@ export default function Dashboard({ onQuickMovement }) {
                           fill={COLORS[entry.name]}
                           className="transition-opacity hover:opacity-80"
                         />
-                ))}
-              </Pie>
+                      ))}
+                    </Pie>
                     <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
             <div className="bg-white p-4 rounded-xl shadow-md">
-              <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Gastos por Categoría vs Presupuesto Mensual</h3>
+              <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Gastos por Categoría</h3>
               <div className="h-60 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
-                    data={categoryData.map(item => ({
-                      ...item,
-                      presupuesto: item.meta || presupuestos[item.name] || 0,
-                      valorHastaMeta: Math.min(item.value, item.meta || presupuestos[item.name] || 0),
-                      valorExcedente: Math.max(0, item.value - (item.meta || presupuestos[item.name] || 0))
-                    }))} 
+                    data={categoryData} 
                     layout="vertical"
                     margin={{ top: 5, right: 80, left: 60, bottom: 5 }}
                   >
@@ -731,48 +562,20 @@ export default function Dashboard({ onQuickMovement }) {
                               <p style={{ color: COLORS[data.name] }}>
                                 Total: {formatCurrency(data.value)}
                               </p>
-                              <p className="text-gray-600">
-                                Presupuesto: {formatCurrency(data.presupuesto)}
-                              </p>
-                              {data.value > data.presupuesto ? (
-                                <p className="text-red-600">
-                                  Excedente: {formatCurrency(data.valorExcedente)}
-                                </p>
-                              ) : data.name === 'Ahorro' ? (
-                                <p className="text-red-600">
-                                  Falta: {formatCurrency(data.presupuesto - data.value)}
-                                </p>
-                              ) : null}
                             </div>
                           );
                         }
                         return null;
                       }}
                     />
-                    {/* Barra hasta el presupuesto */}
                     <Bar 
-                      dataKey="valorHastaMeta" 
-                      radius={[0, 0, 0, 0]}
-                      stackId="stack"
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-base-${index}`} 
-                          fill={COLORS[entry.name]}
-                          className="transition-opacity hover:opacity-80"
-                        />
-                      ))}
-                    </Bar>
-                    {/* Barra del excedente */}
-                    <Bar 
-                      dataKey="valorExcedente" 
+                      dataKey="value" 
                       radius={[0, 4, 4, 0]}
-                      stackId="stack"
                     >
                       {categoryData.map((entry, index) => (
                         <Cell 
-                          key={`cell-excedente-${index}`} 
-                          fill={entry.name === 'Ahorro' ? '#10B981' : '#EF4444'}
+                          key={`cell-${index}`} 
+                          fill={COLORS[entry.name]}
                           className="transition-opacity hover:opacity-80"
                         />
                       ))}
@@ -860,76 +663,9 @@ export default function Dashboard({ onQuickMovement }) {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-        </div>
-      )}
-      </div>
-
-      {/* Modal de Presupuestos */}
-      {showPresupuestosForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Editar Presupuestos</h3>
-            <div className="space-y-4">
-              {Object.entries(editingPresupuestos).map(([categoria, meta]) => (
-                <div key={categoria} className="flex items-center gap-4">
-                  <label className="flex-1 text-sm font-medium text-gray-700">{categoria}</label>
-                  <input
-                    type="number"
-                    value={meta}
-                    onChange={(e) => setEditingPresupuestos(prev => ({
-                      ...prev,
-                      [categoria]: e.target.value
-                    }))}
-                    className="w-32 px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="0"
-                  />
-                  <button
-                    onClick={() => {
-                      const newPresupuestos = { ...editingPresupuestos };
-                      delete newPresupuestos[categoria];
-                      setEditingPresupuestos(newPresupuestos);
-                    }}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={() => {
-                  const newCategoria = prompt("Nombre de la nueva categoría:");
-                  if (newCategoria && !editingPresupuestos[newCategoria]) {
-                    setEditingPresupuestos(prev => ({
-                      ...prev,
-                      [newCategoria]: 0
-                    }));
-                  }
-                }}
-                className="w-full px-4 py-2 mt-4 rounded-lg text-blue-500 border border-blue-500 hover:bg-blue-50 transition-colors"
-              >
-                + Agregar Categoría
-              </button>
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setShowPresupuestosForm(false)}
-                className="px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={guardarPresupuestos}
-                className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors"
-                disabled={loading}
-              >
-                {loading ? 'Guardando...' : 'Guardar'}
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

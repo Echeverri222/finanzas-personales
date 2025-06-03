@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
+import { TIPOS_MOVIMIENTO } from '../config';
 
 const COLORS = {
   'Ingresos': '#10B981',

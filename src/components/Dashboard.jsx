@@ -223,6 +223,14 @@ export default function Dashboard({ onQuickMovement }) {
     return matchesYear && matchesMonth && matchesCategory;
   });
 
+  // Datos sin filtro de mes para el gráfico de evolución mensual
+  const yearFilteredMovimientos = movimientos.filter(mov => {
+    const movDate = createSafeDate(mov.fecha);
+    const matchesYear = movDate.getFullYear() === yearFilter;
+    const matchesCategory = categoryFilter === 'all' || mov.tipo_movimiento === categoryFilter;
+    return matchesYear && matchesCategory;
+  });
+
   // Calculate totals
   const totalIngresos = filteredMovimientos
     .filter(mov => mov.tipo_movimiento === 'Ingresos')
@@ -254,7 +262,7 @@ export default function Dashboard({ onQuickMovement }) {
 
   // Prepare data for monthly evolution - CORREGIDO
   const monthlyData = Object.entries(
-    filteredMovimientos.reduce((acc, mov) => {
+    yearFilteredMovimientos.reduce((acc, mov) => {
       const movDate = createSafeDate(mov.fecha); // Usar función segura
       
       // Crear clave de mes-año de forma más segura
@@ -489,7 +497,7 @@ export default function Dashboard({ onQuickMovement }) {
                   className="bg-red-100 p-3 rounded-full hover:bg-red-200 transition-colors cursor-pointer"
                 >
                   <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                   </svg>
                 </button>
               </div>

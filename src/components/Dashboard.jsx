@@ -26,16 +26,6 @@ const COLORS_EXCEDIDO = {
   'Otros': '#EF4444'
 };
 
-const PRESUPUESTOS = {
-  'Alimentacion': 750000,
-  'Transporte': 500000,
-  'Compras': 700000,
-  'Gastos fijos': 950000,
-  'Ahorro': 800000,
-  'Salidas': 300000,
-  'Otros': 200000
-};
-
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -78,6 +68,10 @@ export default function Dashboard({ onQuickMovement }) {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [presupuestos, setPresupuestos] = useState({});
+  const [showPresupuestosForm, setShowPresupuestosForm] = useState(false);
+  const [editingPresupuestos, setEditingPresupuestos] = useState({});
   const { user } = useAuth();
   const { userProfile } = useUser();
 
@@ -122,9 +116,99 @@ export default function Dashboard({ onQuickMovement }) {
     }
   };
 
+  const cargarPresupuestos = async () => {
+    if (!userProfile) return;
+
+    try {
+      const { data, error: categoriasError } = await supabase
+        .from('categorias')
+        .select('nombre, meta')
+        .or(`usuario_id.eq.${userProfile.id},usuario_id.is.null`)
+        .order('usuario_id', { ascending: false }); // Priorizar categorías del usuario
+
+      if (categoriasError) {
+        throw new Error(categoriasError.message);
+      }
+
+      // Convertir array a objeto, priorizando las categorías del usuario
+      const presupuestosObj = {};
+      (data || []).forEach(cat => {
+        // Solo sobrescribir si la categoría no existe (así priorizamos las del usuario)
+        if (!presupuestosObj[cat.nombre]) {
+          presupuestosObj[cat.nombre] = cat.meta || 0;
+        }
+      });
+
+      setPresupuestos(presupuestosObj);
+      // También usamos esto para inicializar editingPresupuestos si está vacío
+      if (Object.keys(editingPresupuestos).length === 0) {
+        setEditingPresupuestos(presupuestosObj);
+      }
+    } catch (err) {
+      console.error("Error al cargar presupuestos:", err);
+      setError(`Error: ${err.message}`);
+    }
+  };
+
+  const guardarPresupuestos = async () => {
+    if (!userProfile) return;
+
+    try {
+      setLoading(true);
+      
+      // Actualizamos cada categoría
+      for (const [categoria, meta] of Object.entries(editingPresupuestos)) {
+        const { data: existingData, error: checkError } = await supabase
+          .from('categorias')
+          .select('id')
+          .eq('nombre', categoria)
+          .eq('usuario_id', userProfile.id)
+          .maybeSingle();
+
+        if (checkError) {
+          throw new Error(checkError.message);
+        }
+
+        if (existingData) {
+          // Actualizar categoría existente
+          const { error: updateError } = await supabase
+            .from('categorias')
+            .update({ meta: Number(meta) })
+            .eq('id', existingData.id);
+
+          if (updateError) {
+            throw new Error(updateError.message);
+          }
+        } else {
+          // Crear nueva categoría para el usuario
+          const { error: insertError } = await supabase
+            .from('categorias')
+            .insert({
+              nombre: categoria,
+              meta: Number(meta),
+              usuario_id: userProfile.id
+            });
+
+          if (insertError) {
+            throw new Error(insertError.message);
+          }
+        }
+      }
+
+      setPresupuestos(editingPresupuestos);
+      setShowPresupuestosForm(false);
+    } catch (err) {
+      console.error("Error al guardar presupuestos:", err);
+      setError(`Error: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (userProfile) {
       cargarMovimientos();
+      cargarPresupuestos();
     }
 
     // Suscribirse a cambios en tiempo real
@@ -327,8 +411,20 @@ export default function Dashboard({ onQuickMovement }) {
           {categoryFilter === 'all' ? 'Dashboard Financiero' : `Análisis de ${categoryFilter}`}
         </h2>
         
-        {/* Filtros con diseño moderno y responsivo */}
         <div className="flex flex-col md:flex-row gap-2 md:gap-4">
+          <button
+            onClick={() => {
+              setEditingPresupuestos({...presupuestos});
+              setShowPresupuestosForm(true);
+            }}
+            className="px-4 py-2 rounded-lg text-white bg-purple-500 hover:bg-purple-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Editar Presupuestos
+          </button>
+
           <select 
             value={yearFilter} 
             onChange={(e) => setYearFilter(parseInt(e.target.value))}
@@ -570,9 +666,9 @@ export default function Dashboard({ onQuickMovement }) {
                   <BarChart 
                     data={categoryData.map(item => ({
                       ...item,
-                      presupuesto: PRESUPUESTOS[item.name] || 0,
-                      valorHastaMeta: Math.min(item.value, PRESUPUESTOS[item.name] || 0),
-                      valorExcedente: Math.max(0, item.value - (PRESUPUESTOS[item.name] || 0))
+                      presupuesto: item.meta || presupuestos[item.name] || 0,
+                      valorHastaMeta: Math.min(item.value, item.meta || presupuestos[item.name] || 0),
+                      valorExcedente: Math.max(0, item.value - (item.meta || presupuestos[item.name] || 0))
                     }))} 
                     layout="vertical"
                     margin={{ top: 5, right: 80, left: 60, bottom: 5 }}
@@ -730,6 +826,47 @@ export default function Dashboard({ onQuickMovement }) {
         </div>
       )}
       </div>
+
+      {/* Modal de Presupuestos */}
+      {showPresupuestosForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Editar Presupuestos</h3>
+            <div className="space-y-4">
+              {TIPOS_MOVIMIENTO.filter(tipo => tipo !== 'Ingresos').map((categoria) => (
+                <div key={categoria} className="flex items-center gap-4">
+                  <label className="flex-1 text-sm font-medium text-gray-700">{categoria}</label>
+                  <input
+                    type="number"
+                    value={editingPresupuestos[categoria] || ''}
+                    onChange={(e) => setEditingPresupuestos(prev => ({
+                      ...prev,
+                      [categoria]: e.target.value
+                    }))}
+                    className="w-32 px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowPresupuestosForm(false)}
+                className="px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={guardarPresupuestos}
+                className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                disabled={loading}
+              >
+                {loading ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

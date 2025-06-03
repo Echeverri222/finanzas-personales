@@ -161,49 +161,30 @@ export default function Dashboard({ onQuickMovement }) {
       setLoading(true);
       setError(null);
       
-      // Primero obtenemos todas las categorías existentes del usuario
-      const { data: existingCategories, error: fetchError } = await supabase
+      // Preparar los datos para inserción en formato de array
+      const categoriasParaGuardar = Object.entries(editingPresupuestos).map(([nombre, meta]) => ({
+        nombre: nombre,
+        meta: Number(meta),
+        usuario_id: userProfile.id
+      }));
+
+      // Primero eliminar las categorías existentes del usuario
+      const { error: deleteError } = await supabase
         .from('categorias')
-        .select('id, nombre')
+        .delete()
         .eq('usuario_id', userProfile.id);
 
-      if (fetchError) {
-        throw new Error(`Error al obtener categorías: ${fetchError.message}`);
+      if (deleteError) {
+        throw new Error(`Error al eliminar categorías existentes: ${deleteError.message}`);
       }
 
-      // Crear un mapa de las categorías existentes
-      const existingCategoriesMap = new Map(
-        existingCategories.map(cat => [cat.nombre, cat.id])
-      );
+      // Insertar todas las nuevas categorías
+      const { error: insertError } = await supabase
+        .from('categorias')
+        .insert(categoriasParaGuardar);
 
-      // Procesar cada presupuesto
-      for (const [categoria, meta] of Object.entries(editingPresupuestos)) {
-        const categoriaId = existingCategoriesMap.get(categoria);
-        
-        if (categoriaId) {
-          // Actualizar categoría existente
-          const { error: updateError } = await supabase
-            .from('categorias')
-            .update({ meta: Number(meta) })
-            .eq('id', categoriaId);
-
-          if (updateError) {
-            throw new Error(`Error al actualizar categoría: ${updateError.message}`);
-          }
-        } else {
-          // Insertar nueva categoría
-          const { error: insertError } = await supabase
-            .from('categorias')
-            .insert([{
-              nombre: categoria,
-              meta: Number(meta),
-              usuario_id: userProfile.id
-            }]);
-
-          if (insertError) {
-            throw new Error(`Error al crear categoría: ${insertError.message}`);
-          }
-        }
+      if (insertError) {
+        throw new Error(`Error al crear categorías: ${insertError.message}`);
       }
 
       setPresupuestos(editingPresupuestos);

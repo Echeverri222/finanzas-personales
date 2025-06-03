@@ -142,11 +142,36 @@ export default function Dashboard({ onQuickMovement }) {
         throw new Error(categoriasError.message);
       }
 
-      // Si el usuario no tiene categorías, usar las predeterminadas
+      // Si el usuario no tiene categorías, crear las predeterminadas
       if (!categoriasUsuario || categoriasUsuario.length === 0) {
+        const categoriasParaInsertar = CATEGORIAS_DEFAULT.map(cat => ({
+          id: cat.id,
+          nombre: cat.nombre,
+          meta: cat.meta,
+          usuario_id: userProfile.id
+        }));
+
+        const { error: insertError } = await supabase
+          .from('categorias')
+          .insert(categoriasParaInsertar);
+
+        if (insertError) {
+          throw new Error(`Error al crear categorías predeterminadas: ${insertError.message}`);
+        }
+
+        // Recargar las categorías después de insertarlas
+        const { data: newCategorias, error: reloadError } = await supabase
+          .from('categorias')
+          .select('id, nombre, meta')
+          .eq('usuario_id', userProfile.id);
+
+        if (reloadError) {
+          throw new Error(reloadError.message);
+        }
+
         const presupuestosObj = {};
-        CATEGORIAS_DEFAULT.forEach(cat => {
-          presupuestosObj[cat.nombre] = cat.meta;
+        newCategorias.forEach(cat => {
+          presupuestosObj[cat.nombre] = cat.meta || 0;
         });
         setPresupuestos(presupuestosObj);
         setEditingPresupuestos(presupuestosObj);
@@ -272,14 +297,14 @@ export default function Dashboard({ onQuickMovement }) {
   // Prepare data for category pie chart and bar chart
   const categoryData = Object.entries(
     filteredMovimientos
-      .filter(mov => mov.categoria?.nombre !== 'Ingresos')
+      .filter(mov => mov.categoria?.nombre !== 'Ingresos' && mov.categoria?.nombre)
       .reduce((acc, mov) => {
-        const categoria = mov.categoria?.nombre || 'Sin categoría';
+        const categoria = mov.categoria?.nombre;
         if (!acc[categoria]) {
           acc[categoria] = {
             name: categoria,
             value: 0,
-            meta: mov.categoria?.meta || 0
+            meta: mov.categoria?.meta || presupuestos[categoria] || 0
           };
         }
         acc[categoria].value += mov.importe;

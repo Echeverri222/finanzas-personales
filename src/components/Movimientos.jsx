@@ -559,11 +559,11 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          mov.categoria_id === 'Ingresos' 
+                          mov.categoria?.nombre === 'Ingresos' 
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {mov.categoria_id}
+                          {mov.categoria?.nombre || 'Sin categoría'}
                         </span>
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-500">

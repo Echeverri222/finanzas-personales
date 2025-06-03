@@ -78,6 +78,7 @@ export default function Dashboard({ onQuickMovement }) {
 
   // Categorías predeterminadas
   const CATEGORIAS_DEFAULT = [
+    { id: 1, nombre: 'Ingresos', meta: 0 },
     { id: 2, nombre: 'Alimentacion', meta: 750000 },
     { id: 3, nombre: 'Transporte', meta: 500000 },
     { id: 4, nombre: 'Compras', meta: 700000 },

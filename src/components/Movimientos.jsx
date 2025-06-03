@@ -98,7 +98,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
   }, [userProfile]);
 
   const handleChange = (e) => {
-    setFormData({...formData, [e.target.name]: e.target.value});
+    const value = e.target.name === 'categoria_id' ? Number(e.target.value) : e.target.value;
+    setFormData({...formData, [e.target.name]: value});
   };
 
   const validateForm = () => {
@@ -117,8 +118,10 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       setError(null);
 
       // Validar los datos antes de procesar
-      if (!formData.fecha || !formData.nombre || !formData.importe || !formData.categoria_id) {
-        throw new Error("Todos los campos son requeridos");
+      const validationError = validateForm();
+      if (validationError) {
+        setError(validationError);
+        return;
       }
 
       const [year, month, day] = formData.fecha.split('-').map(Number);
@@ -137,7 +140,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
         response = await supabase
           .from('movimientos')
           .update(movimientoData)
-          .match({ id: editingId, usuario_id: userProfile.id });
+          .eq('id', editingId)
+          .eq('usuario_id', userProfile.id);
       } else {
         response = await supabase
           .from('movimientos')
@@ -157,6 +161,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       });
       setEditingId(null);
       setShowForm(false);
+      if (onFormClose) onFormClose();
       await cargarMovimientos();
     } catch (err) {
       console.error("ERROR:", err);
@@ -552,7 +557,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm">
                         <span className={`font-medium ${
-                          mov.categoria_id === 'Ingresos' ? 'text-green-600' : 'text-red-600'
+                          mov.categoria?.nombre === 'Ingresos' ? 'text-green-600' : 'text-red-600'
                         }`}>
                           {formatCurrency(mov.importe)}
                         </span>

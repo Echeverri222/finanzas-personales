@@ -3,6 +3,7 @@ import Dashboard from './components/Dashboard';
 import Movimientos from './components/Movimientos';
 import Ahorros from './components/Ahorros';
 import Metas from './components/Metas';
+import Entrenamientos from './components/Entrenamientos';
 import Auth from './components/Auth';
 import { useAuth } from './context/AuthContext';
 
@@ -70,6 +71,14 @@ export default function App() {
         >
           Metas
         </button>
+        <button 
+          onClick={() => setView('entrenamientos')} 
+          className={`flex-1 min-w-[120px] px-3 md:px-4 py-2 rounded text-sm md:text-base ${
+            view === 'entrenamientos' ? 'bg-blue-500 text-white' : 'bg-gray-300'
+          }`}
+        >
+          Entrenamientos
+        </button>
       </div>
 
       <div className="w-full overflow-x-hidden">
@@ -77,6 +86,7 @@ export default function App() {
         {view === 'movimientos' && <Movimientos showForm={showNewMovement} defaultType={defaultMovementType} onFormClose={() => setShowNewMovement(false)} />}
         {view === 'ahorros' && <Ahorros />}
         {view === 'metas' && <Metas />}
+        {view === 'entrenamientos' && <Entrenamientos />}
       </div>
     </div>
   );

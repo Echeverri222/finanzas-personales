@@ -156,12 +156,14 @@ export default function Dashboard({ onQuickMovement }) {
 
     try {
       setLoading(true);
+      setError(null);
       
       // Actualizamos cada categoría
       for (const [categoria, meta] of Object.entries(editingPresupuestos)) {
+        // Primero buscamos si existe una categoría personalizada del usuario
         const { data: existingData, error: checkError } = await supabase
           .from('categorias')
-          .select('id')
+          .select('id, usuario_id')
           .eq('nombre', categoria)
           .eq('usuario_id', userProfile.id)
           .maybeSingle();
@@ -171,7 +173,7 @@ export default function Dashboard({ onQuickMovement }) {
         }
 
         if (existingData) {
-          // Actualizar categoría existente
+          // Actualizar categoría existente del usuario
           const { error: updateError } = await supabase
             .from('categorias')
             .update({ meta: Number(meta) })
@@ -181,7 +183,19 @@ export default function Dashboard({ onQuickMovement }) {
             throw new Error(updateError.message);
           }
         } else {
-          // Crear nueva categoría para el usuario
+          // Buscar si existe una categoría global
+          const { data: globalCategory, error: globalCheckError } = await supabase
+            .from('categorias')
+            .select('id')
+            .eq('nombre', categoria)
+            .is('usuario_id', null)
+            .maybeSingle();
+
+          if (globalCheckError) {
+            throw new Error(globalCheckError.message);
+          }
+
+          // Crear nueva categoría personalizada para el usuario
           const { error: insertError } = await supabase
             .from('categorias')
             .insert({
@@ -198,6 +212,9 @@ export default function Dashboard({ onQuickMovement }) {
 
       setPresupuestos(editingPresupuestos);
       setShowPresupuestosForm(false);
+      
+      // Recargar los presupuestos
+      await cargarPresupuestos();
     } catch (err) {
       console.error("Error al guardar presupuestos:", err);
       setError(`Error: ${err.message}`);

@@ -78,14 +78,14 @@ export default function Dashboard({ onQuickMovement }) {
 
   // Categorías predeterminadas
   const CATEGORIAS_DEFAULT = [
-    { id: 1, nombre: 'Ingresos', meta: 0 },
-    { id: 2, nombre: 'Alimentacion', meta: 750000 },
-    { id: 3, nombre: 'Transporte', meta: 500000 },
-    { id: 4, nombre: 'Compras', meta: 700000 },
-    { id: 5, nombre: 'Gastos fijos', meta: 950000 },
-    { id: 6, nombre: 'Ahorro', meta: 800000 },
-    { id: 7, nombre: 'Salidas', meta: 300000 },
-    { id: 8, nombre: 'Otros', meta: 200000 }
+    { nombre: 'Ingresos', meta: 0 },
+    { nombre: 'Alimentacion', meta: 750000 },
+    { nombre: 'Transporte', meta: 500000 },
+    { nombre: 'Compras', meta: 700000 },
+    { nombre: 'Gastos fijos', meta: 950000 },
+    { nombre: 'Ahorro', meta: 800000 },
+    { nombre: 'Salidas', meta: 300000 },
+    { nombre: 'Otros', meta: 200000 }
   ];
 
   const cargarMovimientos = async () => {
@@ -97,14 +97,7 @@ export default function Dashboard({ onQuickMovement }) {
       
       const { data: movimientosData, error: movimientosError } = await supabase
         .from('movimientos')
-        .select(`
-          *,
-          categoria:categorias(
-            id,
-            nombre,
-            meta
-          )
-        `)
+        .select('*')
         .eq('usuario_id', userProfile.id)
         .order('fecha', { ascending: false });
 
@@ -116,8 +109,7 @@ export default function Dashboard({ onQuickMovement }) {
       const processedData = (movimientosData || []).map(mov => ({
         ...mov,
         fecha: createSafeDate(mov.fecha),
-        importe: Number(mov.importe),
-        tipo_movimiento: mov.categoria?.nombre || mov.tipo_movimiento // Mantener compatibilidad
+        importe: Number(mov.importe)
       }));
 
       setMovimientos(processedData);
@@ -288,24 +280,24 @@ export default function Dashboard({ onQuickMovement }) {
 
   // Calculate totals
   const totalIngresos = filteredMovimientos
-    .filter(mov => mov.categoria?.nombre === 'Ingresos')
+    .filter(mov => mov.tipo_movimiento === 'Ingresos')
     .reduce((sum, mov) => sum + Number(mov.importe), 0);
 
   const totalGastos = filteredMovimientos
-    .filter(mov => mov.categoria?.nombre !== 'Ingresos')
+    .filter(mov => mov.tipo_movimiento !== 'Ingresos')
     .reduce((sum, mov) => sum + Number(mov.importe), 0);
 
   // Prepare data for category pie chart and bar chart
   const categoryData = Object.entries(
     filteredMovimientos
-      .filter(mov => mov.categoria?.nombre !== 'Ingresos' && mov.categoria?.nombre)
+      .filter(mov => mov.tipo_movimiento !== 'Ingresos')
       .reduce((acc, mov) => {
-        const categoria = mov.categoria?.nombre;
+        const categoria = mov.tipo_movimiento;
         if (!acc[categoria]) {
           acc[categoria] = {
             name: categoria,
             value: 0,
-            meta: mov.categoria?.meta || presupuestos[categoria] || 0
+            meta: presupuestos[categoria] || 0
           };
         }
         acc[categoria].value += mov.importe;
@@ -334,12 +326,12 @@ export default function Dashboard({ onQuickMovement }) {
       }
       
       if (categoryFilter === 'all') {
-        if (mov.categoria?.nombre === 'Ingresos') {
+        if (mov.tipo_movimiento === 'Ingresos') {
           acc[monthYear].ingresos = (acc[monthYear].ingresos || 0) + Number(mov.importe);
         } else {
           acc[monthYear].gastos = (acc[monthYear].gastos || 0) + Number(mov.importe);
         }
-      } else if (mov.categoria?.nombre === categoryFilter) {
+      } else if (mov.tipo_movimiento === categoryFilter) {
         acc[monthYear].categoria = (acc[monthYear].categoria || 0) + Number(mov.importe);
       }
       
@@ -353,7 +345,7 @@ export default function Dashboard({ onQuickMovement }) {
   const years = [...new Set(movimientos.map(mov => createSafeDate(mov.fecha).getFullYear()))]
     .sort((a, b) => b - a);
   
-  const categories = [...new Set(movimientos.map(mov => mov.categoria?.nombre).filter(Boolean))];
+  const categories = [...new Set(movimientos.map(mov => mov.tipo_movimiento).filter(Boolean))];
   
   const months = [
     { value: 'all', label: 'Todos' },
@@ -398,10 +390,10 @@ export default function Dashboard({ onQuickMovement }) {
 
     return {
       ingresos: previousMonthMovimientos
-        .filter(mov => mov.categoria?.nombre === 'Ingresos')
+        .filter(mov => mov.tipo_movimiento === 'Ingresos')
         .reduce((sum, mov) => sum + Number(mov.importe), 0),
       gastos: previousMonthMovimientos
-        .filter(mov => mov.categoria?.nombre !== 'Ingresos')
+        .filter(mov => mov.tipo_movimiento !== 'Ingresos')
         .reduce((sum, mov) => sum + Number(mov.importe), 0)
     };
   };
@@ -411,7 +403,7 @@ export default function Dashboard({ onQuickMovement }) {
   const getCategoryStats = () => {
     if (categoryFilter === 'all') return null;
 
-    const categoryMovimientos = movimientos.filter(mov => mov.categoria?.nombre === categoryFilter);
+    const categoryMovimientos = movimientos.filter(mov => mov.tipo_movimiento === categoryFilter);
     const total = categoryMovimientos.reduce((sum, mov) => sum + mov.importe, 0);
     const promedio = total / (categoryMovimientos.length || 1);
     const maximo = Math.max(...categoryMovimientos.map(mov => mov.importe), 0);

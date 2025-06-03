@@ -24,17 +24,8 @@ export default function Ahorros() {
       
       const { data, error: supabaseError } = await supabase
         .from('movimientos')
-        .select(`
-          id,
-          fecha,
-          nombre,
-          importe,
-          categoria:categorias(
-            id,
-            nombre
-          )
-        `)
-        .eq('categoria.nombre', 'Ahorro')
+        .select('*')
+        .eq('tipo_movimiento', 'Ahorro')
         .eq('usuario_id', userProfile.id)
         .order('fecha', { ascending: true });
 
@@ -92,29 +83,13 @@ export default function Ahorros() {
       const [year, month, day] = nuevo.fecha.split('-').map(Number);
       const fecha = new Date(Date.UTC(year, month - 1, day));
 
-      // Primero obtener el ID de la categoría Ahorro
-      const { data: categoriaData, error: categoriaError } = await supabase
-        .from('categorias')
-        .select('id')
-        .eq('nombre', 'Ahorro')
-        .eq('usuario_id', userProfile.id)
-        .single();
-
-      if (categoriaError) {
-        throw new Error(categoriaError.message);
-      }
-
-      if (!categoriaData) {
-        throw new Error('No se encontró la categoría Ahorro');
-      }
-
       const { error: supabaseError } = await supabase
         .from('movimientos')
         .insert([{
           fecha: fecha.toISOString(),
           nombre: nuevo.descripcion,
           importe: Number(nuevo.monto),
-          categoria_id: categoriaData.id,
+          tipo_movimiento: 'Ahorro',
           usuario_id: userProfile.id
         }]);
 

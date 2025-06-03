@@ -124,23 +124,20 @@ export default function Dashboard({ onQuickMovement }) {
       const { data, error: categoriasError } = await supabase
         .from('categorias')
         .select('nombre, meta')
-        .or(`usuario_id.eq.${userProfile.id},and(usuario_id.is.null,not.exists(${
-          supabase
-            .from('categorias')
-            .select('id')
-            .eq('usuario_id', userProfile.id)
-            .filter('nombre', 'eq', 'categorias.nombre')
-            .query()
-        }))`);
+        .or(`usuario_id.eq.${userProfile.id},usuario_id.is.null`)
+        .order('usuario_id', { ascending: false }); // Priorizar categorías del usuario
 
       if (categoriasError) {
         throw new Error(categoriasError.message);
       }
 
-      // Convertir array a objeto
+      // Convertir array a objeto, priorizando las categorías del usuario
       const presupuestosObj = {};
       (data || []).forEach(cat => {
-        presupuestosObj[cat.nombre] = cat.meta || 0;
+        // Solo sobrescribir si la categoría no existe (así priorizamos las del usuario)
+        if (!presupuestosObj[cat.nombre]) {
+          presupuestosObj[cat.nombre] = cat.meta || 0;
+        }
       });
 
       setPresupuestos(presupuestosObj);
@@ -164,40 +161,20 @@ export default function Dashboard({ onQuickMovement }) {
       setLoading(true);
       setError(null);
       
-      // Obtener las categorías existentes
-      const { data: existingCategories, error: fetchError } = await supabase
+      // Preparar los datos para inserción en formato de array
+      const categoriasParaGuardar = Object.entries(editingPresupuestos).map(([nombre, meta]) => ({
+        nombre: nombre,
+        meta: Number(meta),
+        usuario_id: userProfile.id
+      }));
+
+      // Insertar los presupuestos
+      const { error: insertError } = await supabase
         .from('categorias')
-        .select('id, nombre')
-        .is('usuario_id', null);  // Solo obtener las categorías predeterminadas
+        .upsert(categoriasParaGuardar);
 
-      if (fetchError) {
-        throw new Error(`Error al obtener categorías: ${fetchError.message}`);
-      }
-
-      // Crear un mapa de las categorías existentes
-      const existingCategoriesMap = new Map(
-        existingCategories.map(cat => [cat.nombre, cat.id])
-      );
-
-      // Actualizar cada categoría
-      for (const [categoria, meta] of Object.entries(editingPresupuestos)) {
-        const categoriaId = existingCategoriesMap.get(categoria);
-        
-        if (categoriaId) {
-          // Crear una copia personalizada de la categoría para el usuario
-          const { error: upsertError } = await supabase
-            .from('categorias')
-            .upsert({
-              nombre: categoria,
-              meta: Number(meta),
-              usuario_id: userProfile.id,
-              categoria_base_id: categoriaId
-            });
-
-          if (upsertError) {
-            throw new Error(`Error al actualizar categoría: ${upsertError.message}`);
-          }
-        }
+      if (insertError) {
+        throw new Error(`Error al guardar presupuestos: ${insertError.message}`);
       }
 
       setPresupuestos(editingPresupuestos);

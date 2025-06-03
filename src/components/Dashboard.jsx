@@ -152,7 +152,10 @@ export default function Dashboard({ onQuickMovement }) {
   };
 
   const guardarPresupuestos = async () => {
-    if (!userProfile) return;
+    if (!userProfile) {
+      setError("No hay usuario autenticado");
+      return;
+    }
 
     try {
       setLoading(true);
@@ -160,56 +163,58 @@ export default function Dashboard({ onQuickMovement }) {
       
       // Actualizamos cada categoría
       for (const [categoria, meta] of Object.entries(editingPresupuestos)) {
+        console.log(`Procesando categoría: ${categoria} con meta: ${meta}`);
+
         // Primero buscamos si existe una categoría personalizada del usuario
         const { data: existingData, error: checkError } = await supabase
           .from('categorias')
           .select('id, usuario_id')
           .eq('nombre', categoria)
           .eq('usuario_id', userProfile.id)
-          .maybeSingle();
+          .single();
 
-        if (checkError) {
-          throw new Error(checkError.message);
+        if (checkError && checkError.code !== 'PGRST116') { // Ignorar error "no se encontraron registros"
+          console.error("Error al buscar categoría existente:", checkError);
+          throw new Error(`Error al buscar categoría: ${checkError.message}`);
         }
 
-        if (existingData) {
+        if (existingData?.id) {
+          console.log(`Actualizando categoría existente: ${existingData.id}`);
           // Actualizar categoría existente del usuario
           const { error: updateError } = await supabase
             .from('categorias')
-            .update({ meta: Number(meta) })
-            .eq('id', existingData.id);
+            .update({ 
+              meta: Number(meta),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingData.id)
+            .eq('usuario_id', userProfile.id);
 
           if (updateError) {
-            throw new Error(updateError.message);
+            console.error("Error al actualizar categoría:", updateError);
+            throw new Error(`Error al actualizar categoría: ${updateError.message}`);
           }
         } else {
-          // Buscar si existe una categoría global
-          const { data: globalCategory, error: globalCheckError } = await supabase
-            .from('categorias')
-            .select('id')
-            .eq('nombre', categoria)
-            .is('usuario_id', null)
-            .maybeSingle();
-
-          if (globalCheckError) {
-            throw new Error(globalCheckError.message);
-          }
-
+          console.log(`Creando nueva categoría para: ${categoria}`);
           // Crear nueva categoría personalizada para el usuario
           const { error: insertError } = await supabase
             .from('categorias')
             .insert({
               nombre: categoria,
               meta: Number(meta),
-              usuario_id: userProfile.id
+              usuario_id: userProfile.id,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
             });
 
           if (insertError) {
-            throw new Error(insertError.message);
+            console.error("Error al insertar categoría:", insertError);
+            throw new Error(`Error al crear categoría: ${insertError.message}`);
           }
         }
       }
 
+      console.log("Todas las categorías fueron procesadas exitosamente");
       setPresupuestos(editingPresupuestos);
       setShowPresupuestosForm(false);
       

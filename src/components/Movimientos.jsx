@@ -5,6 +5,7 @@ import { useUser } from '../context/UserContext';
 
 export default function Movimientos({ showForm: initialShowForm = false, defaultType = '', onFormClose }) {
   const [movimientos, setMovimientos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [showForm, setShowForm] = useState(initialShowForm);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState(null);
@@ -22,8 +23,27 @@ export default function Movimientos({ showForm: initialShowForm = false, default
     fecha: today,
     nombre: '',
     importe: '',
-    tipo_movimiento: defaultType === 'Ingresos' ? 'Ingresos' : ''
+    categoria_id: '',
+    usuario_id: userProfile?.id
   });
+
+  // Cargar categorías
+  const cargarCategorias = async () => {
+    if (!userProfile) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('categorias')
+        .select('*')
+        .eq('usuario_id', userProfile.id);
+
+      if (error) throw error;
+      setCategorias(data || []);
+    } catch (err) {
+      console.error("Error al cargar categorías:", err);
+      setError(`Error: ${err.message}`);
+    }
+  };
 
   // Update form visibility and data when props change
   useEffect(() => {
@@ -32,7 +52,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       setFormData(prev => ({
         ...prev,
         fecha: today,
-        tipo_movimiento: defaultType === 'Ingresos' ? 'Ingresos' : ''
+        categoria_id: defaultType === 'Ingresos' ? 1 : ''
       }));
     }
   }, [initialShowForm, defaultType, today]);
@@ -46,7 +66,14 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       
       const { data, error: supabaseError } = await supabase
         .from('movimientos')
-        .select('*')
+        .select(`
+          *,
+          categoria:categorias(
+            id,
+            nombre,
+            meta
+          )
+        `)
         .eq('usuario_id', userProfile.id)
         .order('fecha', { ascending: false });
 
@@ -65,7 +92,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
 
   useEffect(() => {
     if (userProfile) {
-    cargarMovimientos();
+      cargarMovimientos();
+      cargarCategorias();
     }
   }, [userProfile]);
 
@@ -77,7 +105,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
     if (!formData.fecha) return "La fecha es requerida";
     if (!formData.nombre) return "El nombre es requerido";
     if (!formData.importe) return "El importe es requerido";
-    if (!formData.tipo_movimiento) return "El tipo de movimiento es requerido";
+    if (!formData.categoria_id) return "La categoría es requerida";
     return null;
   };
 
@@ -89,7 +117,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       setError(null);
 
       // Validar los datos antes de procesar
-      if (!formData.fecha || !formData.nombre || !formData.importe || !formData.tipo_movimiento) {
+      if (!formData.fecha || !formData.nombre || !formData.importe || !formData.categoria_id) {
         throw new Error("Todos los campos son requeridos");
       }
 
@@ -100,7 +128,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
         fecha: fecha.toISOString(),
         nombre: formData.nombre.trim(),
         importe: Number(formData.importe),
-        tipo_movimiento: formData.tipo_movimiento
+        categoria_id: Number(formData.categoria_id),
+        usuario_id: userProfile.id
       };
 
       let response;
@@ -112,17 +141,20 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       } else {
         response = await supabase
           .from('movimientos')
-          .insert([{
-            ...movimientoData,
-            usuario_id: userProfile.id
-          }]);
+          .insert([movimientoData]);
       }
 
       if (response.error) {
         throw new Error(response.error.message);
       }
 
-      setFormData({ fecha: today, nombre: '', importe: '', tipo_movimiento: '' });
+      setFormData({ 
+        fecha: today, 
+        nombre: '', 
+        importe: '', 
+        categoria_id: '',
+        usuario_id: userProfile.id 
+      });
       setEditingId(null);
       setShowForm(false);
       await cargarMovimientos();
@@ -150,7 +182,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       fecha: today,
       nombre: '',
       importe: '',
-      tipo_movimiento: ''
+      categoria_id: '',
+      usuario_id: userProfile?.id
     });
     setEditingId(null);
     setShowForm(false);
@@ -167,7 +200,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       fecha: fecha,
       nombre: mov.nombre || '',
       importe: mov.importe ? mov.importe.toString() : '',
-      tipo_movimiento: mov.tipo_movimiento || ''
+      categoria_id: mov.categoria_id || '',
+      usuario_id: userProfile?.id
     });
     setEditingId(mov.id);
     setShowForm(true);
@@ -261,7 +295,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
           ? a.importe - b.importe
           : b.importe - a.importe;
       }
-      if (sortConfig.key === 'nombre' || sortConfig.key === 'tipo_movimiento') {
+      if (sortConfig.key === 'nombre' || sortConfig.key === 'categoria_id') {
         return sortConfig.direction === 'asc'
           ? a[sortConfig.key].localeCompare(b[sortConfig.key])
           : b[sortConfig.key].localeCompare(a[sortConfig.key]);
@@ -274,7 +308,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
   const filteredMovimientos = getSortedMovimientos(
     movimientos.filter(mov => {
       const matchesSearch = mov.nombre.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = typeFilter === 'all' || mov.tipo_movimiento === typeFilter;
+      const matchesType = typeFilter === 'all' || mov.categoria_id === typeFilter;
       const matchesDate = (!dateFilter.startDate || new Date(mov.fecha) >= new Date(dateFilter.startDate)) &&
                          (!dateFilter.endDate || new Date(mov.fecha) <= new Date(dateFilter.endDate));
       return matchesSearch && matchesType && matchesDate;
@@ -361,17 +395,17 @@ export default function Movimientos({ showForm: initialShowForm = false, default
               />
             </div>
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Tipo de Movimiento</label>
-          <select
-            name="tipo_movimiento"
-                value={formData.tipo_movimiento}
-            onChange={handleChange}
+              <label className="block text-sm font-medium text-gray-700">Categoría</label>
+              <select
+                name="categoria_id"
+                value={formData.categoria_id}
+                onChange={handleChange}
                 className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
-                <option value="">Seleccione tipo</option>
-                {TIPOS_MOVIMIENTO.map((tipo, index) => (
-                  <option key={index} value={tipo}>{tipo}</option>
+                <option value="">Seleccione categoría</option>
+                {categorias.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.nombre}</option>
                 ))}
               </select>
             </div>
@@ -493,10 +527,10 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                     Importe {getSortIcon('importe')}
                   </th>
                   <th 
-                    onClick={() => handleSort('tipo_movimiento')}
+                    onClick={() => handleSort('categoria_id')}
                     className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   >
-                    Tipo {getSortIcon('tipo_movimiento')}
+                    Categoría {getSortIcon('categoria_id')}
                   </th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
                     Última Modificación
@@ -518,20 +552,18 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm">
                         <span className={`font-medium ${
-                          mov.tipo_movimiento === 'Ingresos' ? 'text-green-600' : 'text-red-600'
+                          mov.categoria_id === 'Ingresos' ? 'text-green-600' : 'text-red-600'
                         }`}>
                           {formatCurrency(mov.importe)}
                         </span>
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          mov.tipo_movimiento === 'Ingresos' 
+                          mov.categoria_id === 'Ingresos' 
                             ? 'bg-green-100 text-green-800'
-                            : mov.tipo_movimiento === 'Gastos fijos'
-                            ? 'bg-yellow-100 text-yellow-800'
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {mov.tipo_movimiento}
+                          {mov.categoria_id}
                         </span>
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-500">
@@ -599,17 +631,17 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                                 />
                               </div>
                               <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-700">Tipo de Movimiento</label>
+                                <label className="block text-sm font-medium text-gray-700">Categoría</label>
                                 <select
-                                  name="tipo_movimiento"
-                                  value={formData.tipo_movimiento}
+                                  name="categoria_id"
+                                  value={formData.categoria_id}
                                   onChange={handleChange}
                                   className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                   required
                                 >
-                                  <option value="">Seleccione tipo</option>
-                                  {TIPOS_MOVIMIENTO.map((tipo, index) => (
-                                    <option key={index} value={tipo}>{tipo}</option>
+                                  <option value="">Seleccione categoría</option>
+                                  {categorias.map((cat) => (
+                                    <option key={cat.id} value={cat.id}>{cat.nombre}</option>
                                   ))}
                                 </select>
                               </div>
@@ -652,12 +684,12 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                             </div>
                           </div>
                         </td>
-              </tr>
+                      </tr>
                     )}
                   </React.Fragment>
-            ))}
-          </tbody>
-        </table>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

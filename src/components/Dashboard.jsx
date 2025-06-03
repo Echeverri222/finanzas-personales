@@ -76,6 +76,17 @@ export default function Dashboard({ onQuickMovement }) {
   const { user } = useAuth();
   const { userProfile } = useUser();
 
+  // Categorías predeterminadas
+  const CATEGORIAS_DEFAULT = [
+    { id: 2, nombre: 'Alimentacion', meta: 750000 },
+    { id: 3, nombre: 'Transporte', meta: 500000 },
+    { id: 4, nombre: 'Compras', meta: 700000 },
+    { id: 5, nombre: 'Gastos fijos', meta: 950000 },
+    { id: 6, nombre: 'Ahorro', meta: 800000 },
+    { id: 7, nombre: 'Salidas', meta: 300000 },
+    { id: 8, nombre: 'Otros', meta: 200000 }
+  ];
+
   const cargarMovimientos = async () => {
     if (!userProfile) return;
 
@@ -121,28 +132,31 @@ export default function Dashboard({ onQuickMovement }) {
     if (!userProfile) return;
 
     try {
-      const { data, error: categoriasError } = await supabase
+      // Obtener las categorías del usuario
+      const { data: categoriasUsuario, error: categoriasError } = await supabase
         .from('categorias')
-        .select('nombre, meta')
-        .or(`usuario_id.eq.${userProfile.id},usuario_id.is.null`)
-        .order('usuario_id', { ascending: false }); // Priorizar categorías del usuario
+        .select('id, nombre, meta')
+        .eq('usuario_id', userProfile.id);
 
       if (categoriasError) {
         throw new Error(categoriasError.message);
       }
 
-      // Convertir array a objeto, priorizando las categorías del usuario
-      const presupuestosObj = {};
-      (data || []).forEach(cat => {
-        // Solo sobrescribir si la categoría no existe (así priorizamos las del usuario)
-        if (!presupuestosObj[cat.nombre]) {
+      // Si el usuario no tiene categorías, usar las predeterminadas
+      if (!categoriasUsuario || categoriasUsuario.length === 0) {
+        const presupuestosObj = {};
+        CATEGORIAS_DEFAULT.forEach(cat => {
+          presupuestosObj[cat.nombre] = cat.meta;
+        });
+        setPresupuestos(presupuestosObj);
+        setEditingPresupuestos(presupuestosObj);
+      } else {
+        // Convertir array a objeto
+        const presupuestosObj = {};
+        categoriasUsuario.forEach(cat => {
           presupuestosObj[cat.nombre] = cat.meta || 0;
-        }
-      });
-
-      setPresupuestos(presupuestosObj);
-      // También usamos esto para inicializar editingPresupuestos si está vacío
-      if (Object.keys(editingPresupuestos).length === 0) {
+        });
+        setPresupuestos(presupuestosObj);
         setEditingPresupuestos(presupuestosObj);
       }
     } catch (err) {
@@ -160,21 +174,36 @@ export default function Dashboard({ onQuickMovement }) {
     try {
       setLoading(true);
       setError(null);
-      
-      // Preparar los datos para inserción en formato de array
-      const categoriasParaGuardar = Object.entries(editingPresupuestos).map(([nombre, meta]) => ({
-        nombre: nombre,
-        meta: Number(meta),
-        usuario_id: userProfile.id
-      }));
 
-      // Insertar los presupuestos
+      // Primero eliminar todas las categorías existentes del usuario
+      const { error: deleteError } = await supabase
+        .from('categorias')
+        .delete()
+        .eq('usuario_id', userProfile.id);
+
+      if (deleteError) {
+        throw new Error(`Error al eliminar categorías existentes: ${deleteError.message}`);
+      }
+
+      // Preparar las nuevas categorías para inserción
+      const categoriasParaInsertar = Object.entries(editingPresupuestos).map(([nombre, meta]) => {
+        // Encontrar el ID predeterminado para esta categoría
+        const categoriaDefault = CATEGORIAS_DEFAULT.find(cat => cat.nombre === nombre);
+        return {
+          id: categoriaDefault ? categoriaDefault.id : null, // Usar el ID predeterminado si existe
+          nombre: nombre,
+          meta: Number(meta),
+          usuario_id: userProfile.id
+        };
+      });
+
+      // Insertar las nuevas categorías
       const { error: insertError } = await supabase
         .from('categorias')
-        .upsert(categoriasParaGuardar);
+        .insert(categoriasParaInsertar);
 
       if (insertError) {
-        throw new Error(`Error al guardar presupuestos: ${insertError.message}`);
+        throw new Error(`Error al crear categorías: ${insertError.message}`);
       }
 
       setPresupuestos(editingPresupuestos);
@@ -233,19 +262,19 @@ export default function Dashboard({ onQuickMovement }) {
 
   // Calculate totals
   const totalIngresos = filteredMovimientos
-    .filter(mov => mov.tipo_movimiento === 'Ingresos')
+    .filter(mov => mov.categoria?.nombre === 'Ingresos')
     .reduce((sum, mov) => sum + Number(mov.importe), 0);
 
   const totalGastos = filteredMovimientos
-    .filter(mov => mov.tipo_movimiento !== 'Ingresos')
+    .filter(mov => mov.categoria?.nombre !== 'Ingresos')
     .reduce((sum, mov) => sum + Number(mov.importe), 0);
 
   // Prepare data for category pie chart and bar chart
   const categoryData = Object.entries(
     filteredMovimientos
-      .filter(mov => mov.tipo_movimiento !== 'Ingresos')
+      .filter(mov => mov.categoria?.nombre !== 'Ingresos')
       .reduce((acc, mov) => {
-        const categoria = mov.categoria?.nombre || mov.tipo_movimiento;
+        const categoria = mov.categoria?.nombre || 'Sin categoría';
         if (!acc[categoria]) {
           acc[categoria] = {
             name: categoria,
@@ -260,12 +289,11 @@ export default function Dashboard({ onQuickMovement }) {
     .map(([_, data]) => data)
     .sort((a, b) => b.value - a.value);
 
-  // Prepare data for monthly evolution - CORREGIDO
+  // Prepare data for monthly evolution
   const monthlyData = Object.entries(
     yearFilteredMovimientos.reduce((acc, mov) => {
-      const movDate = createSafeDate(mov.fecha); // Usar función segura
+      const movDate = createSafeDate(mov.fecha);
       
-      // Crear clave de mes-año de forma más segura
       const year = movDate.getFullYear();
       const month = movDate.getMonth();
       const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
@@ -275,17 +303,17 @@ export default function Dashboard({ onQuickMovement }) {
       if (!acc[monthYear]) {
         acc[monthYear] = { 
           month: monthYear,
-          timestamp: new Date(year, month, 1).getTime() // Timestamp del primer día del mes
+          timestamp: new Date(year, month, 1).getTime()
         };
       }
       
       if (categoryFilter === 'all') {
-        if (mov.tipo_movimiento === 'Ingresos') {
+        if (mov.categoria?.nombre === 'Ingresos') {
           acc[monthYear].ingresos = (acc[monthYear].ingresos || 0) + Number(mov.importe);
         } else {
           acc[monthYear].gastos = (acc[monthYear].gastos || 0) + Number(mov.importe);
         }
-      } else if (mov.tipo_movimiento === categoryFilter) {
+      } else if (mov.categoria?.nombre === categoryFilter) {
         acc[monthYear].categoria = (acc[monthYear].categoria || 0) + Number(mov.importe);
       }
       
@@ -293,13 +321,13 @@ export default function Dashboard({ onQuickMovement }) {
     }, {})
   )
     .map(([_, data]) => data)
-    .sort((a, b) => a.timestamp - b.timestamp); // Ordenar por timestamp
+    .sort((a, b) => a.timestamp - b.timestamp);
 
-  // Get unique years from actual data - CORREGIDO
+  // Get unique years from actual data
   const years = [...new Set(movimientos.map(mov => createSafeDate(mov.fecha).getFullYear()))]
     .sort((a, b) => b - a);
   
-  const categories = [...new Set(movimientos.map(mov => mov.tipo_movimiento))];
+  const categories = [...new Set(movimientos.map(mov => mov.categoria?.nombre).filter(Boolean))];
   
   const months = [
     { value: 'all', label: 'Todos' },
@@ -344,10 +372,10 @@ export default function Dashboard({ onQuickMovement }) {
 
     return {
       ingresos: previousMonthMovimientos
-        .filter(mov => mov.tipo_movimiento === 'Ingresos')
+        .filter(mov => mov.categoria?.nombre === 'Ingresos')
         .reduce((sum, mov) => sum + Number(mov.importe), 0),
       gastos: previousMonthMovimientos
-        .filter(mov => mov.tipo_movimiento !== 'Ingresos')
+        .filter(mov => mov.categoria?.nombre !== 'Ingresos')
         .reduce((sum, mov) => sum + Number(mov.importe), 0)
     };
   };
@@ -357,7 +385,7 @@ export default function Dashboard({ onQuickMovement }) {
   const getCategoryStats = () => {
     if (categoryFilter === 'all') return null;
 
-    const categoryMovimientos = movimientos.filter(mov => mov.tipo_movimiento === categoryFilter);
+    const categoryMovimientos = movimientos.filter(mov => mov.categoria?.nombre === categoryFilter);
     const total = categoryMovimientos.reduce((sum, mov) => sum + mov.importe, 0);
     const promedio = total / (categoryMovimientos.length || 1);
     const maximo = Math.max(...categoryMovimientos.map(mov => mov.importe), 0);
@@ -824,12 +852,12 @@ export default function Dashboard({ onQuickMovement }) {
           <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Editar Presupuestos</h3>
             <div className="space-y-4">
-              {TIPOS_MOVIMIENTO.filter(tipo => tipo !== 'Ingresos').map((categoria) => (
+              {Object.entries(editingPresupuestos).map(([categoria, meta]) => (
                 <div key={categoria} className="flex items-center gap-4">
                   <label className="flex-1 text-sm font-medium text-gray-700">{categoria}</label>
                   <input
                     type="number"
-                    value={editingPresupuestos[categoria] || ''}
+                    value={meta}
                     onChange={(e) => setEditingPresupuestos(prev => ({
                       ...prev,
                       [categoria]: e.target.value
@@ -837,8 +865,34 @@ export default function Dashboard({ onQuickMovement }) {
                     className="w-32 px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="0"
                   />
+                  <button
+                    onClick={() => {
+                      const newPresupuestos = { ...editingPresupuestos };
+                      delete newPresupuestos[categoria];
+                      setEditingPresupuestos(newPresupuestos);
+                    }}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                 </div>
               ))}
+              <button
+                onClick={() => {
+                  const newCategoria = prompt("Nombre de la nueva categoría:");
+                  if (newCategoria && !editingPresupuestos[newCategoria]) {
+                    setEditingPresupuestos(prev => ({
+                      ...prev,
+                      [newCategoria]: 0
+                    }));
+                  }
+                }}
+                className="w-full px-4 py-2 mt-4 rounded-lg text-blue-500 border border-blue-500 hover:bg-blue-50 transition-colors"
+              >
+                + Agregar Categoría
+              </button>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button

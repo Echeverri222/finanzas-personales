@@ -17,7 +17,7 @@ describe('App Component', () => {
   });
 
   test('switches view when clicking navigation buttons', () => {
-    render(<App />);
+  render(<App />);
     
     // Click on Movimientos
     fireEvent.click(screen.getByText('Movimientos'));

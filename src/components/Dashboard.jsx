@@ -161,68 +161,57 @@ export default function Dashboard({ onQuickMovement }) {
       setLoading(true);
       setError(null);
       
-      // Actualizamos cada categoría
+      // Primero obtenemos todas las categorías existentes del usuario
+      const { data: existingCategories, error: fetchError } = await supabase
+        .from('categorias')
+        .select('id, nombre')
+        .eq('usuario_id', userProfile.id);
+
+      if (fetchError) {
+        throw new Error(`Error al obtener categorías: ${fetchError.message}`);
+      }
+
+      // Crear un mapa de las categorías existentes
+      const existingCategoriesMap = new Map(
+        existingCategories.map(cat => [cat.nombre, cat.id])
+      );
+
+      // Procesar cada presupuesto
       for (const [categoria, meta] of Object.entries(editingPresupuestos)) {
-        console.log(`Procesando categoría: ${categoria} con meta: ${meta}`);
-
-        // Primero buscamos si existe una categoría personalizada del usuario
-        const { data: existingData, error: checkError } = await supabase
-          .from('categorias')
-          .select('id, usuario_id')
-          .eq('nombre', categoria)
-          .eq('usuario_id', userProfile.id)
-          .single();
-
-        if (checkError && checkError.code !== 'PGRST116') { // Ignorar error "no se encontraron registros"
-          console.error("Error al buscar categoría existente:", checkError);
-          throw new Error(`Error al buscar categoría: ${checkError.message}`);
-        }
-
-        if (existingData?.id) {
-          console.log(`Actualizando categoría existente: ${existingData.id}`);
-          // Actualizar categoría existente del usuario
+        const categoriaId = existingCategoriesMap.get(categoria);
+        
+        if (categoriaId) {
+          // Actualizar categoría existente
           const { error: updateError } = await supabase
             .from('categorias')
-            .update({ 
-              meta: Number(meta),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', existingData.id)
-            .eq('usuario_id', userProfile.id);
+            .update({ meta: Number(meta) })
+            .eq('id', categoriaId);
 
           if (updateError) {
-            console.error("Error al actualizar categoría:", updateError);
             throw new Error(`Error al actualizar categoría: ${updateError.message}`);
           }
         } else {
-          console.log(`Creando nueva categoría para: ${categoria}`);
-          // Crear nueva categoría personalizada para el usuario
+          // Insertar nueva categoría
           const { error: insertError } = await supabase
             .from('categorias')
-            .insert({
+            .insert([{
               nombre: categoria,
               meta: Number(meta),
-              usuario_id: userProfile.id,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
+              usuario_id: userProfile.id
+            }]);
 
           if (insertError) {
-            console.error("Error al insertar categoría:", insertError);
             throw new Error(`Error al crear categoría: ${insertError.message}`);
           }
         }
       }
 
-      console.log("Todas las categorías fueron procesadas exitosamente");
       setPresupuestos(editingPresupuestos);
       setShowPresupuestosForm(false);
-      
-      // Recargar los presupuestos
       await cargarPresupuestos();
     } catch (err) {
       console.error("Error al guardar presupuestos:", err);
-      setError(`Error: ${err.message}`);
+      setError(err.message);
     } finally {
       setLoading(false);
     }

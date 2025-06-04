@@ -5,8 +5,57 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Global, css } from '@emotion/react';
 
 const TIPOS_ENTRENAMIENTO = ['Recovery', 'Tempo', 'Intervals', 'Long Run', 'Gym'];
+
+const calendarStyles = {
+  '.fc': {
+    'font-family': 'Inter, sans-serif',
+    'background-color': '#ffffff',
+    'border-radius': '0.75rem',
+    'box-shadow': '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+    'padding': '1rem'
+  },
+  '.fc-toolbar-title': {
+    'font-size': '1.25rem !important',
+    'font-weight': '600',
+    'color': '#1f2937'
+  },
+  '.fc-button': {
+    'background-color': '#3b82f6 !important',
+    'border-color': '#3b82f6 !important',
+    'text-transform': 'capitalize',
+    'font-weight': '500',
+    'padding': '0.5rem 1rem',
+    'border-radius': '0.5rem'
+  },
+  '.fc-button-active': {
+    'background-color': '#2563eb !important',
+    'border-color': '#2563eb !important'
+  },
+  '.fc-day': {
+    'background-color': '#ffffff',
+    'border-color': '#e5e7eb !important'
+  },
+  '.fc-day-today': {
+    'background-color': '#f3f4f6 !important'
+  },
+  '.fc-event': {
+    'border-radius': '0.375rem',
+    'padding': '0.25rem 0.5rem',
+    'font-size': '0.875rem',
+    'border': 'none',
+    'cursor': 'pointer'
+  },
+  '.fc-event-main': {
+    'padding': '2px 4px'
+  },
+  '.fc-view': {
+    'border-radius': '0.75rem',
+    'overflow': 'hidden'
+  }
+};
 
 export default function Entrenamientos() {
   const [planes, setPlanes] = useState([]);
@@ -269,7 +318,10 @@ export default function Entrenamientos() {
     const sesion = sesiones.find(s => s.id === parseInt(eventInfo.event.id));
     if (sesion) {
       setSesionSeleccionada(sesion);
-      setFormDataSesion(sesion);
+      setFormDataSesion({
+        ...sesion,
+        completado: sesion.completado || false
+      });
       setShowSesionDetails(true);
     }
   };
@@ -359,6 +411,16 @@ export default function Entrenamientos() {
 
   return (
     <div className="p-2 md:p-6 space-y-4 md:space-y-6 bg-gray-50">
+      <Global
+        styles={css`
+          ${Object.entries(calendarStyles).map(([selector, styles]) => `
+            ${selector} {
+              ${Object.entries(styles).map(([prop, value]) => `${prop}: ${value};`).join('\n')}
+            }
+          `).join('\n')}
+        `}
+      />
+      
       {/* Navigation */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-xl md:text-2xl font-bold text-gray-800">Entrenamientos</h2>
@@ -399,19 +461,77 @@ export default function Entrenamientos() {
 
       {/* Calendar View */}
       {view === 'calendar' && (
-        <div className="bg-white p-4 rounded-xl shadow-md">
-          <FullCalendar
-            plugins={[dayGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            events={getCalendarEvents()}
-            eventClick={(eventInfo) => handleEventClick(eventInfo)}
-            height="auto"
-            headerToolbar={{
-              left: 'prev,next today',
-              center: 'title',
-              right: 'dayGridMonth,dayGridWeek'
-            }}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div className="md:col-span-8">
+            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <FullCalendar
+                plugins={[dayGridPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                events={getCalendarEvents()}
+                eventClick={handleEventClick}
+                height={600}
+                headerToolbar={{
+                  left: 'prev,next today',
+                  center: 'title',
+                  right: 'dayGridMonth,dayGridWeek'
+                }}
+                dayMaxEvents={3}
+                eventTimeFormat={{
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  meridiem: false
+                }}
+                eventDisplay="block"
+                eventClassNames="hover:opacity-90 transition-opacity"
+                slotMinTime="06:00:00"
+                slotMaxTime="22:00:00"
+                allDaySlot={false}
+                firstDay={1}
+                buttonText={{
+                  today: 'Hoy',
+                  month: 'Mes',
+                  week: 'Semana'
+                }}
+              />
+            </div>
+          </div>
+          <div className="md:col-span-4">
+            <div className="bg-white rounded-xl shadow-md p-4">
+              <h3 className="text-lg font-semibold mb-4">Próximas sesiones</h3>
+              <div className="space-y-3">
+                {sesiones
+                  .filter(s => new Date(s.fecha_programada) >= new Date())
+                  .sort((a, b) => new Date(a.fecha_programada) - new Date(b.fecha_programada))
+                  .slice(0, 5)
+                  .map(sesion => (
+                    <div 
+                      key={sesion.id}
+                      className="p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => handleEventClick({ event: { id: sesion.id.toString() } })}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          sesion.tipo === 'Recovery' ? 'bg-green-100 text-green-800' :
+                          sesion.tipo === 'Tempo' ? 'bg-yellow-100 text-yellow-800' :
+                          sesion.tipo === 'Intervals' ? 'bg-red-100 text-red-800' :
+                          sesion.tipo === 'Long Run' ? 'bg-blue-100 text-blue-800' :
+                          'bg-purple-100 text-purple-800'
+                        }`}>
+                          {sesion.tipo}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {formatDate(sesion.fecha_programada)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm font-medium">{sesion.titulo}</p>
+                      {sesion.distancia_km && (
+                        <p className="text-sm text-gray-600">{sesion.distancia_km}km</p>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -498,7 +618,7 @@ export default function Entrenamientos() {
 
       {/* Session Details Modal */}
       {showSesionDetails && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Detalles de la Sesión</h3>
@@ -524,7 +644,6 @@ export default function Entrenamientos() {
                   onChange={handleChangeSesion}
                   className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
                 >
-                  <option value="">Seleccione tipo</option>
                   {TIPOS_ENTRENAMIENTO.map(tipo => (
                     <option key={tipo} value={tipo}>{tipo}</option>
                   ))}
@@ -549,6 +668,17 @@ export default function Entrenamientos() {
                   name="distancia_km"
                   value={formDataSesion.distancia_km}
                   onChange={handleChangeSesion}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Descripción</label>
+                <textarea
+                  name="descripcion"
+                  value={formDataSesion.descripcion}
+                  onChange={handleChangeSesion}
+                  rows={3}
                   className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
                 />
               </div>

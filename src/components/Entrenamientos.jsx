@@ -45,6 +45,7 @@ export default function Entrenamientos() {
       setLoading(true);
       setError(null);
       
+      console.log('Cargando planes para usuario:', userProfile.id);
       const { data, error: supabaseError } = await supabase
         .from('training_plans')
         .select('*')
@@ -53,6 +54,7 @@ export default function Entrenamientos() {
 
       if (supabaseError) throw new Error(supabaseError.message);
       
+      console.log('Planes cargados:', data);
       setPlanes(data || []);
     } catch (err) {
       console.error("Error al cargar planes:", err);
@@ -88,6 +90,7 @@ export default function Entrenamientos() {
   };
 
   useEffect(() => {
+    console.log('userProfile:', userProfile);
     if (userProfile) {
       cargarPlanes();
     }

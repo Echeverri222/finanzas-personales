@@ -320,11 +320,23 @@ export default function Entrenamientos() {
   };
 
   const handleEventClick = (eventInfo) => {
-    const sesion = sesiones.find(s => s.id === parseInt(eventInfo.event.id));
+    console.log('Event clicked:', eventInfo);
+    const sesionId = parseInt(eventInfo.event.id);
+    console.log('Looking for session with ID:', sesionId);
+    const sesion = sesiones.find(s => s.id === sesionId);
+    console.log('Found session:', sesion);
+    
     if (sesion) {
       setSesionSeleccionada(sesion);
       setFormDataSesion({
         ...sesion,
+        tipo: sesion.tipo || '',
+        titulo: sesion.titulo || '',
+        descripcion: sesion.descripcion || '',
+        distancia_km: sesion.distancia_km || '',
+        ritmo_objetivo: sesion.ritmo_objetivo || '',
+        series: sesion.series || '',
+        descanso: sesion.descanso || '',
         completado: sesion.completado || false,
         fecha_programada: sesion.fecha_programada.split('T')[0],
         hora_programada: sesion.hora_programada || ''
@@ -340,14 +352,35 @@ export default function Entrenamientos() {
       setLoading(true);
       setError(null);
 
+      console.log('Updating session:', sesionSeleccionada.id);
+      console.log('Update data:', formDataSesion);
+
+      // Prepare the update data
+      const updateData = {
+        tipo: formDataSesion.tipo,
+        titulo: formDataSesion.titulo,
+        descripcion: formDataSesion.descripcion,
+        distancia_km: formDataSesion.distancia_km ? parseFloat(formDataSesion.distancia_km) : null,
+        fecha_programada: formDataSesion.fecha_programada,
+        hora_programada: formDataSesion.hora_programada,
+        completado: formDataSesion.completado,
+        ritmo_objetivo: formDataSesion.ritmo_objetivo,
+        series: formDataSesion.series,
+        descanso: formDataSesion.descanso
+      };
+
       const { error: supabaseError } = await supabase
         .from('training_sessions')
-        .update(formDataSesion)
+        .update(updateData)
         .eq('id', sesionSeleccionada.id)
         .eq('usuario_id', userProfile.id);
 
-      if (supabaseError) throw new Error(supabaseError.message);
+      if (supabaseError) {
+        console.error('Error updating session:', supabaseError);
+        throw new Error(supabaseError.message);
+      }
 
+      console.log('Session updated successfully');
       await cargarTodasLasSesiones();
       setShowSesionDetails(false);
       setSesionSeleccionada(null);
@@ -385,14 +418,16 @@ export default function Entrenamientos() {
   const getCalendarEvents = () => {
     return sesiones.map(sesion => ({
       id: sesion.id.toString(),
-      title: `${sesion.tipo}: ${sesion.titulo}`,
+      title: `${sesion.tipo}: ${sesion.titulo || ''}`,
       start: sesion.fecha_programada,
       backgroundColor: getEventColor(sesion.tipo),
       borderColor: getEventColor(sesion.tipo),
       textColor: 'white',
       extendedProps: {
         tipo: sesion.tipo,
-        completado: sesion.completado
+        completado: sesion.completado,
+        descripcion: sesion.descripcion,
+        distancia_km: sesion.distancia_km
       }
     }));
   };
@@ -490,6 +525,23 @@ export default function Entrenamientos() {
                 }}
                 eventDisplay="block"
                 eventClassNames="hover:opacity-90 transition-opacity cursor-pointer"
+                eventContent={(eventInfo) => {
+                  return (
+                    <div className="p-1">
+                      <div className="font-semibold">{eventInfo.event.title}</div>
+                      {eventInfo.event.extendedProps.distancia_km && (
+                        <div className="text-sm">{eventInfo.event.extendedProps.distancia_km}km</div>
+                      )}
+                      <div className={`text-xs mt-1 ${
+                        eventInfo.event.extendedProps.completado 
+                          ? 'text-green-200' 
+                          : 'text-yellow-200'
+                      }`}>
+                        {eventInfo.event.extendedProps.completado ? '✓ Completado' : '○ Pendiente'}
+                      </div>
+                    </div>
+                  );
+                }}
                 slotMinTime="06:00:00"
                 slotMaxTime="22:00:00"
                 allDaySlot={false}
@@ -759,8 +811,8 @@ export default function Entrenamientos() {
 
       {/* Session Details Modal */}
       {showSesionDetails && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onClick={() => setShowSesionDetails(false)}>
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Detalles de la Sesión</h3>
               <button 
@@ -785,6 +837,7 @@ export default function Entrenamientos() {
                   onChange={handleChangeSesion}
                   className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
                 >
+                  <option value="">Seleccione tipo</option>
                   {TIPOS_ENTRENAMIENTO.map(tipo => (
                     <option key={tipo} value={tipo}>{tipo}</option>
                   ))}
@@ -809,6 +862,7 @@ export default function Entrenamientos() {
                   value={formDataSesion.titulo}
                   onChange={handleChangeSesion}
                   className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                  placeholder="Título de la sesión"
                 />
               </div>
 
@@ -821,6 +875,7 @@ export default function Entrenamientos() {
                   value={formDataSesion.distancia_km}
                   onChange={handleChangeSesion}
                   className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                  placeholder="0.00"
                 />
               </div>
 
@@ -832,6 +887,7 @@ export default function Entrenamientos() {
                   onChange={handleChangeSesion}
                   rows={3}
                   className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                  placeholder="Detalles de la sesión"
                 />
               </div>
 
@@ -839,7 +895,7 @@ export default function Entrenamientos() {
                 <label className="block text-sm font-medium text-gray-700">Estado</label>
                 <select
                   name="completado"
-                  value={formDataSesion.completado}
+                  value={formDataSesion.completado.toString()}
                   onChange={(e) => setFormDataSesion({
                     ...formDataSesion,
                     completado: e.target.value === 'true'

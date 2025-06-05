@@ -161,7 +161,10 @@ export default function Entrenamientos() {
   };
 
   const cargarTodasLasSesiones = async () => {
-    if (!userProfile) return;
+    if (!userProfile) {
+      console.log('No userProfile available');
+      return;
+    }
     
     try {
       setLoading(true);
@@ -179,8 +182,23 @@ export default function Entrenamientos() {
         throw new Error(sesionesError.message);
       }
 
-      console.log('Sessions loaded:', sesionesData);
-      setSesiones(sesionesData || []);
+      // Process the dates to ensure they're in the correct format
+      const processedSessions = (sesionesData || []).map(session => {
+        // Ensure the date is in YYYY-MM-DD format
+        const fechaProgramada = session.fecha_programada ? 
+          new Date(session.fecha_programada).toISOString().split('T')[0] : 
+          new Date().toISOString().split('T')[0];
+
+        return {
+          ...session,
+          fecha_programada: fechaProgramada,
+          completado: Boolean(session.completado),
+          distancia_km: session.distancia_km ? parseFloat(session.distancia_km) : null
+        };
+      });
+
+      console.log('Processed sessions:', processedSessions);
+      setSesiones(processedSessions);
     } catch (err) {
       console.error("Error loading sessions:", err);
       setError(`Error: ${err.message}`);
@@ -190,14 +208,10 @@ export default function Entrenamientos() {
   };
 
   useEffect(() => {
-    console.log('Component mounted');
-    console.log('userProfile:', userProfile);
     if (userProfile) {
-      console.log('Calling cargarPlanes with userProfile:', userProfile.id);
+      console.log('Component mounted, loading data...');
       cargarPlanes();
       cargarTodasLasSesiones();
-    } else {
-      console.log('No userProfile available');
     }
   }, [userProfile]);
 
@@ -206,6 +220,10 @@ export default function Entrenamientos() {
       cargarSesiones(planSeleccionado.id);
     }
   }, [planSeleccionado]);
+
+  useEffect(() => {
+    console.log('Sessions state updated:', sesiones);
+  }, [sesiones]);
 
   const handleChangePlan = (e) => {
     setFormDataPlan({...formDataPlan, [e.target.name]: e.target.value});
@@ -325,22 +343,22 @@ export default function Entrenamientos() {
 
   const handleEventClick = (eventInfo) => {
     console.log('Event clicked:', eventInfo.event);
+    console.log('Event ID:', eventInfo.event.id);
+    console.log('All sessions in state:', sesiones);
+    
     const sesionId = parseInt(eventInfo.event.id);
     console.log('Looking for session with ID:', sesionId);
     
-    // Get the session from the sesiones state
     const sesion = sesiones.find(s => s.id === sesionId);
     console.log('Found session:', sesion);
     
     if (!sesion) {
-      console.error('Session not found in state');
+      console.error('Session not found in state. Event ID:', eventInfo.event.id);
+      console.error('Available session IDs:', sesiones.map(s => s.id));
       setError('No se pudo encontrar la sesión seleccionada');
       return;
     }
 
-    // Format the date properly
-    const fechaProgramada = sesion.fecha_programada ? sesion.fecha_programada.split('T')[0] : '';
-    
     setSesionSeleccionada(sesion);
     setFormDataSesion({
       tipo: sesion.tipo || '',
@@ -350,8 +368,8 @@ export default function Entrenamientos() {
       ritmo_objetivo: sesion.ritmo_objetivo || '',
       series: sesion.series || '',
       descanso: sesion.descanso || '',
-      completado: sesion.completado || false,
-      fecha_programada: fechaProgramada,
+      completado: Boolean(sesion.completado),
+      fecha_programada: sesion.fecha_programada,
       hora_programada: sesion.hora_programada || ''
     });
     setShowSesionDetails(true);
@@ -444,9 +462,12 @@ export default function Entrenamientos() {
   const getCalendarEvents = () => {
     console.log('Creating calendar events from sessions:', sesiones);
     return sesiones.map(sesion => {
-      console.log('Processing session:', sesion);
+      console.log('Processing session for calendar:', sesion);
+      const eventId = sesion.id?.toString() || '';
+      console.log('Event ID being set:', eventId);
+      
       return {
-        id: sesion.id.toString(),
+        id: eventId,
         title: sesion.tipo ? `${sesion.tipo}: ${sesion.titulo || ''}` : 'Sin tipo',
         start: sesion.fecha_programada,
         backgroundColor: getEventColor(sesion.tipo),
@@ -454,9 +475,10 @@ export default function Entrenamientos() {
         textColor: 'white',
         extendedProps: {
           tipo: sesion.tipo,
-          completado: sesion.completado,
+          completado: Boolean(sesion.completado),
           descripcion: sesion.descripcion,
-          distancia_km: sesion.distancia_km
+          distancia_km: sesion.distancia_km,
+          id: sesion.id
         }
       };
     });

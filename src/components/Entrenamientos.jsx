@@ -346,14 +346,15 @@ export default function Entrenamientos() {
     console.log('Event ID:', eventInfo.event.id);
     console.log('All sessions in state:', sesiones);
     
-    const sesionId = parseInt(eventInfo.event.id);
+    // Get the session ID directly as string (UUID)
+    const sesionId = eventInfo.event.id;
     console.log('Looking for session with ID:', sesionId);
     
     const sesion = sesiones.find(s => s.id === sesionId);
     console.log('Found session:', sesion);
     
     if (!sesion) {
-      console.error('Session not found in state. Event ID:', eventInfo.event.id);
+      console.error('Session not found in state. Event ID:', sesionId);
       console.error('Available session IDs:', sesiones.map(s => s.id));
       setError('No se pudo encontrar la sesión seleccionada');
       return;
@@ -463,7 +464,9 @@ export default function Entrenamientos() {
     console.log('Creating calendar events from sessions:', sesiones);
     return sesiones.map(sesion => {
       console.log('Processing session for calendar:', sesion);
-      const eventId = sesion.id?.toString() || '';
+      
+      // Use the UUID directly
+      const eventId = sesion.id;
       console.log('Event ID being set:', eventId);
       
       return {

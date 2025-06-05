@@ -548,6 +548,65 @@ export default function Entrenamientos() {
     setShowFormSesion(true);
   };
 
+  const handleEditPlan = (plan) => {
+    console.log('Editing plan:', plan);
+    setPlanSeleccionado(plan);
+    setFormDataPlan({
+      nombre: plan.nombre,
+      fecha_inicio: plan.fecha_inicio.split('T')[0],
+      fecha_fin: plan.fecha_fin.split('T')[0],
+      objetivo: plan.objetivo || '',
+      notas: plan.notas || ''
+    });
+    setShowFormPlan(true);
+  };
+
+  const handleDeletePlan = async (planId) => {
+    if (!userProfile) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('Deleting plan:', planId);
+
+      // First delete all sessions associated with this plan
+      const { error: sesionesError } = await supabase
+        .from('training_sessions')
+        .delete()
+        .eq('plan_id', planId)
+        .eq('usuario_id', userProfile.id);
+
+      if (sesionesError) {
+        console.error('Error deleting sessions:', sesionesError);
+        throw new Error(sesionesError.message);
+      }
+
+      // Then delete the plan
+      const { error: planError } = await supabase
+        .from('training_plans')
+        .delete()
+        .eq('id', planId)
+        .eq('usuario_id', userProfile.id);
+
+      if (planError) {
+        console.error('Error deleting plan:', planError);
+        throw new Error(planError.message);
+      }
+
+      console.log('Plan and associated sessions deleted successfully');
+      
+      // Reload plans and sessions
+      await cargarPlanes();
+      await cargarTodasLasSesiones();
+    } catch (err) {
+      console.error("Error deleting plan:", err);
+      setError(`Error al eliminar el plan: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading && !showFormPlan && !showFormSesion && !showSesionDetails) {
     return (
       <div className="flex items-center justify-center min-h-screen">

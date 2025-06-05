@@ -84,15 +84,19 @@ export default function Entrenamientos() {
   const [formDataSesion, setFormDataSesion] = useState({
     tipo: '',
     fecha_programada: today,
+    fecha_realizada: '',
     hora_programada: '',
+    hora_realizada: '',
     titulo: '',
     descripcion: '',
     distancia_km: '',
     ritmo_objetivo: '',
+    ritmo_realizado: '',
     series: '',
     descanso: '',
     ejercicios: {},
-    completado: false
+    completado: false,
+    notas_post_sesion: ''
   });
 
   const cargarPlanes = async () => {
@@ -282,17 +286,28 @@ export default function Entrenamientos() {
   };
 
   const guardarSesion = async () => {
-    if (!userProfile || !planSeleccionado) return;
+    if (!userProfile || !planSeleccionado) {
+      console.error('Missing userProfile or planSeleccionado');
+      return;
+    }
 
     try {
       setLoading(true);
       setError(null);
 
+      console.log('Saving session for plan:', planSeleccionado.id);
+      console.log('Session data:', formDataSesion);
+
       const sesionData = {
         ...formDataSesion,
         plan_id: planSeleccionado.id,
-        usuario_id: userProfile.id
+        usuario_id: userProfile.id,
+        distancia_km: formDataSesion.distancia_km ? parseFloat(formDataSesion.distancia_km) : null,
+        completado: Boolean(formDataSesion.completado),
+        ejercicios: formDataSesion.ejercicios || {}
       };
+
+      console.log('Sending data to database:', sesionData);
 
       const { data, error: supabaseError } = await supabase
         .from('training_sessions')
@@ -300,25 +315,37 @@ export default function Entrenamientos() {
         .select()
         .single();
 
-      if (supabaseError) throw new Error(supabaseError.message);
+      if (supabaseError) {
+        console.error('Error saving session:', supabaseError);
+        throw new Error(supabaseError.message);
+      }
 
-      setSesiones(prev => [...prev, data]);
-      setShowFormSesion(false);
+      console.log('Session saved successfully:', data);
+      
+      // Reload all sessions
+      await cargarTodasLasSesiones();
+      
+      // Reset form and close it
       setFormDataSesion({
         tipo: '',
         fecha_programada: today,
+        fecha_realizada: '',
         hora_programada: '',
+        hora_realizada: '',
         titulo: '',
         descripcion: '',
         distancia_km: '',
         ritmo_objetivo: '',
+        ritmo_realizado: '',
         series: '',
         descanso: '',
         ejercicios: {},
-        completado: false
+        completado: false,
+        notas_post_sesion: ''
       });
+      setShowFormSesion(false);
     } catch (err) {
-      console.error("Error al guardar sesión:", err);
+      console.error("Error saving session:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -496,6 +523,29 @@ export default function Entrenamientos() {
       case 'Gym': return '#8B5CF6';
       default: return '#6B7280';
     }
+  };
+
+  const handleAddSesion = (plan) => {
+    console.log('Adding session for plan:', plan);
+    setPlanSeleccionado(plan);
+    setFormDataSesion({
+      tipo: '',
+      fecha_programada: today,
+      fecha_realizada: '',
+      hora_programada: '',
+      hora_realizada: '',
+      titulo: '',
+      descripcion: '',
+      distancia_km: '',
+      ritmo_objetivo: '',
+      ritmo_realizado: '',
+      series: '',
+      descanso: '',
+      ejercicios: {},
+      completado: false,
+      notas_post_sesion: ''
+    });
+    setShowFormSesion(true);
   };
 
   if (loading && !showFormPlan && !showFormSesion && !showSesionDetails) {
@@ -721,32 +771,76 @@ export default function Entrenamientos() {
       {/* Plans View */}
       {view === 'plans' && (
         <div className="space-y-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-800">Planes de Entrenamiento</h2>
-            <button 
-              onClick={() => setShowFormPlan(!showFormPlan)} 
-              className={`w-full md:w-auto px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors ${
-                showFormPlan 
-                  ? 'bg-red-500 hover:bg-red-600 text-white' 
-                  : 'bg-blue-500 hover:bg-blue-600 text-white'
-              }`}
-            >
-              {showFormPlan ? (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Cancelar
-                </>
-              ) : (
-                <>
+          <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+            <div className="p-4 md:p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Planes de Entrenamiento</h3>
+                <button
+                  onClick={() => setShowFormPlan(true)}
+                  className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 flex items-center gap-2"
+                >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                   </svg>
                   Nuevo Plan
-                </>
-              )}
-            </button>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inicio</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fin</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Objetivo</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {planes.map((plan) => (
+                      <tr key={plan.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{plan.nombre}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{formatDate(plan.fecha_inicio)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{formatDate(plan.fecha_fin)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{plan.objetivo}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end gap-3">
+                            <button
+                              onClick={() => handleAddSesion(plan)}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="Añadir sesión"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleEditPlan(plan)}
+                              className="text-indigo-600 hover:text-indigo-900"
+                              title="Editar plan"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDeletePlan(plan.id)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Eliminar plan"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
           {showFormPlan && (
@@ -980,6 +1074,167 @@ export default function Entrenamientos() {
                   {loading ? 'Guardando...' : 'Guardar Cambios'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Session Form Modal */}
+      {showFormSesion && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-[95%] max-w-2xl shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Nueva Sesión de Entrenamiento</h3>
+              <button 
+                onClick={() => setShowFormSesion(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Tipo</label>
+                <select
+                  name="tipo"
+                  value={formDataSesion.tipo}
+                  onChange={handleChangeSesion}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                >
+                  <option value="">Seleccione tipo</option>
+                  {TIPOS_ENTRENAMIENTO.map(tipo => (
+                    <option key={tipo} value={tipo}>{tipo}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Título</label>
+                <input
+                  name="titulo"
+                  value={formDataSesion.titulo}
+                  onChange={handleChangeSesion}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                  placeholder="Título de la sesión"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Fecha Programada</label>
+                <input
+                  type="date"
+                  name="fecha_programada"
+                  value={formDataSesion.fecha_programada}
+                  onChange={handleChangeSesion}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Hora Programada</label>
+                <input
+                  type="time"
+                  name="hora_programada"
+                  value={formDataSesion.hora_programada}
+                  onChange={handleChangeSesion}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Distancia (km)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  name="distancia_km"
+                  value={formDataSesion.distancia_km}
+                  onChange={handleChangeSesion}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Ritmo Objetivo</label>
+                <input
+                  name="ritmo_objetivo"
+                  value={formDataSesion.ritmo_objetivo}
+                  onChange={handleChangeSesion}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                  placeholder="min/km"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Series</label>
+                <input
+                  name="series"
+                  value={formDataSesion.series}
+                  onChange={handleChangeSesion}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                  placeholder="Ej: 4x400m"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Descanso</label>
+                <input
+                  name="descanso"
+                  value={formDataSesion.descanso}
+                  onChange={handleChangeSesion}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                  placeholder="Ej: 2min"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">Descripción</label>
+                <textarea
+                  name="descripcion"
+                  value={formDataSesion.descripcion}
+                  onChange={handleChangeSesion}
+                  rows={3}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300"
+                  placeholder="Detalles de la sesión"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowFormSesion(false)}
+                className="px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100"
+                disabled={loading}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={guardarSesion}
+                className={`px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 flex items-center gap-2 ${
+                  loading ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Guardar Sesión
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

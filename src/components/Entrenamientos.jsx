@@ -160,7 +160,6 @@ export default function Entrenamientos() {
     }
   };
 
-  // Función para cargar todas las sesiones (sin filtrar por plan)
   const cargarTodasLasSesiones = async () => {
     if (!userProfile) return;
     
@@ -168,17 +167,22 @@ export default function Entrenamientos() {
       setLoading(true);
       setError(null);
       
-      const { data, error: supabaseError } = await supabase
+      console.log('Loading all sessions for user:', userProfile.id);
+      const { data: sesionesData, error: sesionesError } = await supabase
         .from('training_sessions')
         .select('*')
         .eq('usuario_id', userProfile.id)
         .order('fecha_programada', { ascending: true });
 
-      if (supabaseError) throw new Error(supabaseError.message);
-      
-      setSesiones(data || []);
+      if (sesionesError) {
+        console.error('Error loading sessions:', sesionesError);
+        throw new Error(sesionesError.message);
+      }
+
+      console.log('Sessions loaded:', sesionesData);
+      setSesiones(sesionesData || []);
     } catch (err) {
-      console.error("Error al cargar sesiones:", err);
+      console.error("Error loading sessions:", err);
       setError(`Error: ${err.message}`);
     } finally {
       setLoading(false);
@@ -320,33 +324,44 @@ export default function Entrenamientos() {
   };
 
   const handleEventClick = (eventInfo) => {
-    console.log('Event clicked:', eventInfo);
+    console.log('Event clicked:', eventInfo.event);
     const sesionId = parseInt(eventInfo.event.id);
     console.log('Looking for session with ID:', sesionId);
+    
+    // Get the session from the sesiones state
     const sesion = sesiones.find(s => s.id === sesionId);
     console.log('Found session:', sesion);
     
-    if (sesion) {
-      setSesionSeleccionada(sesion);
-      setFormDataSesion({
-        ...sesion,
-        tipo: sesion.tipo || '',
-        titulo: sesion.titulo || '',
-        descripcion: sesion.descripcion || '',
-        distancia_km: sesion.distancia_km || '',
-        ritmo_objetivo: sesion.ritmo_objetivo || '',
-        series: sesion.series || '',
-        descanso: sesion.descanso || '',
-        completado: sesion.completado || false,
-        fecha_programada: sesion.fecha_programada.split('T')[0],
-        hora_programada: sesion.hora_programada || ''
-      });
-      setShowSesionDetails(true);
+    if (!sesion) {
+      console.error('Session not found in state');
+      setError('No se pudo encontrar la sesión seleccionada');
+      return;
     }
+
+    // Format the date properly
+    const fechaProgramada = sesion.fecha_programada ? sesion.fecha_programada.split('T')[0] : '';
+    
+    setSesionSeleccionada(sesion);
+    setFormDataSesion({
+      tipo: sesion.tipo || '',
+      titulo: sesion.titulo || '',
+      descripcion: sesion.descripcion || '',
+      distancia_km: sesion.distancia_km?.toString() || '',
+      ritmo_objetivo: sesion.ritmo_objetivo || '',
+      series: sesion.series || '',
+      descanso: sesion.descanso || '',
+      completado: sesion.completado || false,
+      fecha_programada: fechaProgramada,
+      hora_programada: sesion.hora_programada || ''
+    });
+    setShowSesionDetails(true);
   };
 
   const handleUpdateSesion = async () => {
-    if (!userProfile || !sesionSeleccionada) return;
+    if (!userProfile || !sesionSeleccionada) {
+      console.error('Missing userProfile or sesionSeleccionada');
+      return;
+    }
 
     try {
       setLoading(true);
@@ -362,30 +377,41 @@ export default function Entrenamientos() {
         descripcion: formDataSesion.descripcion,
         distancia_km: formDataSesion.distancia_km ? parseFloat(formDataSesion.distancia_km) : null,
         fecha_programada: formDataSesion.fecha_programada,
-        hora_programada: formDataSesion.hora_programada,
+        hora_programada: formDataSesion.hora_programada || null,
         completado: formDataSesion.completado,
-        ritmo_objetivo: formDataSesion.ritmo_objetivo,
-        series: formDataSesion.series,
-        descanso: formDataSesion.descanso
+        ritmo_objetivo: formDataSesion.ritmo_objetivo || null,
+        series: formDataSesion.series || null,
+        descanso: formDataSesion.descanso || null,
+        usuario_id: userProfile.id
       };
 
-      const { error: supabaseError } = await supabase
+      console.log('Sending update with data:', updateData);
+
+      const { data, error: supabaseError } = await supabase
         .from('training_sessions')
         .update(updateData)
         .eq('id', sesionSeleccionada.id)
-        .eq('usuario_id', userProfile.id);
+        .eq('usuario_id', userProfile.id)
+        .select();
 
       if (supabaseError) {
         console.error('Error updating session:', supabaseError);
         throw new Error(supabaseError.message);
       }
 
-      console.log('Session updated successfully');
+      console.log('Session updated successfully:', data);
+      
+      // Reload all sessions to update the calendar
       await cargarTodasLasSesiones();
+      
+      // Close the modal and reset selection
       setShowSesionDetails(false);
       setSesionSeleccionada(null);
+      
+      // Show success message
+      setError(null);
     } catch (err) {
-      console.error("Error al actualizar sesión:", err);
+      console.error("Error updating session:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -416,20 +442,24 @@ export default function Entrenamientos() {
   };
 
   const getCalendarEvents = () => {
-    return sesiones.map(sesion => ({
-      id: sesion.id.toString(),
-      title: `${sesion.tipo}: ${sesion.titulo || ''}`,
-      start: sesion.fecha_programada,
-      backgroundColor: getEventColor(sesion.tipo),
-      borderColor: getEventColor(sesion.tipo),
-      textColor: 'white',
-      extendedProps: {
-        tipo: sesion.tipo,
-        completado: sesion.completado,
-        descripcion: sesion.descripcion,
-        distancia_km: sesion.distancia_km
-      }
-    }));
+    console.log('Creating calendar events from sessions:', sesiones);
+    return sesiones.map(sesion => {
+      console.log('Processing session:', sesion);
+      return {
+        id: sesion.id.toString(),
+        title: sesion.tipo ? `${sesion.tipo}: ${sesion.titulo || ''}` : 'Sin tipo',
+        start: sesion.fecha_programada,
+        backgroundColor: getEventColor(sesion.tipo),
+        borderColor: getEventColor(sesion.tipo),
+        textColor: 'white',
+        extendedProps: {
+          tipo: sesion.tipo,
+          completado: sesion.completado,
+          descripcion: sesion.descripcion,
+          distancia_km: sesion.distancia_km
+        }
+      };
+    });
   };
 
   const getEventColor = (tipo) => {

@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const FMP_API_KEY = 'FAExoSELA4CoIVTlixYT42586X9MYpSb';
+const FMP_API_KEY = import.meta.env.VITE_FMP_API_KEY;
+if (!FMP_API_KEY) {
+  console.error('FMP API key not found in environment variables');
+}
+
 const BASE_URL = 'https://financialmodelingprep.com/api/v3';
 
 export default function StockAnalysis() {
@@ -26,14 +30,21 @@ export default function StockAnalysis() {
         throw new Error('Símbolo no encontrado');
       }
 
-      // Get historical data
+      // Get historical data for the last 30 days
+      const today = new Date();
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+
       const historicalResponse = await fetch(
-        `${BASE_URL}/historical-price-full/${symbol}?apikey=${FMP_API_KEY}&serietype=line`
+        `${BASE_URL}/historical-price-full/${symbol}?from=${thirtyDaysAgo.toISOString().split('T')[0]}&to=${today.toISOString().split('T')[0]}&apikey=${FMP_API_KEY}`
       );
       const historicalData = await historicalResponse.json();
 
       setStockData(quoteData[0]);
-      setHistoricalData(historicalData.historical?.slice(-30) || []);
+      // Sort historical data by date in ascending order
+      const sortedHistoricalData = (historicalData.historical || [])
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+      setHistoricalData(sortedHistoricalData);
     } catch (err) {
       console.error('Error fetching stock data:', err);
       setError(err.message);
@@ -146,9 +157,16 @@ export default function StockAnalysis() {
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
-                  dataKey="date" 
+                  dataKey="date"
                   tick={{ fill: '#4B5563' }}
                   axisLine={{ stroke: '#E5E7EB' }}
+                  tickFormatter={(value) => {
+                    const date = new Date(value);
+                    return date.toLocaleDateString('es-CO', { 
+                      month: '2-digit',
+                      day: '2-digit'
+                    });
+                  }}
                 />
                 <YAxis
                   domain={['auto', 'auto']}
@@ -158,7 +176,11 @@ export default function StockAnalysis() {
                 />
                 <Tooltip
                   formatter={(value) => [formatCurrency(value), 'Precio']}
-                  labelFormatter={(label) => `Fecha: ${label}`}
+                  labelFormatter={(label) => new Date(label).toLocaleDateString('es-CO', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
                 />
                 <Line
                   type="monotone"

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const FMP_API_KEY = import.meta.env.VITE_FMP_API_KEY;
+const FMP_API_KEY = process.env.REACT_APP_FMP_API_KEY;
 if (!FMP_API_KEY) {
-  console.error('FMP API key not found in environment variables');
+  console.error('FMP API key not found in environment variables. Make sure to create a .env.local file with REACT_APP_FMP_API_KEY');
 }
 
 const BASE_URL = 'https://financialmodelingprep.com/api/v3';

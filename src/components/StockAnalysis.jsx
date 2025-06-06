@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+// Debug logs
+console.log('Environment variables:', process.env);
+console.log('FMP API Key:', process.env.REACT_APP_FMP_API_KEY);
+
 const FMP_API_KEY = process.env.REACT_APP_FMP_API_KEY;
 if (!FMP_API_KEY) {
   console.error('FMP API key not found in environment variables. Make sure to create a .env.local file with REACT_APP_FMP_API_KEY');
@@ -20,28 +24,36 @@ export default function StockAnalysis() {
       setLoading(true);
       setError(null);
 
+      // Debug logs
+      console.log('Making API request with key:', FMP_API_KEY);
+      
       // Get real-time quote
-      const quoteResponse = await fetch(
-        `${BASE_URL}/quote/${symbol}?apikey=${FMP_API_KEY}`
-      );
+      const quoteUrl = `${BASE_URL}/quote/${symbol}?apikey=${FMP_API_KEY}`;
+      console.log('Quote URL:', quoteUrl);
+      
+      const quoteResponse = await fetch(quoteUrl);
       const quoteData = await quoteResponse.json();
+      
+      console.log('Quote response:', quoteData);
 
       if (!quoteData || quoteData.length === 0) {
         throw new Error('Símbolo no encontrado');
       }
 
-      // Get historical data for the last 30 days
+      // Get historical data
       const today = new Date();
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(today.getDate() - 30);
 
-      const historicalResponse = await fetch(
-        `${BASE_URL}/historical-price-full/${symbol}?from=${thirtyDaysAgo.toISOString().split('T')[0]}&to=${today.toISOString().split('T')[0]}&apikey=${FMP_API_KEY}`
-      );
+      const historicalUrl = `${BASE_URL}/historical-price-full/${symbol}?from=${thirtyDaysAgo.toISOString().split('T')[0]}&to=${today.toISOString().split('T')[0]}&apikey=${FMP_API_KEY}`;
+      console.log('Historical URL:', historicalUrl);
+      
+      const historicalResponse = await fetch(historicalUrl);
       const historicalData = await historicalResponse.json();
+      
+      console.log('Historical response:', historicalData);
 
       setStockData(quoteData[0]);
-      // Sort historical data by date in ascending order
       const sortedHistoricalData = (historicalData.historical || [])
         .sort((a, b) => new Date(a.date) - new Date(b.date));
       setHistoricalData(sortedHistoricalData);

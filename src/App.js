@@ -4,6 +4,7 @@ import Movimientos from './components/Movimientos';
 import Ahorros from './components/Ahorros';
 import Metas from './components/Metas';
 import Entrenamientos from './components/Entrenamientos';
+import StockAnalysis from './components/StockAnalysis';
 import Auth from './components/Auth';
 import { useAuth } from './context/AuthContext';
 
@@ -79,6 +80,14 @@ export default function App() {
         >
           Entrenamientos
         </button>
+        <button 
+          onClick={() => setView('stocks')} 
+          className={`flex-1 min-w-[120px] px-3 md:px-4 py-2 rounded text-sm md:text-base ${
+            view === 'stocks' ? 'bg-blue-500 text-white' : 'bg-gray-300'
+          }`}
+        >
+          Acciones
+        </button>
       </div>
 
       <div className="w-full overflow-x-hidden">
@@ -87,6 +96,7 @@ export default function App() {
         {view === 'ahorros' && <Ahorros />}
         {view === 'metas' && <Metas />}
         {view === 'entrenamientos' && <Entrenamientos />}
+        {view === 'stocks' && <StockAnalysis />}
       </div>
     </div>
   );

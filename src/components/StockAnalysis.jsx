@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-// Debug logs
-console.log('Environment variables:', process.env);
-console.log('FMP API Key:', process.env.REACT_APP_FMP_API_KEY);
-
-const FMP_API_KEY = process.env.REACT_APP_FMP_API_KEY;
-if (!FMP_API_KEY) {
-  console.error('FMP API key not found in environment variables. Make sure to create a .env.local file with REACT_APP_FMP_API_KEY');
-}
-
 const BASE_URL = 'https://financialmodelingprep.com/api/v3';
+const FMP_API_KEY = process.env.REACT_APP_FMP_API_KEY;
+
+if (!FMP_API_KEY) {
+  console.error('FMP API Key not found in environment variables. Please check your .env file.');
+}
 
 export default function StockAnalysis() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,21 +16,19 @@ export default function StockAnalysis() {
   const [error, setError] = useState(null);
 
   const fetchStockData = async (symbol) => {
+    if (!FMP_API_KEY) {
+      setError('API key not configured. Please check your environment variables.');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-
-      // Debug logs
-      console.log('Making API request with key:', FMP_API_KEY);
       
       // Get real-time quote
       const quoteUrl = `${BASE_URL}/quote/${symbol}?apikey=${FMP_API_KEY}`;
-      console.log('Quote URL:', quoteUrl);
-      
       const quoteResponse = await fetch(quoteUrl);
       const quoteData = await quoteResponse.json();
-      
-      console.log('Quote response:', quoteData);
 
       if (!quoteData || quoteData.length === 0) {
         throw new Error('Símbolo no encontrado');
@@ -46,12 +40,8 @@ export default function StockAnalysis() {
       thirtyDaysAgo.setDate(today.getDate() - 30);
 
       const historicalUrl = `${BASE_URL}/historical-price-full/${symbol}?from=${thirtyDaysAgo.toISOString().split('T')[0]}&to=${today.toISOString().split('T')[0]}&apikey=${FMP_API_KEY}`;
-      console.log('Historical URL:', historicalUrl);
-      
       const historicalResponse = await fetch(historicalUrl);
       const historicalData = await historicalResponse.json();
-      
-      console.log('Historical response:', historicalData);
 
       setStockData(quoteData[0]);
       const sortedHistoricalData = (historicalData.historical || [])

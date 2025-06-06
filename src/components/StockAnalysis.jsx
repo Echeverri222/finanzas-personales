@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const BASE_URL = 'https://financialmodelingprep.com/api/v3';
 const FMP_API_KEY = 'FAExoSELA4CoIVTlixYT42586X9MYpSb';
@@ -18,8 +18,71 @@ export default function StockAnalysis() {
   const [searchTerm, setSearchTerm] = useState('');
   const [stockData, setStockData] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
+  const [smaAnalysis, setSmaAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const calculateSMA = (data, period) => {
+    const sma = [];
+    for (let i = 0; i < data.length; i++) {
+      if (i < period - 1) {
+        sma.push(null);
+        continue;
+      }
+      
+      const sum = data.slice(i - period + 1, i + 1).reduce((acc, val) => acc + val.close, 0);
+      sma.push(sum / period);
+    }
+    return sma;
+  };
+
+  const calculateRatios = (shortSMA, longSMA) => {
+    const ratios = [];
+    for (let i = 0; i < shortSMA.length; i++) {
+      if (!shortSMA[i] || !longSMA[i]) {
+        ratios.push(null);
+        continue;
+      }
+      ratios.push(shortSMA[i] / longSMA[i]);
+    }
+    return ratios;
+  };
+
+  const analyzeSMA = (data) => {
+    // Calcular SMAs para diferentes períodos
+    const sma20 = calculateSMA(data, 20);
+    const sma50 = calculateSMA(data, 50);
+    const sma200 = calculateSMA(data, 200);
+
+    // Calcular ratios
+    const ratio20_50 = calculateRatios(sma20, sma50);
+    const ratio50_200 = calculateRatios(sma50, sma200);
+
+    // Obtener el último ratio válido
+    const currentRatio = ratio20_50[ratio20_50.length - 1];
+
+    // Calcular media y desviación estándar de los ratios
+    const validRatios = ratio20_50.filter(r => r !== null);
+    const mean = validRatios.reduce((a, b) => a + b, 0) / validRatios.length;
+    const stdDev = Math.sqrt(
+      validRatios.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / validRatios.length
+    );
+
+    // Definir niveles de compra/venta
+    const buyLevel = mean - stdDev;
+    const sellLevel = mean + stdDev;
+
+    return {
+      sma20,
+      sma50,
+      sma200,
+      currentRatio,
+      buyLevel,
+      sellLevel,
+      mean,
+      ratios: ratio20_50
+    };
+  };
 
   const fetchStockData = async (symbol) => {
     try {
@@ -35,12 +98,12 @@ export default function StockAnalysis() {
         throw new Error('Símbolo no encontrado');
       }
 
-      // Get historical data
+      // Get historical data - aumentamos el período para tener suficientes datos para el análisis
       const today = new Date();
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(today.getDate() - 30);
+      const yearAgo = new Date();
+      yearAgo.setFullYear(today.getFullYear() - 1);
 
-      const historicalUrl = `${BASE_URL}/historical-price-full/${symbol}?from=${thirtyDaysAgo.toISOString().split('T')[0]}&to=${today.toISOString().split('T')[0]}&apikey=${FMP_API_KEY}`;
+      const historicalUrl = `${BASE_URL}/historical-price-full/${symbol}?from=${yearAgo.toISOString().split('T')[0]}&to=${today.toISOString().split('T')[0]}&apikey=${FMP_API_KEY}`;
       const historicalResponse = await fetch(historicalUrl);
       const historicalData = await historicalResponse.json();
 
@@ -48,6 +111,10 @@ export default function StockAnalysis() {
       const sortedHistoricalData = (historicalData.historical || [])
         .sort((a, b) => new Date(a.date) - new Date(b.date));
       setHistoricalData(sortedHistoricalData);
+
+      // Realizar análisis SMA
+      const analysis = analyzeSMA(sortedHistoricalData);
+      setSmaAnalysis(analysis);
     } catch (err) {
       console.error('Error fetching stock data:', err);
       setError(err.message);
@@ -144,13 +211,46 @@ export default function StockAnalysis() {
         </div>
       )}
 
+      {/* New SMA Analysis Section */}
+      {smaAnalysis && (
+        <div className="bg-white p-6 rounded-xl shadow-md">
+          <h3 className="text-lg font-semibold mb-4">Análisis de Medias Móviles</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <p className="font-medium">Ratio Actual (SMA20/SMA50)</p>
+              <p className={`text-xl font-bold ${
+                smaAnalysis.currentRatio > smaAnalysis.sellLevel ? 'text-red-600' :
+                smaAnalysis.currentRatio < smaAnalysis.buyLevel ? 'text-green-600' :
+                'text-gray-600'
+              }`}>
+                {smaAnalysis.currentRatio?.toFixed(6)}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="font-medium">Nivel de Compra</p>
+              <p className="text-xl font-bold text-green-600">{smaAnalysis.buyLevel?.toFixed(6)}</p>
+            </div>
+            <div className="space-y-2">
+              <p className="font-medium">Nivel de Venta</p>
+              <p className="text-xl font-bold text-red-600">{smaAnalysis.sellLevel?.toFixed(6)}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modified Price Chart with SMAs */}
       {historicalData.length > 0 && (
         <div className="bg-white p-6 rounded-xl shadow-md">
-          <h3 className="text-lg font-semibold mb-4">Histórico de Precios (30 días)</h3>
+          <h3 className="text-lg font-semibold mb-4">Histórico de Precios con Medias Móviles</h3>
           <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={historicalData}
+                data={historicalData.map((point, index) => ({
+                  ...point,
+                  sma20: smaAnalysis?.sma20[index],
+                  sma50: smaAnalysis?.sma50[index],
+                  sma200: smaAnalysis?.sma200[index]
+                }))}
                 margin={{
                   top: 5,
                   right: 30,
@@ -191,8 +291,81 @@ export default function StockAnalysis() {
                   stroke="#3B82F6"
                   strokeWidth={2}
                   dot={false}
-                  activeDot={{ r: 8 }}
+                  name="Precio"
                 />
+                <Line
+                  type="monotone"
+                  dataKey="sma20"
+                  stroke="#10B981"
+                  strokeWidth={1}
+                  dot={false}
+                  name="SMA20"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="sma50"
+                  stroke="#F59E0B"
+                  strokeWidth={1}
+                  dot={false}
+                  name="SMA50"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="sma200"
+                  stroke="#EF4444"
+                  strokeWidth={1}
+                  dot={false}
+                  name="SMA200"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Ratio Chart */}
+      {smaAnalysis && (
+        <div className="bg-white p-6 rounded-xl shadow-md">
+          <h3 className="text-lg font-semibold mb-4">Evolución del Ratio SMA20/SMA50</h3>
+          <div className="h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={historicalData.map((point, index) => ({
+                  date: point.date,
+                  ratio: smaAnalysis.ratios[index]
+                }))}
+                margin={{
+                  top: 5,
+                  right: 30,
+                  left: 20,
+                  bottom: 5,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="date"
+                  tick={{ fill: '#4B5563' }}
+                  axisLine={{ stroke: '#E5E7EB' }}
+                />
+                <YAxis
+                  domain={['auto', 'auto']}
+                  tick={{ fill: '#4B5563' }}
+                  axisLine={{ stroke: '#E5E7EB' }}
+                />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="ratio"
+                  stroke="#6366F1"
+                  strokeWidth={2}
+                  dot={false}
+                  name="Ratio"
+                />
+                {/* Líneas de referencia para niveles de compra/venta */}
+                <CartesianGrid strokeDasharray="3 3" />
+                <ReferenceLine y={smaAnalysis.buyLevel} stroke="#10B981" strokeDasharray="3 3" />
+                <ReferenceLine y={smaAnalysis.sellLevel} stroke="#EF4444" strokeDasharray="3 3" />
+                <ReferenceLine y={smaAnalysis.mean} stroke="#6B7280" strokeDasharray="3 3" />
               </LineChart>
             </ResponsiveContainer>
           </div>

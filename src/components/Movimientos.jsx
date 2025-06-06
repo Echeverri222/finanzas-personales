@@ -79,7 +79,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
 
   useEffect(() => {
     if (userProfile) {
-      cargarMovimientos();
+    cargarMovimientos();
       cargarCategorias();
     }
   }, [userProfile]);
@@ -386,10 +386,10 @@ export default function Movimientos({ showForm: initialShowForm = false, default
             </div>
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">Categoría</label>
-              <select
-                name="tipo_movimiento"
+          <select
+            name="tipo_movimiento"
                 value={formData.tipo_movimiento}
-                onChange={handleChange}
+            onChange={handleChange}
                 className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
@@ -528,8 +528,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                   <th className="px-4 md:px-6 py-3 text-right text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
-                </tr>
-              </thead>
+            </tr>
+          </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredMovimientos.map((mov) => (
                   <React.Fragment key={mov.id}>
@@ -674,12 +674,12 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                             </div>
                           </div>
                         </td>
-                      </tr>
+              </tr>
                     )}
                   </React.Fragment>
-                ))}
-              </tbody>
-            </table>
+            ))}
+          </tbody>
+        </table>
           </div>
         </div>
       </div>

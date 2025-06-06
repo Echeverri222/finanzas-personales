@@ -508,7 +508,7 @@ export default function Dashboard({ onQuickMovement }) {
             <div className="bg-white p-4 rounded-xl shadow-md">
               <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Distribución de Gastos</h3>
               <div className="h-60 md:h-80">
-                <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%">
                   <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <Pie 
                       data={categoryData} 
@@ -524,11 +524,11 @@ export default function Dashboard({ onQuickMovement }) {
                           fill={COLORS[entry.name]}
                           className="transition-opacity hover:opacity-80"
                         />
-                      ))}
-                    </Pie>
+                ))}
+              </Pie>
                     <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
+            </PieChart>
+          </ResponsiveContainer>
               </div>
             </div>
 
@@ -663,8 +663,8 @@ export default function Dashboard({ onQuickMovement }) {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-          </div>
-        )}
+        </div>
+      )}
       </div>
     </div>
   );

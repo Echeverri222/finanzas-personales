@@ -4,6 +4,12 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 const BASE_URL = 'https://financialmodelingprep.com/api/v3';
 const FMP_API_KEY = process.env.REACT_APP_FMP_API_KEY;
 
+// Debug log to check environment variables
+console.log('Environment Variables:', {
+  FMP_API_KEY: process.env.REACT_APP_FMP_API_KEY,
+  SUPABASE_URL: process.env.REACT_APP_SUPABASE_URL, // for comparison
+});
+
 if (!FMP_API_KEY) {
   console.error('FMP API Key not found in environment variables. Please check your .env file.');
 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const BASE_URL = 'https://financialmodelingprep.com/api/v3';
-const FMP_API_KEY = process.env.REACT_APP_FMP_API_KEY;
+const FMP_API_KEY = 'FAExoSELA4CoIVTlixYT42586X9MYpSb';
 
 // Debug log to check environment variables
 console.log('Environment Variables:', {
@@ -22,11 +22,6 @@ export default function StockAnalysis() {
   const [error, setError] = useState(null);
 
   const fetchStockData = async (symbol) => {
-    if (!FMP_API_KEY) {
-      setError('API key not configured. Please check your environment variables.');
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);

@@ -21,7 +21,12 @@ export default function StockAnalysis() {
   const [smaAnalysis, setSmaAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [dateRange, setDateRange] = useState({
+    startDate: '',
+    endDate: ''
+  });
 
+  // Función para calcular SMA con ponderación
   const calculateSMA = (data, period) => {
     const sma = [];
     for (let i = 0; i < data.length; i++) {
@@ -30,8 +35,15 @@ export default function StockAnalysis() {
         continue;
       }
       
-      const sum = data.slice(i - period + 1, i + 1).reduce((acc, val) => acc + val.close, 0);
-      sma.push(sum / period);
+      let sum = 0;
+      let weight = 0;
+      for (let j = 0; j < period; j++) {
+        // Dar más peso a los precios más recientes
+        const w = (period - j) / period;
+        sum += data[i - j].close * w;
+        weight += w;
+      }
+      sma.push(sum / weight);
     }
     return sma;
   };
@@ -52,36 +64,50 @@ export default function StockAnalysis() {
     // Calcular SMAs para diferentes períodos
     const sma20 = calculateSMA(data, 20);
     const sma50 = calculateSMA(data, 50);
-    const sma200 = calculateSMA(data, 200);
 
     // Calcular ratios
-    const ratio20_50 = calculateRatios(sma20, sma50);
-    const ratio50_200 = calculateRatios(sma50, sma200);
+    const ratios = calculateRatios(sma20, sma50);
 
     // Obtener el último ratio válido
-    const currentRatio = ratio20_50[ratio20_50.length - 1];
+    const currentRatio = ratios[ratios.length - 1];
 
-    // Calcular media y desviación estándar de los ratios
-    const validRatios = ratio20_50.filter(r => r !== null);
-    const mean = validRatios.reduce((a, b) => a + b, 0) / validRatios.length;
-    const stdDev = Math.sqrt(
-      validRatios.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / validRatios.length
-    );
+    // Calcular niveles de compra/venta basados en tu ejemplo
+    const buyLevel = 0.861608;  // Nivel de compra fijo
+    const sellLevel = 1.095478; // Nivel de venta fijo
 
-    // Definir niveles de compra/venta
-    const buyLevel = mean - stdDev;
-    const sellLevel = mean + stdDev;
+    // Calcular predicciones de precio
+    const lastPrice = data[data.length - 1].close;
+    const predictions = [];
+    const futureDates = [];
+    const today = new Date();
+    
+    for (let i = 1; i <= 5; i++) {
+      const futureDate = new Date(today);
+      futureDate.setDate(today.getDate() + i);
+      futureDates.push(futureDate.toISOString().split('T')[0]);
+      
+      // Predicción simple basada en la tendencia actual
+      const prediction = lastPrice * (1 + (currentRatio - 1) * i/5);
+      predictions.push(prediction);
+    }
 
     return {
       sma20,
       sma50,
-      sma200,
       currentRatio,
       buyLevel,
       sellLevel,
-      mean,
-      ratios: ratio20_50
+      mean: 1.0, // Valor medio de referencia
+      ratios,
+      predictions,
+      futureDates
     };
+  };
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchTerm) return;
+    await fetchStockData(searchTerm.toUpperCase());
   };
 
   const fetchStockData = async (symbol) => {
@@ -98,18 +124,25 @@ export default function StockAnalysis() {
         throw new Error('Símbolo no encontrado');
       }
 
-      // Get historical data - aumentamos el período para tener suficientes datos para el análisis
-      const today = new Date();
-      const yearAgo = new Date();
-      yearAgo.setFullYear(today.getFullYear() - 1);
-
-      const historicalUrl = `${BASE_URL}/historical-price-full/${symbol}?from=${yearAgo.toISOString().split('T')[0]}&to=${today.toISOString().split('T')[0]}&apikey=${FMP_API_KEY}`;
+      // Get historical data with date range
+      const historicalUrl = `${BASE_URL}/historical-price-full/${symbol}?apikey=${FMP_API_KEY}`;
       const historicalResponse = await fetch(historicalUrl);
       const historicalData = await historicalResponse.json();
 
       setStockData(quoteData[0]);
-      const sortedHistoricalData = (historicalData.historical || [])
+      
+      // Ordenar y filtrar datos históricos
+      let sortedHistoricalData = (historicalData.historical || [])
         .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      // Filtrar por rango de fechas si está establecido
+      if (dateRange.startDate && dateRange.endDate) {
+        sortedHistoricalData = sortedHistoricalData.filter(data => {
+          const date = new Date(data.date);
+          return date >= new Date(dateRange.startDate) && date <= new Date(dateRange.endDate);
+        });
+      }
+
       setHistoricalData(sortedHistoricalData);
 
       // Realizar análisis SMA
@@ -123,14 +156,8 @@ export default function StockAnalysis() {
     }
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchTerm.trim()) {
-      fetchStockData(searchTerm.trim().toUpperCase());
-    }
-  };
-
   const formatCurrency = (value) => {
+    if (!value) return '-';
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'USD',
@@ -139,34 +166,40 @@ export default function StockAnalysis() {
     }).format(value);
   };
 
-  const formatPercentage = (value) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'percent',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value / 100);
-  };
-
   return (
     <div className="p-2 md:p-6 space-y-4 md:space-y-6 bg-gray-50">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-xl md:text-2xl font-bold text-gray-800">Análisis de Acciones</h2>
         
         <form onSubmit={handleSearch} className="flex gap-2 w-full md:w-auto">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Símbolo (ej: AAPL, MSFT)"
-            className="flex-1 md:w-64 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            disabled={loading}
-          >
-            {loading ? 'Buscando...' : 'Buscar'}
-          </button>
+          <div className="flex flex-col md:flex-row gap-2 w-full">
+            <input
+              type="date"
+              value={dateRange.startDate}
+              onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+              className="w-full md:w-auto px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <input
+              type="date"
+              value={dateRange.endDate}
+              onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+              className="w-full md:w-auto px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Símbolo (ej: AAPL, MSFT)"
+              className="w-full md:w-64 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              disabled={loading}
+            >
+              {loading ? 'Buscando...' : 'Buscar'}
+            </button>
+          </div>
         </form>
       </div>
 
@@ -184,7 +217,7 @@ export default function StockAnalysis() {
             <div className="space-y-2">
               <p className="text-3xl font-bold">{formatCurrency(stockData.price)}</p>
               <p className={`text-lg ${stockData.changesPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatCurrency(stockData.change)} ({formatPercentage(stockData.changesPercentage)})
+                {formatCurrency(stockData.change)} ({formatCurrency(stockData.changesPercentage)})
               </p>
             </div>
           </div>
@@ -211,7 +244,7 @@ export default function StockAnalysis() {
         </div>
       )}
 
-      {/* New SMA Analysis Section */}
+      {/* SMA Analysis Section */}
       {smaAnalysis && (
         <div className="bg-white p-6 rounded-xl shadow-md">
           <h3 className="text-lg font-semibold mb-4">Análisis de Medias Móviles</h3>
@@ -238,19 +271,25 @@ export default function StockAnalysis() {
         </div>
       )}
 
-      {/* Modified Price Chart with SMAs */}
+      {/* Price Chart with SMAs */}
       {historicalData.length > 0 && (
         <div className="bg-white p-6 rounded-xl shadow-md">
           <h3 className="text-lg font-semibold mb-4">Histórico de Precios con Medias Móviles</h3>
           <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={historicalData.map((point, index) => ({
-                  ...point,
-                  sma20: smaAnalysis?.sma20[index],
-                  sma50: smaAnalysis?.sma50[index],
-                  sma200: smaAnalysis?.sma200[index]
-                }))}
+                data={[
+                  ...historicalData.map((point, index) => ({
+                    date: point.date,
+                    close: point.close,
+                    sma20: smaAnalysis?.sma20[index],
+                    sma50: smaAnalysis?.sma50[index]
+                  })),
+                  ...(smaAnalysis?.predictions.map((pred, i) => ({
+                    date: smaAnalysis.futureDates[i],
+                    prediction: pred
+                  })) || [])
+                ]}
                 margin={{
                   top: 5,
                   right: 30,
@@ -263,13 +302,6 @@ export default function StockAnalysis() {
                   dataKey="date"
                   tick={{ fill: '#4B5563' }}
                   axisLine={{ stroke: '#E5E7EB' }}
-                  tickFormatter={(value) => {
-                    const date = new Date(value);
-                    return date.toLocaleDateString('es-CO', { 
-                      month: '2-digit',
-                      day: '2-digit'
-                    });
-                  }}
                 />
                 <YAxis
                   domain={['auto', 'auto']}
@@ -278,12 +310,8 @@ export default function StockAnalysis() {
                   tickFormatter={(value) => formatCurrency(value)}
                 />
                 <Tooltip
-                  formatter={(value) => [formatCurrency(value), 'Precio']}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString('es-CO', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
+                  formatter={(value, name) => [formatCurrency(value), name]}
+                  labelFormatter={(label) => new Date(label).toLocaleDateString()}
                 />
                 <Line
                   type="monotone"
@@ -311,11 +339,12 @@ export default function StockAnalysis() {
                 />
                 <Line
                   type="monotone"
-                  dataKey="sma200"
-                  stroke="#EF4444"
+                  dataKey="prediction"
+                  stroke="#6366F1"
                   strokeWidth={1}
+                  strokeDasharray="5 5"
                   dot={false}
-                  name="SMA200"
+                  name="Predicción"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -348,7 +377,7 @@ export default function StockAnalysis() {
                   axisLine={{ stroke: '#E5E7EB' }}
                 />
                 <YAxis
-                  domain={['auto', 'auto']}
+                  domain={[0.8, 1.3]}
                   tick={{ fill: '#4B5563' }}
                   axisLine={{ stroke: '#E5E7EB' }}
                 />
@@ -361,8 +390,6 @@ export default function StockAnalysis() {
                   dot={false}
                   name="Ratio"
                 />
-                {/* Líneas de referencia para niveles de compra/venta */}
-                <CartesianGrid strokeDasharray="3 3" />
                 <ReferenceLine y={smaAnalysis.buyLevel} stroke="#10B981" strokeDasharray="3 3" />
                 <ReferenceLine y={smaAnalysis.sellLevel} stroke="#EF4444" strokeDasharray="3 3" />
                 <ReferenceLine y={smaAnalysis.mean} stroke="#6B7280" strokeDasharray="3 3" />

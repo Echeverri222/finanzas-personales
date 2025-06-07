@@ -42,12 +42,10 @@ export default function StockAnalysis() {
     endDate: new Date().toISOString().split('T')[0]
   });
   const [fundamentalData, setFundamentalData] = useState(null);
-  const [growthData, setGrowthData] = useState(null);
   const [shortTermSMA, setShortTermSMA] = useState([]);
   const [longTermSMA, setLongTermSMA] = useState([]);
   const [showSMA, setShowSMA] = useState(false);
   const [fundamentalMetrics, setFundamentalMetrics] = useState(null);
-  const [growthMetrics, setGrowthMetrics] = useState(null);
 
   // Función para calcular SMA con ponderación
   const calculateSMA = (data, period) => {
@@ -126,26 +124,6 @@ export default function StockAnalysis() {
 
       setStockData(quoteData[0]);
 
-      // Obtener datos fundamentales
-      const ratiosResponse = await fetch(
-        `${BASE_URL}/ratios-ttm/${searchTerm}?apikey=${FMP_API_KEY}`
-      );
-      const ratiosData = await ratiosResponse.json();
-
-      if (ratiosData && ratiosData.length > 0) {
-        setFundamentalData(ratiosData[0]);
-      }
-
-      // Obtener estimaciones de analistas
-      const analystsResponse = await fetch(
-        `${BASE_URL}/analyst-estimates/${searchTerm}?apikey=${FMP_API_KEY}`
-      );
-      const analystsData = await analystsResponse.json();
-
-      if (analystsData && analystsData.length > 0) {
-        setGrowthData(analystsData[0]);
-      }
-
       // Obtener datos históricos
       const historicalResponse = await fetch(
         `${BASE_URL}/historical-price-full/${searchTerm}?apikey=${FMP_API_KEY}`
@@ -193,20 +171,6 @@ export default function StockAnalysis() {
       const metricsData = await metricsResponse.json();
       if (metricsData.length > 0) {
         setFundamentalMetrics(metricsData[0]);
-      }
-
-      // Cargar datos de crecimiento y estimaciones
-      const growthResponse = await fetch(
-        `${BASE_URL}/analyst-estimates/${searchTerm}?apikey=${FMP_API_KEY}`
-      );
-
-      if (!growthResponse.ok) {
-        throw new Error('Error al obtener datos de crecimiento');
-      }
-
-      const growthData = await growthResponse.json();
-      if (growthData.length > 0) {
-        setGrowthMetrics(growthData[0]);
       }
 
     } catch (err) {
@@ -365,70 +329,6 @@ export default function StockAnalysis() {
                   </div>
                 </div>
               </div>
-
-              {growthMetrics && (
-                <div className="bg-white rounded-xl shadow-md p-4">
-                  <h3 className="text-sm font-medium text-gray-500">Expectativas de Crecimiento</h3>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Ingresos (YoY)</span>
-                      <span className={`font-semibold ${
-                        growthMetrics.revenueGrowth > 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {formatPercentage(growthMetrics.revenueGrowth)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">EPS (YoY)</span>
-                      <span className={`font-semibold ${
-                        growthMetrics.epsgrowth > 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {formatPercentage(growthMetrics.epsgrowth)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Recomendación</span>
-                      <span className="font-semibold">
-                        {growthMetrics.recommendationMean}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Precio Objetivo</span>
-                      <span className={`font-semibold ${
-                        (growthMetrics.targetMedianPrice > stockData.price) ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {formatCurrency(growthMetrics.targetMedianPrice)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {smaAnalysis && (
-                <div className="bg-white rounded-xl shadow-md p-4">
-                  <h3 className="text-sm font-medium text-gray-500">Análisis Técnico</h3>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">SMA20/SMA50</span>
-                      <span className={`font-semibold ${
-                        smaAnalysis.currentRatio > smaAnalysis.sellLevel ? 'text-red-600' :
-                        smaAnalysis.currentRatio < smaAnalysis.buyLevel ? 'text-green-600' :
-                        'text-gray-900'
-                      }`}>
-                        {smaAnalysis.currentRatio?.toFixed(4)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Volumen</span>
-                      <span className="font-semibold">{formatLargeNumber(stockData.volume)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Shares Out.</span>
-                      <span className="font-semibold">{formatLargeNumber(stockData.sharesOutstanding)} M</span>
-                    </div>
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>

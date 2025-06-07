@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 
 const BASE_URL = 'https://financialmodelingprep.com/api/v3';
 const FMP_API_KEY = 'FAExoSELA4CoIVTlixYT42586X9MYpSb';
@@ -26,6 +26,7 @@ export default function StockAnalysis() {
     startDate: '',
     endDate: new Date().toISOString().split('T')[0] // Fecha actual como fecha final por defecto
   });
+  const [analysisResults, setAnalysisResults] = useState(null);
 
   const calculateSMA = (data, period) => {
     const sma = [];
@@ -44,6 +45,68 @@ export default function StockAnalysis() {
       sma.push(sum / weight);
     }
     return sma;
+  };
+
+  const analyzeSignals = (data, sma20, sma50) => {
+    let signals = [];
+    let lastSignal = null;
+    
+    for (let i = 1; i < data.length; i++) {
+      if (sma20[i] === null || sma50[i] === null) continue;
+      
+      const crossover = sma20[i] > sma50[i] && sma20[i-1] <= sma50[i-1];
+      const crossunder = sma20[i] < sma50[i] && sma20[i-1] >= sma50[i-1];
+      
+      if (crossover && lastSignal !== 'buy') {
+        signals.push({
+          date: data[i].date,
+          type: 'buy',
+          price: data[i].close,
+          description: 'SMA20 cruza por encima de SMA50'
+        });
+        lastSignal = 'buy';
+      } else if (crossunder && lastSignal !== 'sell') {
+        signals.push({
+          date: data[i].date,
+          type: 'sell',
+          price: data[i].close,
+          description: 'SMA20 cruza por debajo de SMA50'
+        });
+        lastSignal = 'sell';
+      }
+    }
+
+    // Calcular métricas adicionales
+    const currentPrice = data[data.length - 1].close;
+    const currentSMA20 = sma20[sma20.length - 1];
+    const currentSMA50 = sma50[sma50.length - 1];
+    const trend = currentSMA20 > currentSMA50 ? 'alcista' : 'bajista';
+    
+    // Calcular rendimiento
+    const startPrice = data[0].close;
+    const performance = ((currentPrice - startPrice) / startPrice) * 100;
+    
+    // Calcular volatilidad (desviación estándar de los retornos diarios)
+    const returns = data.slice(1).map((day, i) => 
+      (day.close - data[i].close) / data[i].close
+    );
+    const avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+    const volatility = Math.sqrt(
+      returns.reduce((a, b) => a + Math.pow(b - avgReturn, 2), 0) / returns.length
+    ) * Math.sqrt(252) * 100; // Anualizada
+
+    return {
+      signals,
+      lastSignal,
+      trend,
+      performance: performance.toFixed(2),
+      volatility: volatility.toFixed(2),
+      currentPrice,
+      currentSMA20,
+      currentSMA50,
+      priceVsSMA20: ((currentPrice - currentSMA20) / currentSMA20 * 100).toFixed(2),
+      priceVsSMA50: ((currentPrice - currentSMA50) / currentSMA50 * 100).toFixed(2)
+    };
   };
 
   const filterDataByDateRange = (data) => {
@@ -67,6 +130,7 @@ export default function StockAnalysis() {
     if (cache[symbol] && (Date.now() - cache[symbol].timestamp) < 24 * 60 * 60 * 1000) {
       const filteredData = filterDataByDateRange(cache[symbol].data);
       setHistoricalData(filteredData);
+      setAnalysisResults(cache[symbol].analysis);
       setCurrentSymbol(symbol);
       return;
     }
@@ -102,11 +166,15 @@ export default function StockAnalysis() {
         sma50: sma50[i]
       }));
 
+      // Analizar señales
+      const analysis = analyzeSignals(processedData, sma20, sma50);
+
       // Guardar en caché
       setCache(prev => ({
         ...prev,
         [symbol]: {
           data: processedData,
+          analysis,
           timestamp: Date.now()
         }
       }));
@@ -114,6 +182,7 @@ export default function StockAnalysis() {
       // Filtrar por rango de fechas
       const filteredData = filterDataByDateRange(processedData);
       setHistoricalData(filteredData);
+      setAnalysisResults(analysis);
       setCurrentSymbol(symbol);
       setSearchTerm('');
     } catch (err) {
@@ -133,6 +202,16 @@ export default function StockAnalysis() {
       const filteredData = filterDataByDateRange(cache[currentSymbol].data);
       setHistoricalData(filteredData);
     }
+  };
+
+  const formatCurrency = (value) => {
+    if (!value) return '-';
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
   };
 
   return (
@@ -211,6 +290,69 @@ export default function StockAnalysis() {
         </div>
       )}
 
+      {/* Analysis Results */}
+      {analysisResults && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-semibold mb-4">Precio y Tendencia</h3>
+            <div className="space-y-2">
+              <p className="text-3xl font-bold">{formatCurrency(analysisResults.currentPrice)}</p>
+              <p className={`text-lg ${analysisResults.trend === 'alcista' ? 'text-green-600' : 'text-red-600'}`}>
+                Tendencia {analysisResults.trend}
+              </p>
+              <p className="text-sm text-gray-600">
+                vs SMA20: {analysisResults.priceVsSMA20}%
+              </p>
+              <p className="text-sm text-gray-600">
+                vs SMA50: {analysisResults.priceVsSMA50}%
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-semibold mb-4">Rendimiento</h3>
+            <div className="space-y-2">
+              <p className={`text-3xl font-bold ${Number(analysisResults.performance) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {analysisResults.performance}%
+              </p>
+              <p className="text-sm text-gray-600">
+                Volatilidad: {analysisResults.volatility}%
+              </p>
+              <p className="text-sm text-gray-600">
+                Última señal: {
+                  analysisResults.lastSignal === 'buy' ? 
+                  'Compra' : 
+                  analysisResults.lastSignal === 'sell' ? 
+                  'Venta' : 
+                  'Neutral'
+                }
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-semibold mb-4">Señales Recientes</h3>
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {analysisResults.signals.slice(-3).reverse().map((signal, index) => (
+                <div 
+                  key={index}
+                  className={`p-2 rounded ${
+                    signal.type === 'buy' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                  }`}
+                >
+                  <p className="font-medium">
+                    Señal de {signal.type === 'buy' ? 'Compra' : 'Venta'}
+                  </p>
+                  <p className="text-sm">
+                    {new Date(signal.date).toLocaleDateString()} - {formatCurrency(signal.price)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Price Chart */}
       {historicalData.length > 0 && (
         <div className="bg-white p-4 rounded-xl shadow-md">
@@ -269,6 +411,19 @@ export default function StockAnalysis() {
                   name="Media Móvil 50 días"
                   isAnimationActive={false}
                 />
+                {analysisResults?.signals.map((signal, index) => (
+                  <ReferenceLine
+                    key={index}
+                    x={signal.date}
+                    stroke={signal.type === 'buy' ? '#10B981' : '#EF4444'}
+                    strokeDasharray="3 3"
+                    label={{
+                      value: signal.type === 'buy' ? '↑' : '↓',
+                      position: 'top',
+                      fill: signal.type === 'buy' ? '#10B981' : '#EF4444'
+                    }}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>

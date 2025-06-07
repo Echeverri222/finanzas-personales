@@ -32,7 +32,7 @@ export default function StockAnalysis() {
   const [error, setError] = useState(null);
   const [dateRange, setDateRange] = useState({
     startDate: '',
-    endDate: ''
+    endDate: new Date().toISOString().split('T')[0] // Fecha actual como fecha final por defecto
   });
   const [selectedTicker, setSelectedTicker] = useState('AAPL');
   const [apiCallCount, setApiCallCount] = useState(0);
@@ -82,7 +82,6 @@ export default function StockAnalysis() {
       }
       let sum = 0;
       let weight = 0;
-      // Dar más peso a los precios más recientes
       for (let j = 0; j < period; j++) {
         const w = (period - j) / period;
         sum += data[i - j] * w;
@@ -149,6 +148,17 @@ export default function StockAnalysis() {
     };
   };
 
+  const filterDataByDateRange = (data) => {
+    if (!dateRange.startDate && !dateRange.endDate) return data;
+
+    return data.filter(item => {
+      const itemDate = new Date(item.date);
+      const start = dateRange.startDate ? new Date(dateRange.startDate) : new Date(0);
+      const end = dateRange.endDate ? new Date(dateRange.endDate) : new Date();
+      return itemDate >= start && itemDate <= end;
+    });
+  };
+
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchTerm.trim()) return;
@@ -157,7 +167,8 @@ export default function StockAnalysis() {
 
     // Si los datos están en caché y tienen menos de 24 horas, usarlos
     if (cache[symbol] && (Date.now() - cache[symbol].timestamp) < 24 * 60 * 60 * 1000) {
-      setHistoricalData(cache[symbol].data);
+      const filteredData = filterDataByDateRange(cache[symbol].data);
+      setHistoricalData(filteredData);
       setCurrentSymbol(symbol);
       return;
     }
@@ -176,10 +187,9 @@ export default function StockAnalysis() {
         throw new Error('No se encontraron datos para este símbolo');
       }
 
-      // Procesar solo los últimos 200 días
+      // Procesar datos históricos
       const sortedData = data.historical
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
-        .slice(-200);
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
 
       // Calcular SMAs
       const closes = sortedData.map(d => d.close);
@@ -203,7 +213,9 @@ export default function StockAnalysis() {
         }
       }));
 
-      setHistoricalData(processedData);
+      // Filtrar por rango de fechas
+      const filteredData = filterDataByDateRange(processedData);
+      setHistoricalData(filteredData);
       setCurrentSymbol(symbol);
       setSearchTerm('');
     } catch (err) {
@@ -211,6 +223,17 @@ export default function StockAnalysis() {
       setError(err.message || "Error al obtener datos");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDateChange = (e) => {
+    const { name, value } = e.target;
+    setDateRange(prev => ({ ...prev, [name]: value }));
+    
+    // Si hay un símbolo actual, actualizar los datos filtrados
+    if (currentSymbol && cache[currentSymbol]) {
+      const filteredData = filterDataByDateRange(cache[currentSymbol].data);
+      setHistoricalData(filteredData);
     }
   };
 
@@ -270,20 +293,24 @@ export default function StockAnalysis() {
           ))}
         </div>
 
-        <form onSubmit={handleSearch} className="flex gap-2 w-full md:w-auto">
-          <div className="flex flex-col md:flex-row gap-2 w-full">
+        <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+          <div className="flex gap-2">
             <input
               type="date"
+              name="startDate"
               value={dateRange.startDate}
-              onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+              onChange={handleDateChange}
               className="w-full md:w-auto px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <input
               type="date"
+              name="endDate"
               value={dateRange.endDate}
-              onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+              onChange={handleDateChange}
               className="w-full md:w-auto px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+          </div>
+          <div className="flex gap-2">
             <input
               type="text"
               value={searchTerm}

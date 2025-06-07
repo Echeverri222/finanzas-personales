@@ -27,6 +27,11 @@ export default function StockAnalysis() {
     endDate: new Date().toISOString().split('T')[0] // Fecha actual como fecha final por defecto
   });
   const [analysisResults, setAnalysisResults] = useState(null);
+  const [peRatioData, setPeRatioData] = useState([]);
+  const [medianPE, setMedianPE] = useState(null);
+  const [showPERatio, setShowPERatio] = useState(false);
+  const [loadingPE, setLoadingPE] = useState(false);
+  const [ratiosChart, setRatiosChart] = useState(null);
 
   const calculateSMA = (data, period) => {
     const sma = [];
@@ -120,6 +125,81 @@ export default function StockAnalysis() {
     });
   };
 
+  const loadPERatioData = async (symbol) => {
+    if (!symbol) return;
+    
+    try {
+      setLoadingPE(true);
+      setError(null);
+      setApiCallCount(prev => prev + 1);
+
+      const response = await fetch(
+        `${BASE_URL}/ratios/${symbol}?period=quarter&limit=40&apikey=${FMP_API_KEY}`
+      );
+      const data = await response.json();
+
+      if (!data || data.length === 0) {
+        throw new Error('No se encontraron datos de P/E ratio');
+      }
+
+      const processedData = data
+        .filter(item => item.peRatio > 0) // Filtrar P/E ratios negativos
+        .map(item => ({
+          date: item.date,
+          peRatio: item.peRatio
+        }))
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      // Calcular la mediana
+      const peValues = processedData.map(d => d.peRatio).sort((a, b) => a - b);
+      const mid = Math.floor(peValues.length / 2);
+      const median = peValues.length % 2 === 0
+        ? (peValues[mid - 1] + peValues[mid]) / 2
+        : peValues[mid];
+
+      setPeRatioData(processedData);
+      setMedianPE(median);
+    } catch (err) {
+      console.error("Error al cargar datos de P/E:", err);
+      setError(err.message || "Error al obtener datos de P/E ratio");
+    } finally {
+      setLoadingPE(false);
+    }
+  };
+
+  const calculateRatios = (shortSMA, longSMA) => {
+    const ratios = [];
+    for (let i = 0; i < shortSMA.length; i++) {
+      if (!shortSMA[i] || !longSMA[i]) {
+        ratios.push(null);
+        continue;
+      }
+      ratios.push(shortSMA[i] / longSMA[i]);
+    }
+    return ratios;
+  };
+
+  const prepareRatiosChartData = (data, sma20, sma50) => {
+    const ratios = calculateRatios(sma20, sma50);
+    const chartData = data.map((day, i) => ({
+      date: day.date,
+      ratio: ratios[i]
+    }));
+
+    // Calcular niveles de compra/venta basados en percentiles históricos
+    const validRatios = ratios.filter(r => r !== null);
+    const sortedRatios = [...validRatios].sort((a, b) => a - b);
+    const buyLevel = sortedRatios[Math.floor(sortedRatios.length * 0.2)]; // Percentil 20
+    const sellLevel = sortedRatios[Math.floor(sortedRatios.length * 0.8)]; // Percentil 80
+
+    return {
+      data: chartData,
+      buyLevel,
+      sellLevel,
+      mean: 1.0
+    };
+  };
+
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchTerm.trim()) return;
@@ -158,6 +238,10 @@ export default function StockAnalysis() {
       const sma20 = calculateSMA(closes, 20);
       const sma50 = calculateSMA(closes, 50);
 
+      // Preparar datos para el gráfico de ratios
+      const ratiosChartData = prepareRatiosChartData(sortedData, sma20, sma50);
+      setRatiosChart(ratiosChartData);
+
       // Combinar datos
       const processedData = sortedData.map((day, i) => ({
         date: day.date,
@@ -185,6 +269,11 @@ export default function StockAnalysis() {
       setAnalysisResults(analysis);
       setCurrentSymbol(symbol);
       setSearchTerm('');
+
+      // Limpiar datos de P/E ratio al cambiar de símbolo
+      setPeRatioData([]);
+      setMedianPE(null);
+      setShowPERatio(false);
     } catch (err) {
       console.error("Error:", err);
       setError(err.message || "Error al obtener datos");
@@ -355,79 +444,198 @@ export default function StockAnalysis() {
 
       {/* Price Chart */}
       {historicalData.length > 0 && (
-        <div className="bg-white p-4 rounded-xl shadow-md">
-          <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">
-            Histórico de Precios con Medias Móviles
-          </h3>
-          <div className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={historicalData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis 
-                  dataKey="date" 
-                  tick={{ fill: '#4B5563' }}
-                  axisLine={{ stroke: '#E5E7EB' }}
-                />
-                <YAxis
-                  tick={{ fill: '#4B5563' }}
-                  axisLine={{ stroke: '#E5E7EB' }}
-                  domain={['auto', 'auto']}
-                  tickFormatter={(value) => `$${value.toFixed(2)}`}
-                />
-                <Tooltip 
-                  formatter={(value, name) => [
-                    `$${Number(value).toFixed(2)}`, 
-                    name === 'close' ? 'Precio' : 
-                    name === 'sma20' ? 'Media Móvil 20 días' : 
-                    name === 'sma50' ? 'Media Móvil 50 días' : name
-                  ]}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                />
-                <Legend verticalAlign="top" height={36} />
-                <Line 
-                  type="monotone" 
-                  dataKey="close" 
-                  stroke="#3B82F6" 
-                  strokeWidth={2}
-                  dot={false}
-                  name="Precio"
-                  isAnimationActive={false}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="sma20" 
-                  stroke="#10B981" 
-                  strokeWidth={2}
-                  dot={false}
-                  name="Media Móvil 20 días"
-                  isAnimationActive={false}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="sma50" 
-                  stroke="#EF4444" 
-                  strokeWidth={2}
-                  dot={false}
-                  name="Media Móvil 50 días"
-                  isAnimationActive={false}
-                />
-                {analysisResults?.signals.map((signal, index) => (
-                  <ReferenceLine
-                    key={index}
-                    x={signal.date}
-                    stroke={signal.type === 'buy' ? '#10B981' : '#EF4444'}
-                    strokeDasharray="3 3"
-                    label={{
-                      value: signal.type === 'buy' ? '↑' : '↓',
-                      position: 'top',
-                      fill: signal.type === 'buy' ? '#10B981' : '#EF4444'
-                    }}
+        <>
+          <div className="bg-white p-4 rounded-xl shadow-md">
+            <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">
+              Histórico de Precios con Medias Móviles
+            </h3>
+            <div className="h-[400px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={historicalData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis 
+                    dataKey="date" 
+                    tick={{ fill: '#4B5563' }}
+                    axisLine={{ stroke: '#E5E7EB' }}
                   />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
+                  <YAxis
+                    tick={{ fill: '#4B5563' }}
+                    axisLine={{ stroke: '#E5E7EB' }}
+                    domain={['auto', 'auto']}
+                    tickFormatter={(value) => `$${value.toFixed(2)}`}
+                  />
+                  <Tooltip 
+                    formatter={(value, name) => [
+                      `$${Number(value).toFixed(2)}`, 
+                      name === 'close' ? 'Precio' : 
+                      name === 'sma20' ? 'Media Móvil 20 días' : 
+                      name === 'sma50' ? 'Media Móvil 50 días' : name
+                    ]}
+                    labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                  />
+                  <Legend verticalAlign="top" height={36} />
+                  <Line 
+                    type="monotone" 
+                    dataKey="close" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    dot={false}
+                    name="Precio"
+                    isAnimationActive={false}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="sma20" 
+                    stroke="#10B981" 
+                    strokeWidth={2}
+                    dot={false}
+                    name="Media Móvil 20 días"
+                    isAnimationActive={false}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="sma50" 
+                    stroke="#EF4444" 
+                    strokeWidth={2}
+                    dot={false}
+                    name="Media Móvil 50 días"
+                    isAnimationActive={false}
+                  />
+                  {analysisResults?.signals.map((signal, index) => (
+                    <ReferenceLine
+                      key={index}
+                      x={signal.date}
+                      stroke={signal.type === 'buy' ? '#10B981' : '#EF4444'}
+                      strokeDasharray="3 3"
+                      label={{
+                        value: signal.type === 'buy' ? '↑' : '↓',
+                        position: 'top',
+                        fill: signal.type === 'buy' ? '#10B981' : '#EF4444'
+                      }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
+
+          {/* Ratios Chart */}
+          {ratiosChart && (
+            <div className="bg-white p-4 rounded-xl shadow-md mt-4">
+              <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">
+                Ratio SMA20/SMA50
+              </h3>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={ratiosChart.data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fill: '#4B5563' }}
+                      axisLine={{ stroke: '#E5E7EB' }}
+                    />
+                    <YAxis
+                      tick={{ fill: '#4B5563' }}
+                      axisLine={{ stroke: '#E5E7EB' }}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip 
+                      formatter={(value) => [value.toFixed(4), 'Ratio']}
+                      labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                    />
+                    <ReferenceLine y={ratiosChart.buyLevel} stroke="#10B981" strokeDasharray="3 3" label={{ value: 'Nivel de Compra', position: 'right', fill: '#10B981' }} />
+                    <ReferenceLine y={ratiosChart.sellLevel} stroke="#EF4444" strokeDasharray="3 3" label={{ value: 'Nivel de Venta', position: 'right', fill: '#EF4444' }} />
+                    <ReferenceLine y={ratiosChart.mean} stroke="#6B7280" strokeDasharray="3 3" label={{ value: 'Media', position: 'right', fill: '#6B7280' }} />
+                    <Line 
+                      type="monotone" 
+                      dataKey="ratio" 
+                      stroke="#6366F1" 
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-4 text-sm text-gray-600">
+                <p>• Cuando el ratio está por debajo del nivel de compra, puede indicar una oportunidad de compra</p>
+                <p>• Cuando el ratio está por encima del nivel de venta, puede indicar una oportunidad de venta</p>
+              </div>
+            </div>
+          )}
+
+          {/* P/E Ratio Section */}
+          <div className="bg-white p-4 rounded-xl shadow-md mt-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base md:text-lg font-semibold text-gray-800">
+                P/E Ratio Histórico
+              </h3>
+              <button
+                onClick={() => {
+                  if (!showPERatio) {
+                    loadPERatioData(currentSymbol);
+                  }
+                  setShowPERatio(!showPERatio);
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+                disabled={loading || loadingPE}
+              >
+                {loadingPE ? 'Cargando...' : showPERatio ? 'Ocultar P/E' : 'Mostrar P/E'}
+              </button>
+            </div>
+
+            {showPERatio && peRatioData.length > 0 && (
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={peRatioData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fill: '#4B5563' }}
+                      axisLine={{ stroke: '#E5E7EB' }}
+                    />
+                    <YAxis
+                      tick={{ fill: '#4B5563' }}
+                      axisLine={{ stroke: '#E5E7EB' }}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip 
+                      formatter={(value) => [`${value.toFixed(2)}`, 'P/E Ratio']}
+                      labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                    />
+                    {medianPE && (
+                      <ReferenceLine 
+                        y={medianPE} 
+                        stroke="#9CA3AF" 
+                        strokeDasharray="3 3"
+                        label={{ 
+                          value: `Mediana: ${medianPE.toFixed(2)}`,
+                          position: 'right',
+                          fill: '#4B5563'
+                        }}
+                      />
+                    )}
+                    <Line 
+                      type="monotone" 
+                      dataKey="peRatio" 
+                      stroke="#8B5CF6" 
+                      strokeWidth={2}
+                      dot={false}
+                      name="P/E Ratio"
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {showPERatio && peRatioData.length === 0 && !loadingPE && (
+              <div className="text-center py-8 text-gray-500">
+                No hay datos de P/E ratio disponibles para este símbolo
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

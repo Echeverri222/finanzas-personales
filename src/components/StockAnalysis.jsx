@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from 'recharts';
 
 const BASE_URL = 'https://financialmodelingprep.com/api/v3';
 const FMP_API_KEY = 'FAExoSELA4CoIVTlixYT42586X9MYpSb';
@@ -34,20 +34,32 @@ export default function StockAnalysis() {
     startDate: '',
     endDate: ''
   });
-  const [selectedTicker, setSelectedTicker] = useState(DEFAULT_TICKERS[0].symbol);
+  const [selectedTicker, setSelectedTicker] = useState('AAPL');
   const [apiCallCount, setApiCallCount] = useState(0);
   const [lastFetchedData, setLastFetchedData] = useState({});
 
-  // Cargar el ticker por defecto solo al montar el componente
+  // Cargar datos iniciales
   useEffect(() => {
-    if (selectedTicker && !lastFetchedData[selectedTicker]) {
-      fetchStockData(selectedTicker);
-    } else if (lastFetchedData[selectedTicker]) {
-      // Usar datos en caché si están disponibles
-      setStockData(lastFetchedData[selectedTicker].stockData);
-      setHistoricalData(lastFetchedData[selectedTicker].historicalData);
-      setSmaAnalysis(lastFetchedData[selectedTicker].smaAnalysis);
-    }
+    const loadInitialData = async () => {
+      if (!lastFetchedData['AAPL']) {
+        await fetchStockData('AAPL');
+      }
+    };
+    loadInitialData();
+  }, []); // Solo se ejecuta al montar el componente
+
+  // Manejar cambios de ticker
+  useEffect(() => {
+    const loadTickerData = async () => {
+      if (selectedTicker && !lastFetchedData[selectedTicker]) {
+        await fetchStockData(selectedTicker);
+      } else if (lastFetchedData[selectedTicker]) {
+        setStockData(lastFetchedData[selectedTicker].stockData);
+        setHistoricalData(lastFetchedData[selectedTicker].historicalData);
+        setSmaAnalysis(lastFetchedData[selectedTicker].smaAnalysis);
+      }
+    };
+    loadTickerData();
   }, [selectedTicker]);
 
   const handleTickerChange = (newTicker) => {
@@ -377,80 +389,92 @@ export default function StockAnalysis() {
         </div>
       )}
 
-      {/* Price Chart with SMAs */}
+      {/* Chart Legend */}
+      <div className="bg-white p-4 rounded-xl shadow-md">
+        <h3 className="text-base font-semibold mb-3">Leyenda del Gráfico</h3>
+        <div className="flex flex-wrap gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-0.5 bg-blue-500"></div>
+            <span className="text-sm text-gray-600">Precio Real</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-0.5 bg-green-500"></div>
+            <span className="text-sm text-gray-600">Media Móvil 20 días (SMA20)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-0.5 bg-red-500"></div>
+            <span className="text-sm text-gray-600">Media Móvil 50 días (SMA50)</span>
+          </div>
+        </div>
+        <div className="mt-2 text-sm text-gray-500">
+          <p>• Señal de compra: Cuando SMA20 cruza por encima de SMA50</p>
+          <p>• Señal de venta: Cuando SMA20 cruza por debajo de SMA50</p>
+        </div>
+      </div>
+
+      {/* Price Chart */}
       {historicalData.length > 0 && (
-        <div className="bg-white p-6 rounded-xl shadow-md">
-          <h3 className="text-lg font-semibold mb-4">Histórico de Precios con Medias Móviles</h3>
+        <div className="bg-white p-4 rounded-xl shadow-md">
+          <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Histórico de Precios con Medias Móviles</h3>
           <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={[
-                  ...historicalData.map((point, index) => ({
-                    date: point.date,
-                    close: point.close,
-                    sma20: smaAnalysis?.sma20[index],
-                    sma50: smaAnalysis?.sma50[index]
-                  })),
-                  ...(smaAnalysis?.predictions.map((pred, i) => ({
-                    date: smaAnalysis.futureDates[i],
-                    prediction: pred
-                  })) || [])
-                ]}
-                margin={{
-                  top: 5,
-                  right: 30,
-                  left: 20,
-                  bottom: 5,
-                }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
+              <LineChart data={historicalData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis 
-                  dataKey="date"
+                  dataKey="date" 
                   tick={{ fill: '#4B5563' }}
                   axisLine={{ stroke: '#E5E7EB' }}
                 />
                 <YAxis
-                  domain={['auto', 'auto']}
                   tick={{ fill: '#4B5563' }}
                   axisLine={{ stroke: '#E5E7EB' }}
-                  tickFormatter={(value) => formatCurrency(value)}
+                  domain={['auto', 'auto']}
+                  tickFormatter={(value) => `$${value.toFixed(2)}`}
                 />
-                <Tooltip
-                  formatter={(value, name) => [formatCurrency(value), name]}
+                <Tooltip 
+                  formatter={(value, name) => [
+                    `$${Number(value).toFixed(2)}`, 
+                    name === 'close' ? 'Precio' : 
+                    name === 'sma20' ? 'SMA20' : 
+                    name === 'sma50' ? 'SMA50' : name
+                  ]}
                   labelFormatter={(label) => new Date(label).toLocaleDateString()}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="close"
-                  stroke="#3B82F6"
+                <Legend 
+                  verticalAlign="top" 
+                  height={36}
+                  formatter={(value) => 
+                    value === 'close' ? 'Precio' : 
+                    value === 'sma20' ? 'Media Móvil 20 días' : 
+                    value === 'sma50' ? 'Media Móvil 50 días' : value
+                  }
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="close" 
+                  stroke="#3B82F6" 
                   strokeWidth={2}
                   dot={false}
-                  name="Precio"
+                  name="close"
+                  isAnimationActive={false}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="sma20"
-                  stroke="#10B981"
-                  strokeWidth={1}
+                <Line 
+                  type="monotone" 
+                  dataKey="sma20" 
+                  stroke="#10B981" 
+                  strokeWidth={2}
                   dot={false}
-                  name="SMA20"
+                  name="sma20"
+                  isAnimationActive={false}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="sma50"
-                  stroke="#F59E0B"
-                  strokeWidth={1}
+                <Line 
+                  type="monotone" 
+                  dataKey="sma50" 
+                  stroke="#EF4444" 
+                  strokeWidth={2}
                   dot={false}
-                  name="SMA50"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="prediction"
-                  stroke="#6366F1"
-                  strokeWidth={1}
-                  strokeDasharray="5 5"
-                  dot={false}
-                  name="Predicción"
+                  name="sma50"
+                  isAnimationActive={false}
                 />
               </LineChart>
             </ResponsiveContainer>

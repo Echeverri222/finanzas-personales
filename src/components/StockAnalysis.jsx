@@ -32,6 +32,7 @@ export default function StockAnalysis() {
   const [showPERatio, setShowPERatio] = useState(false);
   const [loadingPE, setLoadingPE] = useState(false);
   const [ratiosChart, setRatiosChart] = useState(null);
+  const [stockInfo, setStockInfo] = useState(null);
 
   const calculateSMA = (data, period) => {
     const sma = [];
@@ -138,19 +139,29 @@ export default function StockAnalysis() {
       );
       const data = await response.json();
 
-      if (!data || data.length === 0) {
-        throw new Error('No se encontraron datos de P/E ratio');
+      // Verificar si la respuesta es un array y tiene datos
+      if (!Array.isArray(data) || data.length === 0) {
+        setPeRatioData([]);
+        setMedianPE(null);
+        throw new Error('No se encontraron datos de P/E ratio para este símbolo');
       }
 
+      // Filtrar y procesar solo los datos válidos
       const processedData = data
-        .filter(item => item.peRatio > 0) // Filtrar P/E ratios negativos
+        .filter(item => item && typeof item.peRatio === 'number' && item.peRatio > 0)
         .map(item => ({
           date: item.date,
-          peRatio: item.peRatio
+          peRatio: Number(item.peRatio)
         }))
         .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      // Calcular la mediana
+      if (processedData.length === 0) {
+        setPeRatioData([]);
+        setMedianPE(null);
+        throw new Error('No hay datos válidos de P/E ratio para este símbolo');
+      }
+
+      // Calcular la mediana con los datos válidos
       const peValues = processedData.map(d => d.peRatio).sort((a, b) => a - b);
       const mid = Math.floor(peValues.length / 2);
       const median = peValues.length % 2 === 0
@@ -162,6 +173,8 @@ export default function StockAnalysis() {
     } catch (err) {
       console.error("Error al cargar datos de P/E:", err);
       setError(err.message || "Error al obtener datos de P/E ratio");
+      setPeRatioData([]);
+      setMedianPE(null);
     } finally {
       setLoadingPE(false);
     }
@@ -206,31 +219,35 @@ export default function StockAnalysis() {
 
     const symbol = searchTerm.toUpperCase();
 
-    // Si los datos están en caché y tienen menos de 24 horas, usarlos
-    if (cache[symbol] && (Date.now() - cache[symbol].timestamp) < 24 * 60 * 60 * 1000) {
-      const filteredData = filterDataByDateRange(cache[symbol].data);
-      setHistoricalData(filteredData);
-      setAnalysisResults(cache[symbol].analysis);
-      setCurrentSymbol(symbol);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
       setApiCallCount(prev => prev + 1);
 
-      const response = await fetch(
+      // Obtener datos históricos
+      const historyResponse = await fetch(
         `${BASE_URL}/historical-price-full/${symbol}?apikey=${FMP_API_KEY}`
       );
-      const data = await response.json();
+      const historyData = await historyResponse.json();
 
-      if (!data.historical) {
+      if (!historyData.historical) {
         throw new Error('No se encontraron datos para este símbolo');
       }
 
+      // Obtener información de la compañía
+      const quoteResponse = await fetch(
+        `${BASE_URL}/quote/${symbol}?apikey=${FMP_API_KEY}`
+      );
+      const quoteData = await quoteResponse.json();
+
+      if (!quoteData || quoteData.length === 0) {
+        throw new Error('No se encontró información actual de la compañía');
+      }
+
+      setStockInfo(quoteData[0]);
+
       // Procesar datos históricos
-      const sortedData = data.historical
+      const sortedData = historyData.historical
         .sort((a, b) => new Date(a.date) - new Date(b.date));
 
       // Calcular SMAs
@@ -243,30 +260,13 @@ export default function StockAnalysis() {
       setRatiosChart(ratiosChartData);
 
       // Combinar datos
-      const processedData = sortedData.map((day, i) => ({
+      const combinedData = sortedData.map((day, i) => ({
         date: day.date,
         close: day.close,
-        sma20: sma20[i],
-        sma50: sma50[i]
+        volume: day.volume
       }));
 
-      // Analizar señales
-      const analysis = analyzeSignals(processedData, sma20, sma50);
-
-      // Guardar en caché
-      setCache(prev => ({
-        ...prev,
-        [symbol]: {
-          data: processedData,
-          analysis,
-          timestamp: Date.now()
-        }
-      }));
-
-      // Filtrar por rango de fechas
-      const filteredData = filterDataByDateRange(processedData);
-      setHistoricalData(filteredData);
-      setAnalysisResults(analysis);
+      setHistoricalData(combinedData);
       setCurrentSymbol(symbol);
       setSearchTerm('');
 
@@ -301,6 +301,14 @@ export default function StockAnalysis() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(value);
+  };
+
+  const formatLargeNumber = (num) => {
+    if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
+    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+    return num.toFixed(2);
   };
 
   return (
@@ -379,6 +387,100 @@ export default function StockAnalysis() {
         </div>
       )}
 
+      {/* Stock Info Cards */}
+      {stockInfo && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl shadow-md p-4">
+            <h3 className="text-sm font-medium text-gray-500">Precio Actual</h3>
+            <div className="mt-1 flex items-baseline">
+              <p className="text-2xl font-semibold text-gray-900">${stockInfo.price.toFixed(2)}</p>
+              <p className={`ml-2 flex items-baseline text-sm font-semibold ${
+                stockInfo.change >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                <span>{stockInfo.change >= 0 ? '↑' : '↓'}</span>
+                <span className="ml-1">{Math.abs(stockInfo.change).toFixed(2)}</span>
+                <span className="ml-1">({Math.abs(stockInfo.changesPercentage).toFixed(2)}%)</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-4">
+            <h3 className="text-sm font-medium text-gray-500">Market Cap</h3>
+            <p className="mt-1 text-2xl font-semibold text-gray-900">
+              ${formatLargeNumber(stockInfo.marketCap)}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-4">
+            <h3 className="text-sm font-medium text-gray-500">Volumen</h3>
+            <p className="mt-1 text-2xl font-semibold text-gray-900">
+              {formatLargeNumber(stockInfo.volume)}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-4">
+            <h3 className="text-sm font-medium text-gray-500">Rango 52 Semanas</h3>
+            <div className="mt-1">
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Min: ${stockInfo.yearLow.toFixed(2)}</span>
+                <span>Max: ${stockInfo.yearHigh.toFixed(2)}</span>
+              </div>
+              <div className="mt-2 relative">
+                <div className="h-2 bg-gray-200 rounded-full">
+                  <div 
+                    className="absolute h-2 bg-blue-500 rounded-full"
+                    style={{
+                      width: `${((stockInfo.price - stockInfo.yearLow) / (stockInfo.yearHigh - stockInfo.yearLow)) * 100}%`
+                    }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-4">
+            <h3 className="text-sm font-medium text-gray-500">Apertura</h3>
+            <p className="mt-1 text-2xl font-semibold text-gray-900">
+              ${stockInfo.open.toFixed(2)}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-4">
+            <h3 className="text-sm font-medium text-gray-500">Cierre Anterior</h3>
+            <p className="mt-1 text-2xl font-semibold text-gray-900">
+              ${stockInfo.previousClose.toFixed(2)}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-4">
+            <h3 className="text-sm font-medium text-gray-500">Rango del Día</h3>
+            <div className="mt-1">
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Min: ${stockInfo.dayLow.toFixed(2)}</span>
+                <span>Max: ${stockInfo.dayHigh.toFixed(2)}</span>
+              </div>
+              <div className="mt-2 relative">
+                <div className="h-2 bg-gray-200 rounded-full">
+                  <div 
+                    className="absolute h-2 bg-green-500 rounded-full"
+                    style={{
+                      width: `${((stockInfo.price - stockInfo.dayLow) / (stockInfo.dayHigh - stockInfo.dayLow)) * 100}%`
+                    }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-4">
+            <h3 className="text-sm font-medium text-gray-500">Promedio Vol. (3m)</h3>
+            <p className="mt-1 text-2xl font-semibold text-gray-900">
+              {formatLargeNumber(stockInfo.avgVolume)}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Analysis Results */}
       {analysisResults && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -447,7 +549,7 @@ export default function StockAnalysis() {
         <>
           <div className="bg-white p-4 rounded-xl shadow-md">
             <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">
-              Histórico de Precios con Medias Móviles
+              Histórico de Precios - {currentSymbol}
             </h3>
             <div className="h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -462,58 +564,19 @@ export default function StockAnalysis() {
                     tick={{ fill: '#4B5563' }}
                     axisLine={{ stroke: '#E5E7EB' }}
                     domain={['auto', 'auto']}
-                    tickFormatter={(value) => `$${value.toFixed(2)}`}
                   />
                   <Tooltip 
-                    formatter={(value, name) => [
-                      `$${Number(value).toFixed(2)}`, 
-                      name === 'close' ? 'Precio' : 
-                      name === 'sma20' ? 'Media Móvil 20 días' : 
-                      name === 'sma50' ? 'Media Móvil 50 días' : name
-                    ]}
+                    formatter={(value) => [`$${value.toFixed(2)}`, 'Precio']}
                     labelFormatter={(label) => new Date(label).toLocaleDateString()}
                   />
-                  <Legend verticalAlign="top" height={36} />
                   <Line 
                     type="monotone" 
                     dataKey="close" 
-                    stroke="#3B82F6" 
+                    stroke="#2563EB" 
                     strokeWidth={2}
                     dot={false}
                     name="Precio"
-                    isAnimationActive={false}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="sma20" 
-                    stroke="#10B981" 
-                    strokeWidth={2}
-                    dot={false}
-                    name="Media Móvil 20 días"
-                    isAnimationActive={false}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="sma50" 
-                    stroke="#EF4444" 
-                    strokeWidth={2}
-                    dot={false}
-                    name="Media Móvil 50 días"
-                    isAnimationActive={false}
-                  />
-                  {analysisResults?.signals.map((signal, index) => (
-                    <ReferenceLine
-                      key={index}
-                      x={signal.date}
-                      stroke={signal.type === 'buy' ? '#10B981' : '#EF4444'}
-                      strokeDasharray="3 3"
-                      label={{
-                        value: signal.type === 'buy' ? '↑' : '↓',
-                        position: 'top',
-                        fill: signal.type === 'buy' ? '#10B981' : '#EF4444'
-                      }}
-                    />
-                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>

@@ -30,6 +30,11 @@ export default function StockAnalysis() {
   const [peRatioData, setPeRatioData] = useState([]);
   const [showPERatio, setShowPERatio] = useState(false);
   const [loadingPE, setLoadingPE] = useState(false);
+  const [shortTermSMA, setShortTermSMA] = useState([]);
+  const [longTermSMA, setLongTermSMA] = useState([]);
+  const [showSMA, setShowSMA] = useState(false);
+  const [fundamentalMetrics, setFundamentalMetrics] = useState(null);
+  const [growthMetrics, setGrowthMetrics] = useState(null);
 
   // Función para calcular SMA con ponderación
   const calculateSMA = (data, period) => {
@@ -191,6 +196,42 @@ export default function StockAnalysis() {
       // Cargar datos históricos de P/E
       await loadPERatioHistory(searchTerm);
 
+      // Calcular SMAs si están activadas
+      if (showSMA) {
+        const shortSMA = calculateSMA(processedData, 20);
+        const longSMA = calculateSMA(processedData, 50);
+        setShortTermSMA(shortSMA);
+        setLongTermSMA(longSMA);
+      }
+
+      // Cargar métricas fundamentales
+      const metricsResponse = await fetch(
+        `${BASE_URL}/key-metrics-ttm/${searchTerm}?apikey=${FMP_API_KEY}`
+      );
+
+      if (!metricsResponse.ok) {
+        throw new Error('Error al obtener métricas fundamentales');
+      }
+
+      const metricsData = await metricsResponse.json();
+      if (metricsData.length > 0) {
+        setFundamentalMetrics(metricsData[0]);
+      }
+
+      // Cargar datos de crecimiento y estimaciones
+      const growthResponse = await fetch(
+        `${BASE_URL}/analyst-estimates/${searchTerm}?apikey=${FMP_API_KEY}`
+      );
+
+      if (!growthResponse.ok) {
+        throw new Error('Error al obtener datos de crecimiento');
+      }
+
+      const growthData = await growthResponse.json();
+      if (growthData.length > 0) {
+        setGrowthMetrics(growthData[0]);
+      }
+
     } catch (err) {
       console.error('Error:', err);
       setError(err.message);
@@ -216,6 +257,16 @@ export default function StockAnalysis() {
     if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
     if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
     return num.toFixed(2);
+  };
+
+  const formatNumber = (value) => {
+    if (!value) return '-';
+    return value.toFixed(2);
+  };
+
+  const formatPercentage = (value) => {
+    if (!value) return '-';
+    return (value * 100).toFixed(2) + '%';
   };
 
   return (
@@ -282,22 +333,22 @@ export default function StockAnalysis() {
           </div>
 
           {/* Métricas Fundamentales */}
-          {fundamentalData && (
+          {fundamentalMetrics && (
             <>
               <div className="bg-white rounded-xl shadow-md p-4">
-                <h3 className="text-sm font-medium text-gray-500">Valuación</h3>
+                <h3 className="text-sm font-medium text-gray-500">Métricas Fundamentales</h3>
                 <div className="mt-2 space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">P/E Ratio</span>
-                    <span className="font-semibold">{fundamentalData.peRatioTTM?.toFixed(2)}x</span>
+                    <span className="font-semibold">{formatNumber(fundamentalMetrics.peRatioTTM)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Price/Book</span>
-                    <span className="font-semibold">{fundamentalData.priceToBookRatioTTM?.toFixed(2)}x</span>
+                    <span className="font-semibold">{formatNumber(fundamentalMetrics.pbRatioTTM)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">PEG Ratio</span>
-                    <span className="font-semibold">{fundamentalData.pegRatioTTM?.toFixed(2)}</span>
+                    <span className="font-semibold">{formatNumber(fundamentalMetrics.pegRatioTTM)}</span>
                   </div>
                 </div>
               </div>
@@ -307,15 +358,15 @@ export default function StockAnalysis() {
                 <div className="mt-2 space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">ROE</span>
-                    <span className="font-semibold">{(fundamentalData.returnOnEquityTTM * 100).toFixed(2)}%</span>
+                    <span className="font-semibold">{formatPercentage(fundamentalMetrics.roeTTM)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">ROA</span>
-                    <span className="font-semibold">{(fundamentalData.returnOnAssetsTTM * 100).toFixed(2)}%</span>
+                    <span className="font-semibold">{formatPercentage(fundamentalMetrics.roaTTM)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Dividend Yield</span>
-                    <span className="font-semibold">{(fundamentalData.dividendYieldTTM * 100).toFixed(2)}%</span>
+                    <span className="font-semibold">{formatPercentage(fundamentalMetrics.dividendYieldTTM)}</span>
                   </div>
                 </div>
               </div>
@@ -325,51 +376,51 @@ export default function StockAnalysis() {
                 <div className="mt-2 space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Debt/Equity</span>
-                    <span className="font-semibold">{(fundamentalData.debtEquityRatioTTM * 100).toFixed(2)}%</span>
+                    <span className="font-semibold">{formatNumber(fundamentalMetrics.debtToEquityTTM)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">FCF Yield</span>
-                    <span className="font-semibold">{(fundamentalData.freeCashFlowYieldTTM * 100).toFixed(2)}%</span>
+                    <span className="font-semibold">{formatPercentage(fundamentalMetrics.freeCashFlowYieldTTM)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Market Cap</span>
-                    <span className="font-semibold">${formatLargeNumber(stockData.marketCap)}</span>
+                    <span className="font-semibold">{formatCurrency(fundamentalMetrics.marketCapTTM)}</span>
                   </div>
                 </div>
               </div>
 
-              {growthData && (
+              {growthMetrics && (
                 <div className="bg-white rounded-xl shadow-md p-4">
                   <h3 className="text-sm font-medium text-gray-500">Expectativas de Crecimiento</h3>
                   <div className="mt-2 space-y-2">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Ingresos (YoY)</span>
                       <span className={`font-semibold ${
-                        growthData.revenueGrowth > 0 ? 'text-green-600' : 'text-red-600'
+                        growthMetrics.revenueGrowth > 0 ? 'text-green-600' : 'text-red-600'
                       }`}>
-                        {(growthData.revenueGrowth * 100).toFixed(2)}%
+                        {formatPercentage(growthMetrics.revenueGrowth)}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">EPS (YoY)</span>
                       <span className={`font-semibold ${
-                        growthData.epsGrowth > 0 ? 'text-green-600' : 'text-red-600'
+                        growthMetrics.epsgrowth > 0 ? 'text-green-600' : 'text-red-600'
                       }`}>
-                        {(growthData.epsGrowth * 100).toFixed(2)}%
+                        {formatPercentage(growthMetrics.epsgrowth)}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Recomendación</span>
                       <span className="font-semibold">
-                        {growthData.recommendationMean?.toFixed(2) || 'N/A'}
+                        {growthMetrics.recommendationMean}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Precio Objetivo</span>
                       <span className={`font-semibold ${
-                        (growthData.targetPrice > stockData.price) ? 'text-green-600' : 'text-red-600'
+                        (growthMetrics.targetMedianPrice > stockData.price) ? 'text-green-600' : 'text-red-600'
                       }`}>
-                        ${growthData.targetPrice?.toFixed(2) || 'N/A'}
+                        {formatCurrency(growthMetrics.targetMedianPrice)}
                       </span>
                     </div>
                   </div>
@@ -524,75 +575,57 @@ export default function StockAnalysis() {
         </div>
       )}
 
-      {/* P/E Ratio Chart */}
-      {peRatioData.length > 0 && (
+      {/* Gráfico de Precios con SMAs */}
+      {showSMA && (
         <div className="bg-white p-4 rounded-xl shadow-md">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-base md:text-lg font-semibold text-gray-800">
-              Histórico P/E Ratio
-            </h3>
-            <button
-              onClick={() => setShowPERatio(!showPERatio)}
-              className="px-4 py-2 text-sm rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors"
-            >
-              {showPERatio ? 'Ocultar' : 'Mostrar'}
-            </button>
+          <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">
+            Histórico de Precios con SMAs
+          </h3>
+          <div className="h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={historicalData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fill: '#4B5563' }}
+                  axisLine={{ stroke: '#E5E7EB' }}
+                />
+                <YAxis
+                  tick={{ fill: '#4B5563' }}
+                  axisLine={{ stroke: '#E5E7EB' }}
+                  domain={['dataMin', 'dataMax']}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="close"
+                  stroke="#10B981"
+                  strokeWidth={2}
+                  dot={false}
+                  name="Precio"
+                />
+                <Line
+                  type="monotone"
+                  data={shortTermSMA}
+                  dataKey="sma"
+                  stroke="#3B82F6"
+                  strokeWidth={2}
+                  dot={false}
+                  name="SMA 20"
+                />
+                <Line
+                  type="monotone"
+                  data={longTermSMA}
+                  dataKey="sma"
+                  stroke="#6366F1"
+                  strokeWidth={2}
+                  dot={false}
+                  name="SMA 50"
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
-
-          {showPERatio && (
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={peRatioData}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fill: '#4B5563' }}
-                    axisLine={{ stroke: '#E5E7EB' }}
-                  />
-                  <YAxis
-                    tick={{ fill: '#4B5563' }}
-                    axisLine={{ stroke: '#E5E7EB' }}
-                    domain={['auto', 'auto']}
-                  />
-                  <Tooltip
-                    formatter={(value) => [`${value.toFixed(2)}`, 'P/E Ratio']}
-                    labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="peRatio"
-                    stroke="#8B5CF6"
-                    strokeWidth={2}
-                    dot={false}
-                    name="P/E Ratio"
-                  />
-                  {fundamentalData && (
-                    <ReferenceLine
-                      y={fundamentalData.peRatioTTM}
-                      stroke="#4F46E5"
-                      strokeDasharray="3 3"
-                      label={{
-                        value: `Actual: ${fundamentalData.peRatioTTM?.toFixed(2)}`,
-                        position: 'right',
-                        fill: '#4F46E5'
-                      }}
-                    />
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-
-          {showPERatio && peRatioData.length > 0 && (
-            <div className="mt-4 text-sm text-gray-600">
-              <p>• El P/E ratio histórico ayuda a evaluar la valoración actual de la empresa</p>
-              <p>• Un P/E ratio más bajo puede indicar una valoración más atractiva</p>
-              <p>• La línea punteada muestra el P/E ratio actual</p>
-            </div>
-          )}
         </div>
       )}
     </div>

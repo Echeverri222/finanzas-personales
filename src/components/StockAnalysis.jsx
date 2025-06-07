@@ -25,6 +25,7 @@ export default function StockAnalysis() {
     startDate: '',
     endDate: new Date().toISOString().split('T')[0]
   });
+  const [fundamentalData, setFundamentalData] = useState(null);
 
   // Función para calcular SMA con ponderación
   const calculateSMA = (data, period) => {
@@ -102,6 +103,16 @@ export default function StockAnalysis() {
       }
 
       setStockData(quoteData[0]);
+
+      // Obtener datos fundamentales
+      const ratiosResponse = await fetch(
+        `${BASE_URL}/ratios-ttm/${searchTerm}?apikey=${FMP_API_KEY}`
+      );
+      const ratiosData = await ratiosResponse.json();
+
+      if (ratiosData && ratiosData.length > 0) {
+        setFundamentalData(ratiosData[0]);
+      }
 
       // Obtener datos históricos
       const historicalResponse = await fetch(
@@ -204,7 +215,8 @@ export default function StockAnalysis() {
 
       {/* Información del Símbolo */}
       {stockData && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {/* Precio y Cambio */}
           <div className="bg-white rounded-xl shadow-md p-4">
             <h3 className="text-sm font-medium text-gray-500">Precio Actual</h3>
             <div className="mt-1 flex items-baseline">
@@ -219,31 +231,89 @@ export default function StockAnalysis() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md p-4">
-            <h3 className="text-sm font-medium text-gray-500">Volumen</h3>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {formatLargeNumber(stockData.volume)}
-            </p>
-          </div>
+          {/* Métricas Fundamentales */}
+          {fundamentalData && (
+            <>
+              <div className="bg-white rounded-xl shadow-md p-4">
+                <h3 className="text-sm font-medium text-gray-500">Valuación</h3>
+                <div className="mt-2 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">P/E Ratio</span>
+                    <span className="font-semibold">{fundamentalData.peRatioTTM?.toFixed(2)}x</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Price/Book</span>
+                    <span className="font-semibold">{fundamentalData.priceToBookRatioTTM?.toFixed(2)}x</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">PEG Ratio</span>
+                    <span className="font-semibold">{fundamentalData.pegRatioTTM?.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
 
-          <div className="bg-white rounded-xl shadow-md p-4">
-            <h3 className="text-sm font-medium text-gray-500">Market Cap</h3>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              ${formatLargeNumber(stockData.marketCap)}
-            </p>
-          </div>
+              <div className="bg-white rounded-xl shadow-md p-4">
+                <h3 className="text-sm font-medium text-gray-500">Rentabilidad</h3>
+                <div className="mt-2 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">ROE</span>
+                    <span className="font-semibold">{(fundamentalData.returnOnEquityTTM * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">ROA</span>
+                    <span className="font-semibold">{(fundamentalData.returnOnAssetsTTM * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Dividend Yield</span>
+                    <span className="font-semibold">{(fundamentalData.dividendYieldTTM * 100).toFixed(2)}%</span>
+                  </div>
+                </div>
+              </div>
 
-          {smaAnalysis && (
-            <div className="bg-white rounded-xl shadow-md p-4">
-              <h3 className="text-sm font-medium text-gray-500">Ratio SMA20/SMA50</h3>
-              <p className={`mt-1 text-2xl font-semibold ${
-                smaAnalysis.currentRatio > smaAnalysis.sellLevel ? 'text-red-600' :
-                smaAnalysis.currentRatio < smaAnalysis.buyLevel ? 'text-green-600' :
-                'text-gray-900'
-              }`}>
-                {smaAnalysis.currentRatio?.toFixed(4)}
-              </p>
-            </div>
+              <div className="bg-white rounded-xl shadow-md p-4">
+                <h3 className="text-sm font-medium text-gray-500">Estructura Financiera</h3>
+                <div className="mt-2 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Debt/Equity</span>
+                    <span className="font-semibold">{(fundamentalData.debtEquityRatioTTM * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">FCF Yield</span>
+                    <span className="font-semibold">{(fundamentalData.freeCashFlowYieldTTM * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Market Cap</span>
+                    <span className="font-semibold">${formatLargeNumber(stockData.marketCap)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {smaAnalysis && (
+                <div className="bg-white rounded-xl shadow-md p-4">
+                  <h3 className="text-sm font-medium text-gray-500">Análisis Técnico</h3>
+                  <div className="mt-2 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">SMA20/SMA50</span>
+                      <span className={`font-semibold ${
+                        smaAnalysis.currentRatio > smaAnalysis.sellLevel ? 'text-red-600' :
+                        smaAnalysis.currentRatio < smaAnalysis.buyLevel ? 'text-green-600' :
+                        'text-gray-900'
+                      }`}>
+                        {smaAnalysis.currentRatio?.toFixed(4)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Volumen</span>
+                      <span className="font-semibold">{formatLargeNumber(stockData.volume)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Shares Out.</span>
+                      <span className="font-semibold">{formatLargeNumber(stockData.sharesOutstanding)} M</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

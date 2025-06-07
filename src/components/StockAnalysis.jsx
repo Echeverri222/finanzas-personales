@@ -4,6 +4,15 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 const BASE_URL = 'https://financialmodelingprep.com/api/v3';
 const FMP_API_KEY = 'FAExoSELA4CoIVTlixYT42586X9MYpSb';
 
+// Lista de tickers predefinidos con sus nombres
+const DEFAULT_TICKERS = [
+  { symbol: 'AAPL', name: 'Apple Inc.' },
+  { symbol: 'MSFT', name: 'Microsoft Corporation' },
+  { symbol: 'GOOGL', name: 'Alphabet Inc.' },
+  { symbol: 'AMZN', name: 'Amazon.com Inc.' },
+  { symbol: 'META', name: 'Meta Platforms Inc.' }
+];
+
 // Debug log to check environment variables
 console.log('Environment Variables:', {
   FMP_API_KEY: process.env.REACT_APP_FMP_API_KEY,
@@ -25,6 +34,28 @@ export default function StockAnalysis() {
     startDate: '',
     endDate: ''
   });
+  const [selectedTicker, setSelectedTicker] = useState(DEFAULT_TICKERS[0].symbol);
+  const [apiCallCount, setApiCallCount] = useState(0);
+  const [lastFetchedData, setLastFetchedData] = useState({});
+
+  // Cargar el ticker por defecto solo al montar el componente
+  useEffect(() => {
+    if (selectedTicker && !lastFetchedData[selectedTicker]) {
+      fetchStockData(selectedTicker);
+    } else if (lastFetchedData[selectedTicker]) {
+      // Usar datos en caché si están disponibles
+      setStockData(lastFetchedData[selectedTicker].stockData);
+      setHistoricalData(lastFetchedData[selectedTicker].historicalData);
+      setSmaAnalysis(lastFetchedData[selectedTicker].smaAnalysis);
+    }
+  }, [selectedTicker]);
+
+  const handleTickerChange = (newTicker) => {
+    setSelectedTicker(newTicker);
+    if (!lastFetchedData[newTicker]) {
+      fetchStockData(newTicker);
+    }
+  };
 
   // Función para calcular SMA con ponderación
   const calculateSMA = (data, period) => {
@@ -114,7 +145,10 @@ export default function StockAnalysis() {
     try {
       setLoading(true);
       setError(null);
-      
+
+      // Incrementar contador de llamados a la API
+      setApiCallCount(prev => prev + 1);
+
       // Get real-time quote
       const quoteUrl = `${BASE_URL}/quote/${symbol}?apikey=${FMP_API_KEY}`;
       const quoteResponse = await fetch(quoteUrl);
@@ -148,9 +182,21 @@ export default function StockAnalysis() {
       // Realizar análisis SMA
       const analysis = analyzeSMA(sortedHistoricalData);
       setSmaAnalysis(analysis);
+
+      // Guardar datos en caché
+      setLastFetchedData(prev => ({
+        ...prev,
+        [symbol]: {
+          stockData: quoteData[0],
+          historicalData: sortedHistoricalData,
+          smaAnalysis: analysis,
+          timestamp: new Date()
+        }
+      }));
+
     } catch (err) {
-      console.error('Error fetching stock data:', err);
-      setError(err.message);
+      console.error("Error fetching stock data:", err);
+      setError(err.message || "Error al obtener datos de la acción");
     } finally {
       setLoading(false);
     }
@@ -168,9 +214,48 @@ export default function StockAnalysis() {
 
   return (
     <div className="p-2 md:p-6 space-y-4 md:space-y-6 bg-gray-50">
+      {/* API Usage Warning */}
+      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <p className="text-sm text-yellow-700">
+              Versión gratuita de la API - Límite de llamados diarios.
+              Llamados realizados hoy: {apiCallCount}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-xl md:text-2xl font-bold text-gray-800">Análisis de Acciones</h2>
         
+        {/* Quick Access Tickers */}
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          {DEFAULT_TICKERS.map((ticker) => (
+            <button
+              key={ticker.symbol}
+              onClick={() => handleTickerChange(ticker.symbol)}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                selectedTicker === ticker.symbol
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {ticker.symbol}
+                {lastFetchedData[ticker.symbol] && (
+                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+
         <form onSubmit={handleSearch} className="flex gap-2 w-full md:w-auto">
           <div className="flex flex-col md:flex-row gap-2 w-full">
             <input
@@ -189,7 +274,7 @@ export default function StockAnalysis() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Símbolo (ej: AAPL, MSFT)"
+              placeholder="Otro símbolo (ej: NVDA, TSLA)"
               className="w-full md:w-64 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <button
@@ -202,6 +287,27 @@ export default function StockAnalysis() {
           </div>
         </form>
       </div>
+
+      {/* Current Ticker Info */}
+      {selectedTicker && lastFetchedData[selectedTicker] && (
+        <div className="bg-white p-4 rounded-xl shadow-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold">
+                {DEFAULT_TICKERS.find(t => t.symbol === selectedTicker)?.name || selectedTicker}
+              </h3>
+              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-sm font-medium">
+                {selectedTicker}
+              </span>
+            </div>
+            <div className="text-sm text-gray-500">
+              Última actualización: {
+                new Date(lastFetchedData[selectedTicker].timestamp).toLocaleTimeString()
+              }
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg">

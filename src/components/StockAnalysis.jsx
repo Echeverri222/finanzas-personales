@@ -26,6 +26,10 @@ export default function StockAnalysis() {
     endDate: new Date().toISOString().split('T')[0]
   });
   const [fundamentalData, setFundamentalData] = useState(null);
+  const [growthData, setGrowthData] = useState(null);
+  const [peRatioData, setPeRatioData] = useState([]);
+  const [showPERatio, setShowPERatio] = useState(false);
+  const [loadingPE, setLoadingPE] = useState(false);
 
   // Función para calcular SMA con ponderación
   const calculateSMA = (data, period) => {
@@ -84,6 +88,39 @@ export default function StockAnalysis() {
     };
   };
 
+  const loadPERatioHistory = async (symbol) => {
+    try {
+      setLoadingPE(true);
+      setError(null);
+
+      // Obtener datos históricos de P/E ratio
+      const response = await fetch(
+        `${BASE_URL}/key-metrics/${symbol}?period=quarter&limit=40&apikey=${FMP_API_KEY}`
+      );
+      const data = await response.json();
+
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error('No se encontraron datos históricos de P/E ratio');
+      }
+
+      // Procesar y filtrar datos válidos
+      const processedData = data
+        .filter(item => item && typeof item.peRatio === 'number' && item.peRatio > 0)
+        .map(item => ({
+          date: item.date,
+          peRatio: item.peRatio
+        }))
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      setPeRatioData(processedData);
+    } catch (err) {
+      console.error('Error al cargar P/E histórico:', err);
+      setError(err.message);
+    } finally {
+      setLoadingPE(false);
+    }
+  };
+
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchTerm) return;
@@ -114,6 +151,16 @@ export default function StockAnalysis() {
         setFundamentalData(ratiosData[0]);
       }
 
+      // Obtener estimaciones de analistas
+      const analystsResponse = await fetch(
+        `${BASE_URL}/analyst-estimates/${searchTerm}?apikey=${FMP_API_KEY}`
+      );
+      const analystsData = await analystsResponse.json();
+
+      if (analystsData && analystsData.length > 0) {
+        setGrowthData(analystsData[0]);
+      }
+
       // Obtener datos históricos
       const historicalResponse = await fetch(
         `${BASE_URL}/historical-price-full/${searchTerm}?apikey=${FMP_API_KEY}`
@@ -140,6 +187,9 @@ export default function StockAnalysis() {
       // Realizar análisis técnico
       const analysis = analyzeSMA(processedData);
       setSmaAnalysis(analysis);
+
+      // Cargar datos históricos de P/E
+      await loadPERatioHistory(searchTerm);
 
     } catch (err) {
       console.error('Error:', err);
@@ -288,6 +338,44 @@ export default function StockAnalysis() {
                 </div>
               </div>
 
+              {growthData && (
+                <div className="bg-white rounded-xl shadow-md p-4">
+                  <h3 className="text-sm font-medium text-gray-500">Expectativas de Crecimiento</h3>
+                  <div className="mt-2 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Ingresos (YoY)</span>
+                      <span className={`font-semibold ${
+                        growthData.revenueGrowth > 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {(growthData.revenueGrowth * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">EPS (YoY)</span>
+                      <span className={`font-semibold ${
+                        growthData.epsGrowth > 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {(growthData.epsGrowth * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Recomendación</span>
+                      <span className="font-semibold">
+                        {growthData.recommendationMean?.toFixed(2) || 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Precio Objetivo</span>
+                      <span className={`font-semibold ${
+                        (growthData.targetPrice > stockData.price) ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        ${growthData.targetPrice?.toFixed(2) || 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {smaAnalysis && (
                 <div className="bg-white rounded-xl shadow-md p-4">
                   <h3 className="text-sm font-medium text-gray-500">Análisis Técnico</h3>
@@ -433,6 +521,78 @@ export default function StockAnalysis() {
             <p>• Cuando el ratio está por debajo del nivel de compra, puede indicar una oportunidad de compra</p>
             <p>• Cuando el ratio está por encima del nivel de venta, puede indicar una oportunidad de venta</p>
           </div>
+        </div>
+      )}
+
+      {/* P/E Ratio Chart */}
+      {peRatioData.length > 0 && (
+        <div className="bg-white p-4 rounded-xl shadow-md">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-base md:text-lg font-semibold text-gray-800">
+              Histórico P/E Ratio
+            </h3>
+            <button
+              onClick={() => setShowPERatio(!showPERatio)}
+              className="px-4 py-2 text-sm rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+            >
+              {showPERatio ? 'Ocultar' : 'Mostrar'}
+            </button>
+          </div>
+
+          {showPERatio && (
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={peRatioData}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: '#4B5563' }}
+                    axisLine={{ stroke: '#E5E7EB' }}
+                  />
+                  <YAxis
+                    tick={{ fill: '#4B5563' }}
+                    axisLine={{ stroke: '#E5E7EB' }}
+                    domain={['auto', 'auto']}
+                  />
+                  <Tooltip
+                    formatter={(value) => [`${value.toFixed(2)}`, 'P/E Ratio']}
+                    labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="peRatio"
+                    stroke="#8B5CF6"
+                    strokeWidth={2}
+                    dot={false}
+                    name="P/E Ratio"
+                  />
+                  {fundamentalData && (
+                    <ReferenceLine
+                      y={fundamentalData.peRatioTTM}
+                      stroke="#4F46E5"
+                      strokeDasharray="3 3"
+                      label={{
+                        value: `Actual: ${fundamentalData.peRatioTTM?.toFixed(2)}`,
+                        position: 'right',
+                        fill: '#4F46E5'
+                      }}
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {showPERatio && peRatioData.length > 0 && (
+            <div className="mt-4 text-sm text-gray-600">
+              <p>• El P/E ratio histórico ayuda a evaluar la valoración actual de la empresa</p>
+              <p>• Un P/E ratio más bajo puede indicar una valoración más atractiva</p>
+              <p>• La línea punteada muestra el P/E ratio actual</p>
+            </div>
+          )}
         </div>
       )}
     </div>

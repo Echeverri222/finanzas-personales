@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from 'recharts';
 
 const BASE_URL = 'https://financialmodelingprep.com/api/v3';
 const FMP_API_KEY = 'FAExoSELA4CoIVTlixYT42586X9MYpSb';
@@ -14,6 +14,22 @@ if (!FMP_API_KEY) {
   console.error('FMP API Key not found in environment variables. Please check your .env file.');
 }
 
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
+        <p className="font-semibold">{new Date(label).toLocaleDateString()}</p>
+        {payload.map((entry, index) => (
+          <p key={index} style={{ color: entry.color }}>
+            {entry.name}: ${entry.value?.toFixed(2)}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function StockAnalysis() {
   const [searchTerm, setSearchTerm] = useState('');
   const [stockData, setStockData] = useState(null);
@@ -27,9 +43,6 @@ export default function StockAnalysis() {
   });
   const [fundamentalData, setFundamentalData] = useState(null);
   const [growthData, setGrowthData] = useState(null);
-  const [peRatioData, setPeRatioData] = useState([]);
-  const [showPERatio, setShowPERatio] = useState(false);
-  const [loadingPE, setLoadingPE] = useState(false);
   const [shortTermSMA, setShortTermSMA] = useState([]);
   const [longTermSMA, setLongTermSMA] = useState([]);
   const [showSMA, setShowSMA] = useState(false);
@@ -91,39 +104,6 @@ export default function StockAnalysis() {
       mean: 1.0,
       ratios
     };
-  };
-
-  const loadPERatioHistory = async (symbol) => {
-    try {
-      setLoadingPE(true);
-      setError(null);
-
-      // Obtener datos históricos de P/E ratio
-      const response = await fetch(
-        `${BASE_URL}/key-metrics/${symbol}?period=quarter&limit=40&apikey=${FMP_API_KEY}`
-      );
-      const data = await response.json();
-
-      if (!Array.isArray(data) || data.length === 0) {
-        throw new Error('No se encontraron datos históricos de P/E ratio');
-      }
-
-      // Procesar y filtrar datos válidos
-      const processedData = data
-        .filter(item => item && typeof item.peRatio === 'number' && item.peRatio > 0)
-        .map(item => ({
-          date: item.date,
-          peRatio: item.peRatio
-        }))
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-      setPeRatioData(processedData);
-    } catch (err) {
-      console.error('Error al cargar P/E histórico:', err);
-      setError(err.message);
-    } finally {
-      setLoadingPE(false);
-    }
   };
 
   const handleSearch = async (e) => {
@@ -192,9 +172,6 @@ export default function StockAnalysis() {
       // Realizar análisis técnico
       const analysis = analyzeSMA(processedData);
       setSmaAnalysis(analysis);
-
-      // Cargar datos históricos de P/E
-      await loadPERatioHistory(searchTerm);
 
       // Calcular SMAs si están activadas
       if (showSMA) {

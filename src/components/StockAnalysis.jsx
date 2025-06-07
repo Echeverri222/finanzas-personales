@@ -37,6 +37,10 @@ export default function StockAnalysis() {
   const [selectedTicker, setSelectedTicker] = useState('AAPL');
   const [apiCallCount, setApiCallCount] = useState(0);
   const [lastFetchedData, setLastFetchedData] = useState({});
+  const [peRatioData, setPeRatioData] = useState([]);
+  const [medianPE, setMedianPE] = useState(null);
+  const [currentSymbol, setCurrentSymbol] = useState(null);
+  const [cache, setCache] = useState({});
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -69,7 +73,6 @@ export default function StockAnalysis() {
     }
   };
 
-  // Función para calcular SMA con ponderación
   const calculateSMA = (data, period) => {
     const sma = [];
     for (let i = 0; i < data.length; i++) {
@@ -77,13 +80,12 @@ export default function StockAnalysis() {
         sma.push(null);
         continue;
       }
-      
       let sum = 0;
       let weight = 0;
+      // Dar más peso a los precios más recientes
       for (let j = 0; j < period; j++) {
-        // Dar más peso a los precios más recientes
         const w = (period - j) / period;
-        sum += data[i - j].close * w;
+        sum += data[i - j] * w;
         weight += w;
       }
       sma.push(sum / weight);
@@ -149,66 +151,64 @@ export default function StockAnalysis() {
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!searchTerm) return;
-    await fetchStockData(searchTerm.toUpperCase());
-  };
+    if (!searchTerm.trim()) return;
 
-  const fetchStockData = async (symbol) => {
+    const symbol = searchTerm.toUpperCase();
+
+    // Si los datos están en caché y tienen menos de 24 horas, usarlos
+    if (cache[symbol] && (Date.now() - cache[symbol].timestamp) < 24 * 60 * 60 * 1000) {
+      setHistoricalData(cache[symbol].data);
+      setCurrentSymbol(symbol);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-
-      // Incrementar contador de llamados a la API
       setApiCallCount(prev => prev + 1);
 
-      // Get real-time quote
-      const quoteUrl = `${BASE_URL}/quote/${symbol}?apikey=${FMP_API_KEY}`;
-      const quoteResponse = await fetch(quoteUrl);
-      const quoteData = await quoteResponse.json();
+      const response = await fetch(
+        `${BASE_URL}/historical-price-full/${symbol}?apikey=${FMP_API_KEY}`
+      );
+      const data = await response.json();
 
-      if (!quoteData || quoteData.length === 0) {
-        throw new Error('Símbolo no encontrado');
+      if (!data.historical) {
+        throw new Error('No se encontraron datos para este símbolo');
       }
 
-      // Get historical data with date range
-      const historicalUrl = `${BASE_URL}/historical-price-full/${symbol}?apikey=${FMP_API_KEY}`;
-      const historicalResponse = await fetch(historicalUrl);
-      const historicalData = await historicalResponse.json();
+      // Procesar solo los últimos 200 días
+      const sortedData = data.historical
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .slice(-200);
 
-      setStockData(quoteData[0]);
-      
-      // Ordenar y filtrar datos históricos
-      let sortedHistoricalData = (historicalData.historical || [])
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
+      // Calcular SMAs
+      const closes = sortedData.map(d => d.close);
+      const sma20 = calculateSMA(closes, 20);
+      const sma50 = calculateSMA(closes, 50);
 
-      // Filtrar por rango de fechas si está establecido
-      if (dateRange.startDate && dateRange.endDate) {
-        sortedHistoricalData = sortedHistoricalData.filter(data => {
-          const date = new Date(data.date);
-          return date >= new Date(dateRange.startDate) && date <= new Date(dateRange.endDate);
-        });
-      }
+      // Combinar datos
+      const processedData = sortedData.map((day, i) => ({
+        date: day.date,
+        close: day.close,
+        sma20: sma20[i],
+        sma50: sma50[i]
+      }));
 
-      setHistoricalData(sortedHistoricalData);
-
-      // Realizar análisis SMA
-      const analysis = analyzeSMA(sortedHistoricalData);
-      setSmaAnalysis(analysis);
-
-      // Guardar datos en caché
-      setLastFetchedData(prev => ({
+      // Guardar en caché
+      setCache(prev => ({
         ...prev,
         [symbol]: {
-          stockData: quoteData[0],
-          historicalData: sortedHistoricalData,
-          smaAnalysis: analysis,
-          timestamp: new Date()
+          data: processedData,
+          timestamp: Date.now()
         }
       }));
 
+      setHistoricalData(processedData);
+      setCurrentSymbol(symbol);
+      setSearchTerm('');
     } catch (err) {
-      console.error("Error fetching stock data:", err);
-      setError(err.message || "Error al obtener datos de la acción");
+      console.error("Error:", err);
+      setError(err.message || "Error al obtener datos");
     } finally {
       setLoading(false);
     }
@@ -237,14 +237,16 @@ export default function StockAnalysis() {
           <div className="ml-3">
             <p className="text-sm text-yellow-700">
               Versión gratuita de la API - Límite de llamados diarios.
-              Llamados realizados hoy: {apiCallCount}
+              Llamados realizados: {apiCallCount}
             </p>
           </div>
         </div>
       </div>
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h2 className="text-xl md:text-2xl font-bold text-gray-800">Análisis de Acciones</h2>
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800">
+          Análisis de Acciones {currentSymbol && `- ${currentSymbol}`}
+        </h2>
         
         {/* Quick Access Tickers */}
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
@@ -285,16 +287,16 @@ export default function StockAnalysis() {
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Otro símbolo (ej: NVDA, TSLA)"
+              onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
+              placeholder="Ingrese símbolo (ej: AAPL)"
               className="w-full md:w-64 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-              disabled={loading}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+              disabled={loading || !searchTerm.trim()}
             >
-              {loading ? 'Buscando...' : 'Buscar'}
+              {loading ? 'Cargando...' : 'Buscar'}
             </button>
           </div>
         </form>
@@ -415,7 +417,9 @@ export default function StockAnalysis() {
       {/* Price Chart */}
       {historicalData.length > 0 && (
         <div className="bg-white p-4 rounded-xl shadow-md">
-          <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Histórico de Precios con Medias Móviles</h3>
+          <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">
+            Histórico de Precios con Medias Móviles
+          </h3>
           <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={historicalData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -435,27 +439,19 @@ export default function StockAnalysis() {
                   formatter={(value, name) => [
                     `$${Number(value).toFixed(2)}`, 
                     name === 'close' ? 'Precio' : 
-                    name === 'sma20' ? 'SMA20' : 
-                    name === 'sma50' ? 'SMA50' : name
+                    name === 'sma20' ? 'Media Móvil 20 días' : 
+                    name === 'sma50' ? 'Media Móvil 50 días' : name
                   ]}
                   labelFormatter={(label) => new Date(label).toLocaleDateString()}
                 />
-                <Legend 
-                  verticalAlign="top" 
-                  height={36}
-                  formatter={(value) => 
-                    value === 'close' ? 'Precio' : 
-                    value === 'sma20' ? 'Media Móvil 20 días' : 
-                    value === 'sma50' ? 'Media Móvil 50 días' : value
-                  }
-                />
+                <Legend verticalAlign="top" height={36} />
                 <Line 
                   type="monotone" 
                   dataKey="close" 
                   stroke="#3B82F6" 
                   strokeWidth={2}
                   dot={false}
-                  name="close"
+                  name="Precio"
                   isAnimationActive={false}
                 />
                 <Line 
@@ -464,7 +460,7 @@ export default function StockAnalysis() {
                   stroke="#10B981" 
                   strokeWidth={2}
                   dot={false}
-                  name="sma20"
+                  name="Media Móvil 20 días"
                   isAnimationActive={false}
                 />
                 <Line 
@@ -473,7 +469,7 @@ export default function StockAnalysis() {
                   stroke="#EF4444" 
                   strokeWidth={2}
                   dot={false}
-                  name="sma50"
+                  name="Media Móvil 50 días"
                   isAnimationActive={false}
                 />
               </LineChart>
@@ -482,47 +478,50 @@ export default function StockAnalysis() {
         </div>
       )}
 
-      {/* Ratio Chart */}
-      {smaAnalysis && (
-        <div className="bg-white p-6 rounded-xl shadow-md">
-          <h3 className="text-lg font-semibold mb-4">Evolución del Ratio SMA20/SMA50</h3>
-          <div className="h-[400px]">
+      {/* P/E Ratio Chart */}
+      {peRatioData.length > 0 && (
+        <div className="bg-white p-4 rounded-xl shadow-md">
+          <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">
+            Histórico de P/E Ratio
+            {medianPE && <span className="text-sm text-gray-500 ml-2">Mediana: {medianPE.toFixed(2)}</span>}
+          </h3>
+          <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={historicalData.map((point, index) => ({
-                  date: point.date,
-                  ratio: smaAnalysis.ratios[index]
-                }))}
-                margin={{
-                  top: 5,
-                  right: 30,
-                  left: 20,
-                  bottom: 5,
-                }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
+              <LineChart data={peRatioData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis 
-                  dataKey="date"
+                  dataKey="date" 
                   tick={{ fill: '#4B5563' }}
                   axisLine={{ stroke: '#E5E7EB' }}
                 />
                 <YAxis
-                  domain={[0.8, 1.3]}
                   tick={{ fill: '#4B5563' }}
                   axisLine={{ stroke: '#E5E7EB' }}
+                  domain={['auto', 'auto']}
                 />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="ratio"
-                  stroke="#6366F1"
+                <Tooltip 
+                  formatter={(value) => [`${Number(value).toFixed(2)}`, 'P/E Ratio']}
+                  labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                />
+                <ReferenceLine 
+                  y={medianPE} 
+                  stroke="#9CA3AF" 
+                  strokeDasharray="3 3"
+                  label={{ 
+                    value: `Mediana: ${medianPE?.toFixed(2)}`,
+                    position: 'right',
+                    fill: '#4B5563'
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="peRatio" 
+                  stroke="#8B5CF6" 
                   strokeWidth={2}
                   dot={false}
-                  name="Ratio"
+                  name="P/E Ratio"
+                  isAnimationActive={false}
                 />
-                <ReferenceLine y={smaAnalysis.buyLevel} stroke="#10B981" strokeDasharray="3 3" />
-                <ReferenceLine y={smaAnalysis.sellLevel} stroke="#EF4444" strokeDasharray="3 3" />
-                <ReferenceLine y={smaAnalysis.mean} stroke="#6B7280" strokeDasharray="3 3" />
               </LineChart>
             </ResponsiveContainer>
           </div>

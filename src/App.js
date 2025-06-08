@@ -3,6 +3,7 @@ import Dashboard from './components/Dashboard';
 import Movimientos from './components/Movimientos';
 import Metas from './components/Metas';
 import Ahorros from './components/Ahorros';
+import StockAnalysis from './components/StockAnalysis';
 import Auth from './components/Auth';
 import { useAuth } from './context/AuthContext';
 
@@ -87,6 +88,17 @@ export default function App() {
             >
               Ahorros
             </button>
+            <button
+              onClick={() => {
+                setView('stocks');
+                setShowMovimientosForm(false);
+              }}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                view === 'stocks' ? 'bg-blue-500 text-white' : 'bg-gray-300'
+              }`}
+            >
+              Acciones
+            </button>
           </div>
 
           {view === 'dashboard' && (
@@ -104,6 +116,7 @@ export default function App() {
           )}
           {view === 'metas' && <Metas />}
           {view === 'ahorros' && <Ahorros />}
+          {view === 'stocks' && <StockAnalysis />}
         </div>
       </div>
     </div>

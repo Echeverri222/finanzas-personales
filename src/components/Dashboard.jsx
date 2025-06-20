@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, AreaChart, Area } from 'recharts';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
@@ -177,7 +177,7 @@ export default function Dashboard({ onQuickMovement }) {
       if (categoryFilter === 'all') {
         if (mov.tipo_movimiento === 'Ingresos') {
           acc[monthYear].ingresos = (acc[monthYear].ingresos || 0) + Number(mov.importe);
-        } else {
+        } else if (mov.tipo_movimiento !== 'Ahorro') {
           acc[monthYear].gastos = (acc[monthYear].gastos || 0) + Number(mov.importe);
         }
       } else if (mov.tipo_movimiento === categoryFilter) {
@@ -626,10 +626,20 @@ export default function Dashboard({ onQuickMovement }) {
             <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Evolución Mensual</h3>
             <div className="h-60 md:h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart 
+                <AreaChart 
                   data={monthlyData}
                   margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
                 >
+                  <defs>
+                    <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorGastos" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis 
                     dataKey="month" 
@@ -637,12 +647,13 @@ export default function Dashboard({ onQuickMovement }) {
                     axisLine={{ stroke: '#E5E7EB' }}
                   />
                   <YAxis 
+                    tickFormatter={(value) => new Intl.NumberFormat('es-CO', { notation: 'compact', compactDisplay: 'short' }).format(value)}
                     tick={{ fill: '#4B5563' }}
                     axisLine={{ stroke: '#E5E7EB' }}
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <Line 
+                  <Area 
                     type="monotone" 
                     dataKey="ingresos" 
                     stroke="#10B981" 
@@ -650,8 +661,9 @@ export default function Dashboard({ onQuickMovement }) {
                     dot={{ fill: '#10B981', stroke: '#10B981', strokeWidth: 2 }}
                     activeDot={{ r: 8 }}
                     name="Ingresos"
+                    fill="url(#colorIngresos)"
                   />
-                  <Line 
+                  <Area 
                     type="monotone" 
                     dataKey="gastos" 
                     stroke="#EF4444" 
@@ -659,8 +671,9 @@ export default function Dashboard({ onQuickMovement }) {
                     dot={{ fill: '#EF4444', stroke: '#EF4444', strokeWidth: 2 }}
                     activeDot={{ r: 8 }}
                     name="Gastos"
+                    fill="url(#colorGastos)"
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
         </div>

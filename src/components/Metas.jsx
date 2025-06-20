@@ -5,7 +5,7 @@ import { useUser } from '../context/UserContext';
 export default function Metas() {
   const [metas, setMetas] = useState([]);
   const [nueva, setNueva] = useState({
-    nombre: '',
+    nombre_objetivo: '',
     meta_total: '',
     fecha_meta: '',
     descripcion: ''
@@ -53,7 +53,7 @@ export default function Metas() {
 
   const resetForm = () => {
     setNueva({
-      nombre: '',
+      nombre_objetivo: '',
       meta_total: '',
       fecha_meta: '',
       descripcion: ''
@@ -72,7 +72,7 @@ export default function Metas() {
       const fecha = new Date(Date.UTC(year, month - 1, day));
 
       const metaData = {
-        nombre: nueva.nombre,
+        nombre_objetivo: nueva.nombre_objetivo,
         meta_total: Number(nueva.meta_total),
         fecha_meta: fecha.toISOString(),
         descripcion: nueva.descripcion,
@@ -275,9 +275,9 @@ export default function Metas() {
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">Nombre</label>
               <input 
-                name="nombre" 
+                name="nombre_objetivo" 
                 placeholder="Nombre de la meta" 
-                value={nueva.nombre} 
+                value={nueva.nombre_objetivo} 
                 onChange={handleChange} 
                 className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base" 
               />
@@ -374,7 +374,7 @@ export default function Metas() {
                   return (
                     <tr key={meta.id} className="hover:bg-gray-50">
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-900">
-                        {meta.nombre}
+                        {meta.nombre_objetivo}
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm">
                         <span className="font-medium text-purple-600">

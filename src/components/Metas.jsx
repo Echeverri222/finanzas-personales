@@ -13,6 +13,9 @@ export default function Metas() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [showAddMoneyForm, setShowAddMoneyForm] = useState(false);
+  const [selectedMeta, setSelectedMeta] = useState(null);
+  const [montoAAbonar, setMontoAAbonar] = useState('');
   const { userProfile } = useUser();
 
   const cargarMetas = async () => {
@@ -149,23 +152,54 @@ export default function Metas() {
     }).format(value);
   };
 
-  const calcularProgreso = (meta) => {
-    const hoy = new Date();
-    const fechaCreacion = meta.created_at ? new Date(Date.UTC(
-      new Date(meta.created_at).getFullYear(),
-      new Date(meta.created_at).getMonth(),
-      new Date(meta.created_at).getDate()
-    )) : hoy;
+  const handleAbonarClick = (meta) => {
+    setSelectedMeta(meta);
+    setMontoAAbonar('');
+    setShowAddMoneyForm(true);
+    setError(null);
+  };
 
-    const fechaMeta = new Date(Date.UTC(
-      new Date(meta.fecha_meta).getFullYear(),
-      new Date(meta.fecha_meta).getMonth(),
-      new Date(meta.fecha_meta).getDate()
-    ));
-    
-    const diasTotales = (fechaMeta - fechaCreacion) / (1000 * 60 * 60 * 24);
-    const diasRestantes = (fechaMeta - hoy) / (1000 * 60 * 60 * 24);
-    return Math.max(0, Math.min(100, ((diasTotales - diasRestantes) / diasTotales) * 100));
+  const agregarDineroMeta = async () => {
+    if (!selectedMeta || !montoAAbonar || Number(montoAAbonar) <= 0) {
+      setError("Por favor ingrese un monto válido.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const nuevoMontoActual = (Number(selectedMeta.monto_actual) || 0) + Number(montoAAbonar);
+
+      const { data, error: updateError } = await supabase
+        .from('metas')
+        .update({ monto_actual: nuevoMontoActual })
+        .eq('id', selectedMeta.id)
+        .select()
+        .single();
+      
+      if (updateError) {
+        throw updateError;
+      }
+      
+      setShowAddMoneyForm(false);
+      setSelectedMeta(null);
+      await cargarMetas();
+
+    } catch (err) {
+      console.error("Error al abonar a la meta:", err);
+      setError(err.message || "Error al abonar a la meta.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calcularProgreso = (meta) => {
+    if (!meta.meta_total || meta.meta_total === 0) {
+      return 0;
+    }
+    const progreso = ((meta.monto_actual || 0) / meta.meta_total) * 100;
+    return Math.max(0, Math.min(100, progreso));
   };
 
   const totalMetas = metas.reduce((sum, meta) => sum + Number(meta.meta_total), 0);
@@ -383,34 +417,48 @@ export default function Metas() {
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm">
                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          estaVencida ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                          estaVencida && progreso < 100 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
                         }`}>
                           {formatDate(meta.fecha_meta)}
                         </span>
                       </td>
-                      <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                      <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm">
+                        <div>
+                          <span className="font-semibold text-gray-800">{formatCurrency(meta.monto_actual || 0)}</span>
+                          <span className="text-gray-500"> / {formatCurrency(meta.meta_total)}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
                           <div 
-                            className={`h-2 rounded-full ${
-                              estaVencida ? 'bg-red-600' : 'bg-blue-600'
-                            }`}
+                            className={`h-2 rounded-full ${progreso >= 100 ? 'bg-green-500' : 'bg-blue-600'}`}
                             style={{ width: `${progreso}%` }}
                           ></div>
                         </div>
-                        <span className="text-xs text-gray-500">{Math.round(progreso)}% completado</span>
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-900">
                         {meta.descripcion || '-'}
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right text-xs md:text-sm font-medium">
-                        <button
-                          onClick={() => handleDelete(meta.id)}
-                          className="text-red-600 hover:text-red-900 transition-colors"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                            <button
+                                onClick={() => handleAbonarClick(meta)}
+                                className="text-green-600 hover:text-green-900 transition-colors p-1 rounded-full hover:bg-green-100"
+                                title="Abonar a meta"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.5 2.5 0 00-1.162-.267z" />
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v1.077a4.5 4.5 0 00-1.723 1.023 1.5 1.5 0 00-1.121 2.218.97.97 0 01.36.425.97.97 0 01-.36.425V11a1.5 1.5 0 001.121 2.218 4.503 4.503 0 001.723 1.023V15a1 1 0 102 0v-1.077a4.5 4.5 0 001.723-1.023 1.5 1.5 0 001.121-2.218.97.97 0 01-.36-.425.97.97 0 01.36-.425V9a1.5 1.5 0 00-1.121-2.218A4.503 4.503 0 0011 5.777V5z" clipRule="evenodd" />
+                                </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(meta.id)}
+                              className="text-red-600 hover:text-red-900 transition-colors p-1 rounded-full hover:bg-red-100"
+                              title="Eliminar meta"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                        </div>
                       </td>
               </tr>
                   );
@@ -420,6 +468,52 @@ export default function Metas() {
           </div>
         </div>
       </div>
+
+      {showAddMoneyForm && selectedMeta && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+                <h3 className="text-lg font-bold text-gray-800">Abonar a Meta</h3>
+                <p className="text-sm text-gray-600 mt-1">Estás abonando a: <span className="font-semibold">{selectedMeta.nombre_objetivo}</span></p>
+
+                {error && (
+                    <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 my-4 rounded-md text-sm">
+                        <p>{error}</p>
+                    </div>
+                )}
+
+                <div className="mt-4">
+                    <label htmlFor="montoAAbonar" className="block text-sm font-medium text-gray-700">Monto a Abonar</label>
+                    <input
+                        type="number"
+                        name="montoAAbonar"
+                        id="montoAAbonar"
+                        value={montoAAbonar}
+                        onChange={(e) => setMontoAAbonar(e.target.value)}
+                        placeholder="0"
+                        className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                    />
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3">
+                    <button
+                        onClick={() => setShowAddMoneyForm(false)}
+                        className="px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                        disabled={loading}
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={agregarDineroMeta}
+                        className="px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600 transition-colors disabled:bg-gray-400"
+                        disabled={loading}
+                    >
+                        {loading ? 'Guardando...' : 'Confirmar Abono'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
     </div>
   );
 }

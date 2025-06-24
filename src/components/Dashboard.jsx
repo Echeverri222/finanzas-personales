@@ -306,6 +306,17 @@ export default function Dashboard({ onQuickMovement }) {
 
   const categoryStats = getCategoryStats();
 
+  // Prepara los datos para el gráfico: gasto y restante hasta la meta
+  const categoryDataWithMeta = categoryData.map(cat => {
+    const meta = tiposMovimiento.find(t => t.nombre === cat.name)?.meta || 0;
+    const gasto = cat.value;
+    return {
+      ...cat,
+      gasto,
+      restante: meta > gasto ? meta - gasto : 0
+    };
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -570,10 +581,7 @@ export default function Dashboard({ onQuickMovement }) {
               <div className="h-60 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
-                    data={categoryData.map(cat => ({
-                      ...cat,
-                      meta: (tiposMovimiento.find(t => t.nombre === cat.name)?.meta) || 0
-                    }))} 
+                    data={categoryDataWithMeta}
                     layout="vertical"
                     margin={{ top: 5, right: 80, left: 60, bottom: 5 }}
                     barCategoryGap={0}
@@ -598,10 +606,10 @@ export default function Dashboard({ onQuickMovement }) {
                             <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
                               <p className="font-semibold">{data.name}</p>
                               <p style={{ color: COLORS[data.name] }}>
-                                Total: {formatCurrency(data.value)}
+                                Total: {formatCurrency(data.gasto)}
                               </p>
-                              {data.meta > 0 && (
-                                <p className="text-blue-600">Meta: {formatCurrency(data.meta)}</p>
+                              {data.restante > 0 && (
+                                <p className="text-blue-600">Meta: {formatCurrency(data.gasto + data.restante)}</p>
                               )}
                             </div>
                           );
@@ -609,31 +617,22 @@ export default function Dashboard({ onQuickMovement }) {
                         return null;
                       }}
                     />
+                    {/* Barra de gasto (rellena) */}
+                    <Bar dataKey="gasto" barSize={14} radius={[0, 4, 4, 0]}>
+                      {categoryDataWithMeta.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[entry.name]} className="transition-opacity hover:opacity-80" />
+                      ))}
+                    </Bar>
+                    {/* Barra restante (punteada) */}
                     <Bar
-                      dataKey="meta"
-                      radius={[0, 4, 4, 0]}
+                      dataKey="restante"
+                      barSize={14}
                       fill="none"
                       stroke="#2563eb"
                       strokeDasharray="6 3"
-                      barSize={14}
-                      legendType="line"
                       isAnimationActive={false}
-                      z={1}
-                    />
-                    <Bar 
-                      dataKey="value" 
                       radius={[0, 4, 4, 0]}
-                      barSize={14}
-                      z={2}
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={COLORS[entry.name]}
-                          className="transition-opacity hover:opacity-80"
-                        />
-                      ))}
-                    </Bar>
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

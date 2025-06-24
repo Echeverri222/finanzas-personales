@@ -22,7 +22,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
     fecha: today,
     nombre: '',
     importe: '',
-    tipo_movimiento: '',
+    id_tipo_movimiento: '',
     usuario_id: userProfile?.id
   });
 
@@ -44,7 +44,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       setFormData(prev => ({
         ...prev,
         fecha: today,
-        tipo_movimiento: defaultType === 'Ingresos' ? 'Ingresos' : ''
+        id_tipo_movimiento: defaultType === 'Ingresos' ? 'Ingresos' : ''
       }));
     }
   }, [initialShowForm, defaultType, today]);
@@ -90,7 +90,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
     if (!formData.fecha) return "La fecha es requerida";
     if (!formData.nombre) return "El nombre es requerido";
     if (!formData.importe) return "El importe es requerido";
-    if (!formData.tipo_movimiento) return "La categoría es requerida";
+    if (!formData.id_tipo_movimiento) return "La categoría es requerida";
     return null;
   };
 
@@ -114,7 +114,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
         fecha: fecha.toISOString(),
         nombre: formData.nombre.trim(),
         importe: Number(formData.importe),
-        tipo_movimiento: formData.tipo_movimiento,
+        id_tipo_movimiento: formData.id_tipo_movimiento,
         usuario_id: userProfile.id
       };
 
@@ -139,7 +139,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
         fecha: today, 
         nombre: '', 
         importe: '', 
-        tipo_movimiento: '',
+        id_tipo_movimiento: '',
         usuario_id: userProfile.id 
       });
       setEditingId(null);
@@ -170,7 +170,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       fecha: today,
       nombre: '',
       importe: '',
-      tipo_movimiento: '',
+      id_tipo_movimiento: '',
       usuario_id: userProfile?.id
     });
     setEditingId(null);
@@ -188,7 +188,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
       fecha: fecha,
       nombre: mov.nombre || '',
       importe: mov.importe ? mov.importe.toString() : '',
-      tipo_movimiento: mov.tipo_movimiento || '',
+      id_tipo_movimiento: mov.id_tipo_movimiento || '',
       usuario_id: userProfile?.id
     });
     setEditingId(mov.id);
@@ -283,7 +283,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
           ? a.importe - b.importe
           : b.importe - a.importe;
       }
-      if (sortConfig.key === 'nombre' || sortConfig.key === 'tipo_movimiento') {
+      if (sortConfig.key === 'nombre' || sortConfig.key === 'id_tipo_movimiento') {
         return sortConfig.direction === 'asc'
           ? a[sortConfig.key].localeCompare(b[sortConfig.key])
           : b[sortConfig.key].localeCompare(a[sortConfig.key]);
@@ -296,7 +296,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
   const filteredMovimientos = getSortedMovimientos(
     movimientos.filter(mov => {
       const matchesSearch = mov.nombre.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = typeFilter === 'all' || mov.tipo_movimiento === typeFilter;
+      const matchesType = typeFilter === 'all' || mov.id_tipo_movimiento === typeFilter;
       const matchesDate = (!dateFilter.startDate || new Date(mov.fecha) >= new Date(dateFilter.startDate)) &&
                          (!dateFilter.endDate || new Date(mov.fecha) <= new Date(dateFilter.endDate));
       return matchesSearch && matchesType && matchesDate;
@@ -384,10 +384,10 @@ export default function Movimientos({ showForm: initialShowForm = false, default
             </div>
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">Categoría</label>
-          <select
-            name="tipo_movimiento"
-                value={formData.tipo_movimiento}
-            onChange={handleChange}
+              <select
+                name="id_tipo_movimiento"
+                value={formData.id_tipo_movimiento}
+                onChange={handleChange}
                 className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
@@ -515,10 +515,10 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                     Importe {getSortIcon('importe')}
                   </th>
                   <th 
-                    onClick={() => handleSort('tipo_movimiento')}
+                    onClick={() => handleSort('id_tipo_movimiento')}
                     className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   >
-                    Categoría {getSortIcon('tipo_movimiento')}
+                    Categoría {getSortIcon('id_tipo_movimiento')}
                   </th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
                     Última Modificación
@@ -526,8 +526,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                   <th className="px-4 md:px-6 py-3 text-right text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
-            </tr>
-          </thead>
+                </tr>
+              </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredMovimientos.map((mov) => (
                   <React.Fragment key={mov.id}>
@@ -540,18 +540,18 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm">
                         <span className={`font-medium ${
-                          mov.tipo_movimiento === 'Ingresos' ? 'text-green-600' : 'text-red-600'
+                          mov.id_tipo_movimiento === 'Ingresos' ? 'text-green-600' : 'text-red-600'
                         }`}>
                           {formatCurrency(mov.importe)}
                         </span>
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          mov.tipo_movimiento === 'Ingresos' 
+                          mov.id_tipo_movimiento === 'Ingresos' 
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {mov.tipo_movimiento || 'Sin categoría'}
+                          {mov.id_tipo_movimiento || 'Sin categoría'}
                         </span>
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-500">
@@ -621,8 +621,8 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                               <div className="space-y-2">
                                 <label className="block text-sm font-medium text-gray-700">Categoría</label>
                                 <select
-                                  name="tipo_movimiento"
-                                  value={formData.tipo_movimiento}
+                                  name="id_tipo_movimiento"
+                                  value={formData.id_tipo_movimiento}
                                   onChange={handleChange}
                                   className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                   required
@@ -672,12 +672,12 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                             </div>
                           </div>
                         </td>
-              </tr>
+                      </tr>
                     )}
                   </React.Fragment>
-            ))}
-          </tbody>
-        </table>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

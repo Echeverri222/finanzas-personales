@@ -583,22 +583,21 @@ export default function Dashboard({ onQuickMovement }) {
                   <BarChart 
                     data={categoryDataWithMeta}
                     layout="vertical"
+                    barCategoryGap={10}
                     margin={{ top: 5, right: 80, left: 60, bottom: 5 }}
-                    barCategoryGap={0}
-                    barGap={0}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis 
+                    <XAxis
                       type="number"
                       tickFormatter={value => formatCurrency(value)}
                     />
-                    <YAxis 
-                      type="category" 
-                      dataKey="name" 
+                    <YAxis
+                      type="category"
+                      dataKey="name"
                       width={80}
                       tick={{ fill: '#4B5563' }}
                     />
-                    <Tooltip 
+                    <Tooltip
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
@@ -617,15 +616,21 @@ export default function Dashboard({ onQuickMovement }) {
                         return null;
                       }}
                     />
-                    {/* Barra de gasto (rellena) */}
-                    <Bar dataKey="gasto" barSize={14} radius={[0, 4, 4, 0]}>
+                    {/* Actual spending (filled) */}
+                    <Bar
+                      dataKey="gasto"
+                      stackId="a"
+                      barSize={14}
+                      radius={[0, 4, 4, 0]}
+                    >
                       {categoryDataWithMeta.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[entry.name]} className="transition-opacity hover:opacity-80" />
+                        <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
                       ))}
                     </Bar>
-                    {/* Barra restante (punteada) */}
+                    {/* Remaining to budget (dashed) */}
                     <Bar
                       dataKey="restante"
+                      stackId="a"
                       barSize={14}
                       fill="none"
                       stroke="#2563eb"

@@ -170,6 +170,23 @@ export default function Ahorros() {
     return null;
   };
 
+  // Calculate total saved
+  const totalAhorros = movimientos.reduce((sum, mov) => sum + Number(mov.importe), 0);
+
+  // Prepare data for the chart (accumulated savings)
+  let acumulado = 0;
+  const datosGrafico = movimientos
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+    .map(mov => {
+      acumulado += Number(mov.importe);
+      return {
+        fecha: mov.fecha.split('T')[0],
+        monto: mov.importe,
+        acumulado,
+        descripcion: mov.nombre
+      };
+    });
+
   if (loading && !showForm) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -215,7 +232,7 @@ export default function Ahorros() {
             <div>
               <p className="text-sm font-medium text-gray-600">Total Ahorrado</p>
               <p className="text-2xl md:text-3xl font-bold text-green-600">
-                {formatCurrency(movimientos.length > 0 ? movimientos[movimientos.length - 1].acumulado : 0)}
+                {formatCurrency(totalAhorros)}
               </p>
             </div>
             <div className="bg-green-100 p-3 rounded-full">
@@ -312,7 +329,7 @@ export default function Ahorros() {
         <div className="h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={movimientos}
+              data={datosGrafico}
               margin={{
                 top: 5,
                 right: 30,

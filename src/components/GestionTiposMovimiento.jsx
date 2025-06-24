@@ -92,38 +92,41 @@ export default function GestionTiposMovimiento() {
   };
 
   return (
-    <div className="bg-white p-4 rounded-xl shadow-md mt-6">
-      <h3 className="text-lg font-bold mb-2">Gestionar Tipos de Movimiento</h3>
-      <div className="flex gap-2 mb-4">
-        <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre" className="border rounded px-2 py-1" />
-        <input value={meta} onChange={e => setMeta(e.target.value)} placeholder="Meta (opcional)" type="number" className="border rounded px-2 py-1" />
-        <button onClick={handleAdd} disabled={loading} className="bg-blue-500 text-white px-3 py-1 rounded">Agregar</button>
-      </div>
+    <div className="bg-white p-6 rounded-xl shadow-md mt-6 max-w-2xl mx-auto">
+      <h3 className="text-xl font-bold mb-4 text-gray-800">Gestionar Tipos de Movimiento</h3>
+      <form className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" onSubmit={e => { e.preventDefault(); handleAdd(); }}>
+        <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre" className="px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+        <input value={meta} onChange={e => setMeta(e.target.value)} placeholder="Meta (opcional)" type="number" className="px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+        <button type="submit" disabled={loading} className="px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">Agregar</button>
+      </form>
       {error && <div className="text-red-500 mb-2">{error}</div>}
-      <ul className="mb-4">
+      <div className="space-y-2 mb-6">
         {tipos.map(tipo => (
-          <li key={tipo.id} className="flex justify-between items-center border-b py-1 gap-2">
+          <div key={tipo.id} className="flex flex-col md:flex-row md:items-center justify-between bg-gray-50 rounded-lg px-4 py-2 border border-gray-200">
             {editId === tipo.id ? (
-              <>
-                <input value={editNombre} onChange={e => setEditNombre(e.target.value)} className="border rounded px-2 py-1 mr-2" />
-                <input value={editMeta} onChange={e => setEditMeta(e.target.value)} type="number" className="border rounded px-2 py-1 mr-2 w-24" />
-                <button onClick={() => handleUpdate(tipo.id)} className="text-green-600 mr-2">Guardar</button>
-                <button onClick={handleCancelEdit} className="text-gray-500">Cancelar</button>
-              </>
-            ) : (
-              <>
-                <span>{tipo.nombre} {tipo.meta ? `(Meta: ${tipo.meta})` : ''}</span>
-                <div className="flex gap-2">
-                  <button onClick={() => handleEdit(tipo)} className="text-blue-500">Editar</button>
-                  <button onClick={() => handleDelete(tipo.id)} className="text-red-500">Eliminar</button>
+              <div className="flex flex-col md:flex-row gap-2 w-full">
+                <input value={editNombre} onChange={e => setEditNombre(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-300 text-sm w-full md:w-1/3" />
+                <input value={editMeta} onChange={e => setEditMeta(e.target.value)} type="number" className="px-3 py-2 rounded-lg border border-gray-300 text-sm w-full md:w-1/3" />
+                <div className="flex gap-2 mt-2 md:mt-0">
+                  <button onClick={() => handleUpdate(tipo.id)} className="px-3 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 font-semibold">Guardar</button>
+                  <button onClick={handleCancelEdit} className="px-3 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 font-semibold">Cancelar</button>
                 </div>
-              </>
+              </div>
+            ) : (
+              <div className="flex flex-col md:flex-row md:items-center justify-between w-full">
+                <span className="font-medium text-gray-800 text-base">{tipo.nombre}</span>
+                <span className="text-gray-500 text-sm ml-0 md:ml-4">{tipo.meta ? `Meta: ${tipo.meta}` : ''}</span>
+                <div className="flex gap-2 mt-2 md:mt-0">
+                  <button onClick={() => handleEdit(tipo)} className="px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 font-semibold">Editar</button>
+                  <button onClick={() => handleDelete(tipo.id)} className="px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 font-semibold">Eliminar</button>
+                </div>
+              </div>
             )}
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
       <div>
-        <span className="font-semibold">Recomendaciones:</span>
+        <span className="font-semibold text-gray-700">Recomendaciones:</span>
         <div className="flex flex-wrap gap-2 mt-2">
           {recomendados.map((rec, i) => (
             <span key={i} className="bg-gray-200 px-2 py-1 rounded text-xs">{rec}</span>

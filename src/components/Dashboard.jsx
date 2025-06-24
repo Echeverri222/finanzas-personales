@@ -570,7 +570,10 @@ export default function Dashboard({ onQuickMovement }) {
               <div className="h-60 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
-                    data={categoryData} 
+                    data={categoryData.map(cat => ({
+                      ...cat,
+                      meta: (tiposMovimiento.find(t => t.nombre === cat.name)?.meta) || 0
+                    }))} 
                     layout="vertical"
                     margin={{ top: 5, right: 80, left: 60, bottom: 5 }}
                   >
@@ -595,6 +598,9 @@ export default function Dashboard({ onQuickMovement }) {
                               <p style={{ color: COLORS[data.name] }}>
                                 Total: {formatCurrency(data.value)}
                               </p>
+                              {data.meta > 0 && (
+                                <p className="text-blue-600">Meta: {formatCurrency(data.meta)}</p>
+                              )}
                             </div>
                           );
                         }
@@ -613,6 +619,16 @@ export default function Dashboard({ onQuickMovement }) {
                         />
                       ))}
                     </Bar>
+                    <Bar
+                      dataKey="meta"
+                      radius={[0, 4, 4, 0]}
+                      fill="none"
+                      stroke="#2563eb"
+                      strokeDasharray="6 3"
+                      barSize={6}
+                      legendType="line"
+                      isAnimationActive={false}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

@@ -10,6 +10,9 @@ export default function GestionTiposMovimiento() {
   const [recomendados, setRecomendados] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editNombre, setEditNombre] = useState('');
+  const [editMeta, setEditMeta] = useState('');
 
   // Cargar tipos del usuario
   const cargarTipos = async () => {
@@ -61,6 +64,33 @@ export default function GestionTiposMovimiento() {
     setLoading(false);
   };
 
+  const handleEdit = (tipo) => {
+    setEditId(tipo.id);
+    setEditNombre(tipo.nombre);
+    setEditMeta(tipo.meta);
+  };
+
+  const handleUpdate = async (id) => {
+    setLoading(true);
+    setError(null);
+    const { error } = await supabase
+      .from('tipo_movimiento')
+      .update({ nombre: editNombre, meta: editMeta ? Number(editMeta) : 0 })
+      .eq('id', id);
+    if (error) setError(error.message);
+    setEditId(null);
+    setEditNombre('');
+    setEditMeta('');
+    await cargarTipos();
+    setLoading(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditId(null);
+    setEditNombre('');
+    setEditMeta('');
+  };
+
   return (
     <div className="bg-white p-4 rounded-xl shadow-md mt-6">
       <h3 className="text-lg font-bold mb-2">Gestionar Tipos de Movimiento</h3>
@@ -72,9 +102,23 @@ export default function GestionTiposMovimiento() {
       {error && <div className="text-red-500 mb-2">{error}</div>}
       <ul className="mb-4">
         {tipos.map(tipo => (
-          <li key={tipo.id} className="flex justify-between items-center border-b py-1">
-            <span>{tipo.nombre} {tipo.meta ? `(Meta: ${tipo.meta})` : ''}</span>
-            <button onClick={() => handleDelete(tipo.id)} className="text-red-500">Eliminar</button>
+          <li key={tipo.id} className="flex justify-between items-center border-b py-1 gap-2">
+            {editId === tipo.id ? (
+              <>
+                <input value={editNombre} onChange={e => setEditNombre(e.target.value)} className="border rounded px-2 py-1 mr-2" />
+                <input value={editMeta} onChange={e => setEditMeta(e.target.value)} type="number" className="border rounded px-2 py-1 mr-2 w-24" />
+                <button onClick={() => handleUpdate(tipo.id)} className="text-green-600 mr-2">Guardar</button>
+                <button onClick={handleCancelEdit} className="text-gray-500">Cancelar</button>
+              </>
+            ) : (
+              <>
+                <span>{tipo.nombre} {tipo.meta ? `(Meta: ${tipo.meta})` : ''}</span>
+                <div className="flex gap-2">
+                  <button onClick={() => handleEdit(tipo)} className="text-blue-500">Editar</button>
+                  <button onClick={() => handleDelete(tipo.id)} className="text-red-500">Eliminar</button>
+                </div>
+              </>
+            )}
           </li>
         ))}
       </ul>

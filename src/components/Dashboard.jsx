@@ -576,6 +576,8 @@ export default function Dashboard({ onQuickMovement }) {
                     }))} 
                     layout="vertical"
                     margin={{ top: 5, right: 80, left: 60, bottom: 5 }}
+                    barCategoryGap={10}
+                    barGap={-20}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis 
@@ -607,9 +609,20 @@ export default function Dashboard({ onQuickMovement }) {
                         return null;
                       }}
                     />
+                    <Bar
+                      dataKey="meta"
+                      radius={[0, 4, 4, 0]}
+                      fill="none"
+                      stroke="#2563eb"
+                      strokeDasharray="6 3"
+                      barSize={16}
+                      legendType="line"
+                      isAnimationActive={false}
+                    />
                     <Bar 
                       dataKey="value" 
                       radius={[0, 4, 4, 0]}
+                      barSize={10}
                     >
                       {categoryData.map((entry, index) => (
                         <Cell 
@@ -619,16 +632,6 @@ export default function Dashboard({ onQuickMovement }) {
                         />
                       ))}
                     </Bar>
-                    <Bar
-                      dataKey="meta"
-                      radius={[0, 4, 4, 0]}
-                      fill="none"
-                      stroke="#2563eb"
-                      strokeDasharray="6 3"
-                      barSize={6}
-                      legendType="line"
-                      isAnimationActive={false}
-                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

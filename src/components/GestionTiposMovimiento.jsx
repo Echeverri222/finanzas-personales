@@ -100,27 +100,25 @@ export default function GestionTiposMovimiento() {
         <button type="submit" disabled={loading} className="px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">Agregar</button>
       </form>
       {error && <div className="text-red-500 mb-2">{error}</div>}
-      <div className="space-y-2 mb-6">
+      <div className="space-y-1 mb-6">
         {tipos.map(tipo => (
-          <div key={tipo.id} className="flex flex-col md:flex-row md:items-center justify-between bg-gray-50 rounded-lg px-4 py-2 border border-gray-200">
+          <div key={tipo.id} className="flex flex-row items-center justify-between bg-gray-50 rounded-lg px-4 py-1 border border-gray-200">
             {editId === tipo.id ? (
-              <div className="flex flex-col md:flex-row gap-2 w-full">
-                <input value={editNombre} onChange={e => setEditNombre(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-300 text-sm w-full md:w-1/3" />
-                <input value={editMeta} onChange={e => setEditMeta(e.target.value)} type="number" className="px-3 py-2 rounded-lg border border-gray-300 text-sm w-full md:w-1/3" />
-                <div className="flex gap-2 mt-2 md:mt-0">
-                  <button onClick={() => handleUpdate(tipo.id)} className="px-3 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 font-semibold">Guardar</button>
-                  <button onClick={handleCancelEdit} className="px-3 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 font-semibold">Cancelar</button>
-                </div>
+              <div className="flex flex-row gap-2 w-full items-center">
+                <input value={editNombre} onChange={e => setEditNombre(e.target.value)} className="px-2 py-1 rounded-lg border border-gray-300 text-sm w-32" />
+                <input value={editMeta} onChange={e => setEditMeta(e.target.value)} type="number" className="px-2 py-1 rounded-lg border border-gray-300 text-sm w-24 text-center" />
+                <button onClick={() => handleUpdate(tipo.id)} className="px-2 py-1 rounded bg-green-500 text-white hover:bg-green-600 text-xs font-semibold">Guardar</button>
+                <button onClick={handleCancelEdit} className="px-2 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 text-xs font-semibold">Cancelar</button>
               </div>
             ) : (
-              <div className="flex flex-col md:flex-row md:items-center justify-between w-full">
-                <span className="font-medium text-gray-800 text-base">{tipo.nombre}</span>
-                <span className="text-gray-500 text-sm ml-0 md:ml-4">{tipo.meta ? `Meta: ${tipo.meta}` : ''}</span>
-                <div className="flex gap-2 mt-2 md:mt-0">
-                  <button onClick={() => handleEdit(tipo)} className="px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 font-semibold">Editar</button>
-                  <button onClick={() => handleDelete(tipo.id)} className="px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 font-semibold">Eliminar</button>
+              <>
+                <span className="font-medium text-gray-800 text-base w-32 truncate">{tipo.nombre}</span>
+                <span className="text-gray-500 text-sm w-32 text-center">{tipo.meta ? `Meta: ${tipo.meta}` : ''}</span>
+                <div className="flex gap-1">
+                  <button onClick={() => handleEdit(tipo)} className="px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 text-xs font-semibold">Editar</button>
+                  <button onClick={() => handleDelete(tipo.id)} className="px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600 text-xs font-semibold">Eliminar</button>
                 </div>
-              </div>
+              </>
             )}
           </div>
         ))}

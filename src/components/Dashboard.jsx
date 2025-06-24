@@ -601,15 +601,14 @@ export default function Dashboard({ onQuickMovement }) {
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
+                          const meta = (tiposMovimiento.find(t => t.nombre === data.name)?.meta || 0);
                           return (
                             <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
                               <p className="font-semibold">{data.name}</p>
                               <p style={{ color: COLORS[data.name] }}>
                                 Total: {formatCurrency(data.gasto)}
                               </p>
-                              {data.restante > 0 && (
-                                <p className="text-blue-600">Meta: {formatCurrency(data.gasto + data.restante)}</p>
-                              )}
+                              <p className="text-blue-600">Meta: {formatCurrency(meta)}</p>
                             </div>
                           );
                         }

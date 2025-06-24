@@ -310,6 +310,12 @@ export default function Movimientos({ showForm: initialShowForm = false, default
     return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
 
+  // Función para obtener el nombre del tipo de movimiento
+  const getTipoNombre = (id) => {
+    const tipo = tiposMovimiento.find(t => t.id === id);
+    return tipo ? tipo.nombre : 'Sin categoría';
+  };
+
   if (loading && !showForm) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -551,7 +557,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {mov.id_tipo_movimiento || 'Sin categoría'}
+                          {getTipoNombre(mov.id_tipo_movimiento)}
                         </span>
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-500">

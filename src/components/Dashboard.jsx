@@ -576,8 +576,8 @@ export default function Dashboard({ onQuickMovement }) {
                     }))} 
                     layout="vertical"
                     margin={{ top: 5, right: 80, left: 60, bottom: 5 }}
-                    barCategoryGap={10}
-                    barGap={-20}
+                    barCategoryGap={0}
+                    barGap={0}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis 

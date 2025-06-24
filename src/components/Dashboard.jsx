@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
+import GestionTiposMovimiento from './GestionTiposMovimiento';
 
 const COLORS = {
   'Ingresos': '#10B981',
@@ -70,6 +71,7 @@ export default function Dashboard({ onQuickMovement }) {
   const [error, setError] = useState(null);
   const { userProfile } = useUser();
   const [tiposMovimiento, setTiposMovimiento] = useState([]);
+  const [showGestionTipos, setShowGestionTipos] = useState(false);
 
   const cargarMovimientos = async () => {
     if (!userProfile) return;
@@ -350,8 +352,17 @@ export default function Dashboard({ onQuickMovement }) {
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
+
+          <button
+            onClick={() => setShowGestionTipos(v => !v)}
+            className="px-3 py-2 rounded-lg border border-blue-500 text-blue-600 bg-white hover:bg-blue-50 shadow-sm text-sm md:text-base"
+          >
+            {showGestionTipos ? 'Cerrar gestión de tipos' : 'Gestionar tipos de movimiento'}
+          </button>
         </div>
       </div>
+
+      {showGestionTipos && <GestionTiposMovimiento />}
 
       {error && (
         <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg text-sm md:text-base">

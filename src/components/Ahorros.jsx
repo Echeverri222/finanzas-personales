@@ -4,61 +4,48 @@ import { useUser } from '../context/UserContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Ahorros() {
-  const [ahorros, setAhorros] = useState([]);
+  const { userProfile } = useUser();
+  const [movimientos, setMovimientos] = useState([]);
+  const [idAhorro, setIdAhorro] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [nuevo, setNuevo] = useState({
     fecha: '',
     monto: '',
     descripcion: ''
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const { userProfile } = useUser();
 
-  const cargarAhorros = async () => {
+  // Buscar el id del tipo 'Ahorro' para el usuario
+  const cargarIdAhorro = async () => {
     if (!userProfile) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const { data, error: supabaseError } = await supabase
-        .from('movimientos')
-        .select('*')
-        .eq('tipo_movimiento', 'Ahorro')
-        .eq('usuario_id', userProfile.id)
-        .order('fecha', { ascending: true });
-
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
-      }
-
-      // Transformar los datos para el gráfico acumulativo
-      let acumulado = 0;
-      const datosGrafico = (data || []).map(mov => {
-        acumulado += mov.importe;
-        return {
-          fecha: formatDate(mov.fecha),
-          monto: mov.importe,
-          acumulado: acumulado,
-          descripcion: mov.nombre
-        };
-      });
-
-      setAhorros(datosGrafico);
-    } catch (err) {
-      console.error("Error al obtener ahorros:", err);
-      setError(`Error: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    const { data, error } = await supabase
+      .from('tipo_movimiento')
+      .select('id')
+      .eq('usuario_id', userProfile.id)
+      .eq('nombre', 'Ahorro')
+      .single();
+    if (!error && data) setIdAhorro(data.id);
   };
 
-  useEffect(() => {
-    if (userProfile) {
-    cargarAhorros();
-    }
-  }, [userProfile]);
+  // Cargar movimientos filtrando por id_tipo_movimiento
+  const cargarMovimientos = async () => {
+    if (!userProfile || !idAhorro) return;
+    setLoading(true);
+    setError(null);
+    const { data, error } = await supabase
+      .from('movimientos')
+      .select('*')
+      .eq('usuario_id', userProfile.id)
+      .eq('id_tipo_movimiento', idAhorro)
+      .order('fecha', { ascending: false });
+    if (error) setError(error.message);
+    setMovimientos(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { cargarIdAhorro(); }, [userProfile]);
+  useEffect(() => { cargarMovimientos(); }, [idAhorro, userProfile]);
 
   const handleChange = (e) => {
     setNuevo({...nuevo, [e.target.name]: e.target.value});
@@ -98,7 +85,7 @@ export default function Ahorros() {
       }
 
       resetForm();
-      await cargarAhorros();
+      await cargarMovimientos();
     } catch (err) {
       console.error("Error al guardar ahorro:", err);
       setError(err.message || "Error al guardar los datos");
@@ -124,7 +111,7 @@ export default function Ahorros() {
         throw new Error(deleteError.message);
       }
 
-      await cargarAhorros();
+      await cargarMovimientos();
     } catch (err) {
       console.error("Error al eliminar:", err);
       setError(err.message || "Error al eliminar el ahorro");
@@ -228,7 +215,7 @@ export default function Ahorros() {
             <div>
               <p className="text-sm font-medium text-gray-600">Total Ahorrado</p>
               <p className="text-2xl md:text-3xl font-bold text-green-600">
-                {formatCurrency(ahorros.length > 0 ? ahorros[ahorros.length - 1].acumulado : 0)}
+                {formatCurrency(movimientos.length > 0 ? movimientos[movimientos.length - 1].acumulado : 0)}
               </p>
             </div>
             <div className="bg-green-100 p-3 rounded-full">
@@ -325,7 +312,7 @@ export default function Ahorros() {
         <div className="h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={ahorros}
+              data={movimientos}
               margin={{
                 top: 5,
                 right: 30,

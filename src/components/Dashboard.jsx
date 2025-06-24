@@ -615,14 +615,16 @@ export default function Dashboard({ onQuickMovement }) {
                       fill="none"
                       stroke="#2563eb"
                       strokeDasharray="6 3"
-                      barSize={16}
+                      barSize={14}
                       legendType="line"
                       isAnimationActive={false}
+                      z={1}
                     />
                     <Bar 
                       dataKey="value" 
                       radius={[0, 4, 4, 0]}
-                      barSize={10}
+                      barSize={14}
+                      z={2}
                     >
                       {categoryData.map((entry, index) => (
                         <Cell 

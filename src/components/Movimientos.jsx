@@ -366,23 +366,23 @@ export default function Movimientos({ showForm: initialShowForm = false, default
               />
             </div>
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Nombre</label>
-              <input
-                name="nombre"
-                placeholder="Descripción del movimiento"
-                value={formData.nombre}
-                onChange={handleChange}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-            <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">Importe</label>
               <input
                 name="importe"
                 type="number"
                 placeholder="0"
                 value={formData.importe}
+                onChange={handleChange}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Nombre</label>
+              <input
+                name="nombre"
+                placeholder="Descripción del movimiento"
+                value={formData.nombre}
                 onChange={handleChange}
                 className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
@@ -553,7 +553,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          mov.id_tipo_movimiento === 'Ingresos' 
+                          getTipoNombre(mov.id_tipo_movimiento) === 'Ingresos'
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                         }`}>
@@ -602,23 +602,23 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                                 />
                               </div>
                               <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-700">Nombre</label>
-                                <input
-                                  name="nombre"
-                                  placeholder="Descripción del movimiento"
-                                  value={formData.nombre}
-                                  onChange={handleChange}
-                                  className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                  required
-                                />
-                              </div>
-                              <div className="space-y-2">
                                 <label className="block text-sm font-medium text-gray-700">Importe</label>
                                 <input
                                   name="importe"
                                   type="number"
                                   placeholder="0"
                                   value={formData.importe}
+                                  onChange={handleChange}
+                                  className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  required
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">Nombre</label>
+                                <input
+                                  name="nombre"
+                                  placeholder="Descripción del movimiento"
+                                  value={formData.nombre}
                                   onChange={handleChange}
                                   className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                   required

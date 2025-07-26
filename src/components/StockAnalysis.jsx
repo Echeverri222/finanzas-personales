@@ -588,15 +588,18 @@ export default function StockAnalysis() {
               <LineChart
                 data={historicalData}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                style={{ cursor: 'crosshair' }}
                 onClick={(data) => {
-                  if (data && data.activePayload && data.activePayload[0]) {
+                  console.log('Chart clicked:', data);
+                  if (data && data.activePayload && data.activePayload.length > 0) {
                     const point = data.activePayload[0].payload;
                     const index = historicalData.findIndex(item => item.date === point.date);
+                    console.log('Clicked point:', point, 'Index:', index);
                     handleChartClick(point, index);
                   }
                 }}
                 onMouseMove={(data) => {
-                  if (data && data.activePayload && data.activePayload[0]) {
+                  if (isMeasuring && data && data.activePayload && data.activePayload.length > 0) {
                     const point = data.activePayload[0].payload;
                     const index = historicalData.findIndex(item => item.date === point.date);
                     handleChartMouseMove(point, index);
@@ -623,7 +626,8 @@ export default function StockAnalysis() {
                   dataKey="close" 
                   stroke="#3B82F6" 
                   strokeWidth={2}
-                  dot={false}
+                  dot={{ fill: '#3B82F6', stroke: '#3B82F6', strokeWidth: 1, r: 2 }}
+                  activeDot={{ fill: '#3B82F6', stroke: '#3B82F6', strokeWidth: 2, r: 4 }}
                   name="Precio"
                 />
                 {/* Measurement start point */}
@@ -666,6 +670,11 @@ export default function StockAnalysis() {
             <p className="font-medium">Measurement Tool:</p>
             <p>• Click to set start point, move mouse to see difference</p>
             <p>• Click again to set end point, or press Escape to reset</p>
+            {measurementStart && (
+              <p className="text-blue-600 font-medium mt-2">
+                ✓ Start point set: {measurementStart.data.date} - {formatCurrency(measurementStart.data.close)}
+              </p>
+            )}
           </div>
         </div>
       )}

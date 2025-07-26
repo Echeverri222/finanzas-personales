@@ -216,16 +216,38 @@ export default function StockAnalysis() {
 
       // Fetch fundamental data
       try {
+        console.log('Fetching fundamental data for:', searchTerm);
         const fundamentalResponse = await fetch(
-          `${BASE_URL}/key-metrics/${searchTerm}?limit=1&apikey=${FMP_API_KEY}`
+          `${BASE_URL}/key-metrics-ttm/${searchTerm}?apikey=${FMP_API_KEY}`
         );
         const fundamentalResult = await fundamentalResponse.json();
         
+        console.log('Fundamental data response:', fundamentalResult);
+        
         if (fundamentalResponse.ok && fundamentalResult.length > 0) {
+          console.log('Setting fundamental metrics:', fundamentalResult[0]);
           setFundamentalMetrics(fundamentalResult[0]);
+        } else {
+          // Try alternative endpoint if the first one fails
+          console.log('Trying alternative fundamental endpoint...');
+          const altResponse = await fetch(
+            `${BASE_URL}/key-metrics/${searchTerm}?limit=1&apikey=${FMP_API_KEY}`
+          );
+          const altResult = await altResponse.json();
+          
+          console.log('Alternative fundamental data response:', altResult);
+          
+          if (altResponse.ok && altResult.length > 0) {
+            console.log('Setting fundamental metrics from alternative:', altResult[0]);
+            setFundamentalMetrics(altResult[0]);
+          } else {
+            console.warn('No fundamental data available for this symbol');
+            setFundamentalMetrics(null);
+          }
         }
       } catch (fundamentalError) {
         console.warn('Could not fetch fundamental data:', fundamentalError);
+        setFundamentalMetrics(null);
       }
 
     } catch (err) {
@@ -342,15 +364,15 @@ export default function StockAnalysis() {
                 <div className="mt-2 space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">P/E Ratio</span>
-                    <span className="font-semibold">{formatNumber(fundamentalMetrics.peRatioTTM)}</span>
+                    <span className="font-semibold">{formatNumber(fundamentalMetrics.peRatioTTM || fundamentalMetrics.peRatio)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Price/Book</span>
-                    <span className="font-semibold">{formatNumber(fundamentalMetrics.pbRatioTTM)}</span>
+                    <span className="font-semibold">{formatNumber(fundamentalMetrics.pbRatioTTM || fundamentalMetrics.pbRatio)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">PEG Ratio</span>
-                    <span className="font-semibold">{formatNumber(fundamentalMetrics.pegRatioTTM)}</span>
+                    <span className="font-semibold">{formatNumber(fundamentalMetrics.pegRatioTTM || fundamentalMetrics.pegRatio)}</span>
                   </div>
                 </div>
               </div>
@@ -360,15 +382,15 @@ export default function StockAnalysis() {
                 <div className="mt-2 space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">ROE</span>
-                    <span className="font-semibold">{formatPercentage(fundamentalMetrics.roeTTM)}</span>
+                    <span className="font-semibold">{formatPercentage(fundamentalMetrics.roeTTM || fundamentalMetrics.roe)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">ROA</span>
-                    <span className="font-semibold">{formatPercentage(fundamentalMetrics.roaTTM)}</span>
+                    <span className="font-semibold">{formatPercentage(fundamentalMetrics.roaTTM || fundamentalMetrics.roa)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Dividend Yield</span>
-                    <span className="font-semibold">{formatPercentage(fundamentalMetrics.dividendYieldTTM)}</span>
+                    <span className="font-semibold">{formatPercentage(fundamentalMetrics.dividendYieldTTM || fundamentalMetrics.dividendYield)}</span>
                   </div>
                 </div>
               </div>
@@ -378,15 +400,15 @@ export default function StockAnalysis() {
                 <div className="mt-2 space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Debt/Equity</span>
-                    <span className="font-semibold">{formatNumber(fundamentalMetrics.debtToEquityTTM)}</span>
+                    <span className="font-semibold">{formatNumber(fundamentalMetrics.debtToEquityTTM || fundamentalMetrics.debtToEquity)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">FCF Yield</span>
-                    <span className="font-semibold">{formatPercentage(fundamentalMetrics.freeCashFlowYieldTTM)}</span>
+                    <span className="font-semibold">{formatPercentage(fundamentalMetrics.freeCashFlowYieldTTM || fundamentalMetrics.freeCashFlowYield)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Market Cap</span>
-                    <span className="font-semibold">{formatCurrency(fundamentalMetrics.marketCapTTM)}</span>
+                    <span className="font-semibold">{formatCurrency(fundamentalMetrics.marketCapTTM || fundamentalMetrics.marketCap)}</span>
                   </div>
                 </div>
               </div>
@@ -494,48 +516,6 @@ export default function StockAnalysis() {
         
         return (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Ratio SMA20/SMA50 */}
-            <div className="bg-white p-4 rounded-xl shadow-md">
-              <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">
-                Ratio SMA20/SMA50
-              </h3>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={historicalData.map((point, index) => ({
-                      date: point.date,
-                      ratio: ratios.ratio20_50.data[index]
-                    }))}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis 
-                      dataKey="date" 
-                      tick={{ fill: '#4B5563' }}
-                      axisLine={{ stroke: '#E5E7EB' }}
-                    />
-                    <YAxis
-                      tick={{ fill: '#4B5563' }}
-                      axisLine={{ stroke: '#E5E7EB' }}
-                      domain={['auto', 'auto']}
-                    />
-                    <Tooltip content={<RatioTooltip />} />
-                    <ReferenceLine y={ratios.ratio20_50.buyLevel} stroke="#10B981" strokeDasharray="3 3" label={{ value: 'Niv', position: 'right', fill: '#10B981' }} />
-                    <ReferenceLine y={ratios.ratio20_50.mean} stroke="#6B7280" strokeDasharray="3 3" label={{ value: 'Me', position: 'right', fill: '#6B7280' }} />
-                    <ReferenceLine y={ratios.ratio20_50.sellLevel} stroke="#EF4444" strokeDasharray="3 3" label={{ value: 'Nivi', position: 'right', fill: '#EF4444' }} />
-                    <Line 
-                      type="monotone" 
-                      dataKey="ratio" 
-                      stroke="#6366F1" 
-                      strokeWidth={2}
-                      dot={false}
-                      name="Ratio SMA20/SMA50"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
             {/* Ratio SMA10/SMA30 */}
             <div className="bg-white p-4 rounded-xl shadow-md">
               <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">
@@ -572,6 +552,48 @@ export default function StockAnalysis() {
                       strokeWidth={2}
                       dot={false}
                       name="Ratio SMA10/SMA30"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Ratio SMA20/SMA50 */}
+            <div className="bg-white p-4 rounded-xl shadow-md">
+              <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">
+                Ratio SMA20/SMA50
+              </h3>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={historicalData.map((point, index) => ({
+                      date: point.date,
+                      ratio: ratios.ratio20_50.data[index]
+                    }))}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fill: '#4B5563' }}
+                      axisLine={{ stroke: '#E5E7EB' }}
+                    />
+                    <YAxis
+                      tick={{ fill: '#4B5563' }}
+                      axisLine={{ stroke: '#E5E7EB' }}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip content={<RatioTooltip />} />
+                    <ReferenceLine y={ratios.ratio20_50.buyLevel} stroke="#10B981" strokeDasharray="3 3" label={{ value: 'Niv', position: 'right', fill: '#10B981' }} />
+                    <ReferenceLine y={ratios.ratio20_50.mean} stroke="#6B7280" strokeDasharray="3 3" label={{ value: 'Me', position: 'right', fill: '#6B7280' }} />
+                    <ReferenceLine y={ratios.ratio20_50.sellLevel} stroke="#EF4444" strokeDasharray="3 3" label={{ value: 'Nivi', position: 'right', fill: '#EF4444' }} />
+                    <Line 
+                      type="monotone" 
+                      dataKey="ratio" 
+                      stroke="#6366F1" 
+                      strokeWidth={2}
+                      dot={false}
+                      name="Ratio SMA20/SMA50"
                     />
                   </LineChart>
                 </ResponsiveContainer>

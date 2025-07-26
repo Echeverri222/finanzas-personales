@@ -60,23 +60,6 @@ export default function StockAnalysis() {
   const [fundamentalMetrics, setFundamentalMetrics] = useState(null);
   const [performanceData, setPerformanceData] = useState(null);
   
-  // Measurement tool state
-  const [measurementStart, setMeasurementStart] = useState(null);
-  const [measurementEnd, setMeasurementEnd] = useState(null);
-  const [isMeasuring, setIsMeasuring] = useState(false);
-
-  // Add keyboard event listener for Escape key
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        resetMeasurement();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
   // Función para calcular SMA
   const calculateSMA = (data, period) => {
     const sma = [];
@@ -310,88 +293,6 @@ export default function StockAnalysis() {
     return value >= 0 ? `+${formatted}` : formatted;
   };
 
-  // Measurement tool functions
-  const handleChartClick = (data, index) => {
-    console.log('handleChartClick called with:', data, index);
-    if (!isMeasuring) {
-      // Start measurement
-      setMeasurementStart({ data, index });
-      setIsMeasuring(true);
-      console.log('Measurement started');
-    } else {
-      // End measurement
-      setMeasurementEnd({ data, index });
-      setIsMeasuring(false);
-      console.log('Measurement ended');
-    }
-  };
-
-  const handleChartMouseMove = (data, index) => {
-    if (isMeasuring && measurementStart) {
-      setMeasurementEnd({ data, index });
-    }
-  };
-
-  const resetMeasurement = () => {
-    console.log('Resetting measurement');
-    setMeasurementStart(null);
-    setMeasurementEnd(null);
-    setIsMeasuring(false);
-  };
-
-  const calculateMeasurement = () => {
-    if (!measurementStart || !measurementEnd) return null;
-
-    const startPrice = measurementStart.data.close;
-    const endPrice = measurementEnd.data.close;
-    const priceChange = endPrice - startPrice;
-    const percentageChange = (priceChange / startPrice) * 100;
-
-    const startDate = new Date(measurementStart.data.date);
-    const endDate = new Date(measurementEnd.data.date);
-    const timeDiff = Math.abs(endDate - startDate);
-    const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-
-    return {
-      startPrice,
-      endPrice,
-      priceChange,
-      percentageChange,
-      startDate,
-      endDate,
-      daysDiff
-    };
-  };
-
-  const MeasurementTooltip = ({ measurement }) => {
-    if (!measurement) return null;
-
-    return (
-      <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200 min-w-[200px]">
-        <div className="text-sm space-y-1">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Price Change:</span>
-            <span className={`font-semibold ${measurement.priceChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {formatCurrency(measurement.priceChange)} ({formatPerformancePercentage(measurement.percentageChange)})
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Time Period:</span>
-            <span className="font-semibold">{measurement.daysDiff} days</span>
-          </div>
-          <div className="border-t pt-1 mt-2">
-            <div className="text-xs text-gray-500">
-              From: {measurement.startDate.toLocaleDateString()} - {formatCurrency(measurement.startPrice)}
-            </div>
-            <div className="text-xs text-gray-500">
-              To: {measurement.endDate.toLocaleDateString()} - {formatCurrency(measurement.endPrice)}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="p-2 md:p-6 space-y-4 md:space-y-6 bg-gray-50">
       {/* Búsqueda y Filtros */}
@@ -571,54 +472,14 @@ export default function StockAnalysis() {
       {/* Gráfico de Precios (Solo Precio) */}
       {historicalData.length > 0 && (
         <div className="bg-white p-4 rounded-xl shadow-md">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-base md:text-lg font-semibold text-gray-800">
-              Histórico de Precios
-            </h3>
-            {isMeasuring && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-blue-600 font-medium">Measurement Mode Active</span>
-                <button
-                  onClick={resetMeasurement}
-                  className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
-                >
-                  Reset
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="h-[400px] relative">
+          <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">
+            Histórico de Precios
+          </h3>
+          <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={historicalData}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                style={{ cursor: 'crosshair' }}
-                onClick={(data) => {
-                  console.log('Chart clicked:', data);
-                  if (data && data.activePayload && data.activePayload.length > 0) {
-                    const point = data.activePayload[0].payload;
-                    const index = historicalData.findIndex(item => item.date === point.date);
-                    console.log('Clicked point:', point, 'Index:', index);
-                    handleChartClick(point, index);
-                  }
-                }}
-                onMouseMove={(data) => {
-                  if (isMeasuring && data && data.activePayload && data.activePayload.length > 0) {
-                    const point = data.activePayload[0].payload;
-                    const index = historicalData.findIndex(item => item.date === point.date);
-                    handleChartMouseMove(point, index);
-                  }
-                }}
-                onMouseDown={(e) => {
-                  // Prevent default zoom behavior
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onMouseUp={(e) => {
-                  // Prevent default zoom behavior
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis 
@@ -640,57 +501,11 @@ export default function StockAnalysis() {
                   dataKey="close" 
                   stroke="#3B82F6" 
                   strokeWidth={2}
-                  dot={{ fill: '#3B82F6', stroke: '#3B82F6', strokeWidth: 1, r: 2 }}
-                  activeDot={{ fill: '#3B82F6', stroke: '#3B82F6', strokeWidth: 2, r: 4 }}
+                  dot={false}
                   name="Precio"
                 />
-                {/* Measurement start point */}
-                {measurementStart && (
-                  <Line
-                    type="monotone"
-                    dataKey="close"
-                    stroke="transparent"
-                    dot={{ fill: '#10B981', stroke: '#10B981', strokeWidth: 2, r: 6 }}
-                    data={[measurementStart.data]}
-                    name="Start Point"
-                  />
-                )}
-                {/* Measurement line */}
-                {measurementStart && measurementEnd && (
-                  <Line
-                    type="monotone"
-                    dataKey="close"
-                    stroke="#EF4444"
-                    strokeWidth={2}
-                    strokeDasharray="5 5"
-                    dot={false}
-                    data={[measurementStart.data, measurementEnd.data]}
-                    name="Measurement"
-                    isAnimationActive={false}
-                    connectNulls={false}
-                  />
-                )}
               </LineChart>
             </ResponsiveContainer>
-            
-            {/* Measurement tooltip */}
-            {measurementStart && measurementEnd && (
-              <div className="absolute top-4 right-4 z-10">
-                <MeasurementTooltip measurement={calculateMeasurement()} />
-              </div>
-            )}
-          </div>
-          
-          {/* Instructions */}
-          <div className="mt-4 text-sm text-gray-600">
-            <p className="font-medium">Measurement Tool:</p>
-            <p>• Click to set start point, move mouse to see difference</p>
-            <p>• Click again to set end point, or press Escape to reset</p>
-            {measurementStart && (
-              <p className="text-blue-600 font-medium mt-2">
-                ✓ Start point set: {measurementStart.data.date} - {formatCurrency(measurementStart.data.close)}
-              </p>
-            )}
           </div>
         </div>
       )}

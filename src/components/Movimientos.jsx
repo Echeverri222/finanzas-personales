@@ -546,7 +546,7 @@ export default function Movimientos({ showForm: initialShowForm = false, default
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm">
                         <span className={`font-medium ${
-                          mov.id_tipo_movimiento === 'Ingresos' ? 'text-green-600' : 'text-red-600'
+                          getTipoNombre(mov.id_tipo_movimiento) === 'Ingresos' ? 'text-green-600' : 'text-red-600'
                         }`}>
                           {formatCurrency(mov.importe)}
                         </span>

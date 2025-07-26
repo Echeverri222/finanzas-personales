@@ -312,14 +312,17 @@ export default function StockAnalysis() {
 
   // Measurement tool functions
   const handleChartClick = (data, index) => {
+    console.log('handleChartClick called with:', data, index);
     if (!isMeasuring) {
       // Start measurement
       setMeasurementStart({ data, index });
       setIsMeasuring(true);
+      console.log('Measurement started');
     } else {
       // End measurement
       setMeasurementEnd({ data, index });
       setIsMeasuring(false);
+      console.log('Measurement ended');
     }
   };
 
@@ -330,6 +333,7 @@ export default function StockAnalysis() {
   };
 
   const resetMeasurement = () => {
+    console.log('Resetting measurement');
     setMeasurementStart(null);
     setMeasurementEnd(null);
     setIsMeasuring(false);
@@ -605,6 +609,16 @@ export default function StockAnalysis() {
                     handleChartMouseMove(point, index);
                   }
                 }}
+                onMouseDown={(e) => {
+                  // Prevent default zoom behavior
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onMouseUp={(e) => {
+                  // Prevent default zoom behavior
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis 
@@ -652,6 +666,8 @@ export default function StockAnalysis() {
                     dot={false}
                     data={[measurementStart.data, measurementEnd.data]}
                     name="Measurement"
+                    isAnimationActive={false}
+                    connectNulls={false}
                   />
                 )}
               </LineChart>

@@ -84,7 +84,7 @@ export const UserProvider = ({ children }) => {
 
   return (
     <UserContext.Provider value={{ userProfile, loading, updateProfile }}>
-      {!loading && children}
+      {children}
     </UserContext.Provider>
   );
 };

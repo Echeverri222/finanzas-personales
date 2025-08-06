@@ -33,14 +33,17 @@ export function useTiposMovimiento() {
   };
 
   const createTipoMovimiento = async (tipoData) => {
-    if (!userProfile?.id) return { error: 'No user profile' };
+    if (!userProfile?.id) {
+      return { error: 'Perfil de usuario no disponible. Por favor, recarga la página e intenta nuevamente.' };
+    }
 
     try {
       const { data, error } = await supabase
         .from('tipo_movimiento')
         .insert([
           {
-            ...tipoData,
+            nombre: tipoData.nombre,
+            meta: tipoData.meta,
             usuario_id: userProfile.id,
           }
         ])
@@ -57,6 +60,10 @@ export function useTiposMovimiento() {
   };
 
   const updateTipoMovimiento = async (id, updates) => {
+    if (!userProfile?.id) {
+      return { error: 'Perfil de usuario no disponible. Por favor, recarga la página e intenta nuevamente.' };
+    }
+    
     try {
       const { data, error } = await supabase
         .from('tipo_movimiento')
@@ -78,6 +85,10 @@ export function useTiposMovimiento() {
   };
 
   const deleteTipoMovimiento = async (id) => {
+    if (!userProfile?.id) {
+      return { error: 'Perfil de usuario no disponible. Por favor, recarga la página e intenta nuevamente.' };
+    }
+    
     try {
       const { error } = await supabase
         .from('tipo_movimiento')

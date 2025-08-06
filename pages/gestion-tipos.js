@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
+import { useUser } from '../contexts/UserContext';
 
 export default function GestionTiposPage() {
   const [formData, setFormData] = useState({ nombre: '', meta: '' });
@@ -11,6 +12,7 @@ export default function GestionTiposPage() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const { userProfile, loading: userLoading } = useUser();
   const { 
     tiposMovimiento, 
     loading, 
@@ -65,6 +67,11 @@ export default function GestionTiposPage() {
       return;
     }
 
+    if (!userProfile?.id) {
+      setError('Error: Perfil de usuario no disponible. Intenta refrescar la página.');
+      return;
+    }
+
     setSaving(true);
     setError('');
 
@@ -102,6 +109,11 @@ export default function GestionTiposPage() {
   const handleSaveEdit = async () => {
     if (!editFormData.nombre.trim()) {
       setError('El nombre es obligatorio');
+      return;
+    }
+
+    if (!userProfile?.id) {
+      setError('Error: Perfil de usuario no disponible. Intenta refrescar la página.');
       return;
     }
 
@@ -149,7 +161,7 @@ export default function GestionTiposPage() {
     }).format(amount);
   };
 
-  if (loading) {
+  if (loading || userLoading) {
     return (
       <div className="space-y-6">
         <div className="text-center py-12">

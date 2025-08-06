@@ -40,7 +40,7 @@ const RatioTooltip = ({ active, payload, label }) => {
 };
 
 export default function StockAnalysisPage() {
-  const [searchTerm, setSearchTerm] = useState('AAPL');
+  const [searchTerm, setSearchTerm] = useState('');
   const [stockData, setStockData] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -257,9 +257,7 @@ export default function StockAnalysisPage() {
 
   // Auto-search AAPL on mount if API is configured
   useEffect(() => {
-    if (FMP_API_KEY && searchTerm === 'AAPL') {
-      handleSearch({ preventDefault: () => {} });
-    }
+    // Removed auto-search for AAPL on mount
   }, []);
 
   if (!FMP_API_KEY) {

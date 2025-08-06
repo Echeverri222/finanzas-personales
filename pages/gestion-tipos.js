@@ -165,7 +165,7 @@ export default function GestionTiposPage() {
     return (
       <div className="space-y-6">
         <div className="text-center py-12">
-          <div className="text-lg">Cargando tipos de movimiento...</div>
+          <div className="text-lg">Cargando categorías...</div>
         </div>
       </div>
     );
@@ -176,7 +176,7 @@ export default function GestionTiposPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Configuración de Tipos</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Gestión de Categorías</h1>
           <p className="text-gray-600 mt-1">
             Gestiona tus categorías de ingresos, gastos y ahorros
           </p>
@@ -197,13 +197,13 @@ export default function GestionTiposPage() {
         {/* Create New Type Form */}
         <Card>
           <CardHeader>
-            <CardTitle>Crear Nuevo Tipo</CardTitle>
+            <CardTitle>Crear Nueva Categoría</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre del tipo *
+                  Nombre de la categoría *
                 </label>
                 <input
                   type="text"
@@ -239,7 +239,7 @@ export default function GestionTiposPage() {
               </div>
 
               <Button type="submit" disabled={saving} className="w-full">
-                {saving ? 'Guardando...' : 'Crear Tipo'}
+                {saving ? 'Guardando...' : 'Crear Categoría'}
               </Button>
             </form>
           </CardContent>
@@ -248,7 +248,7 @@ export default function GestionTiposPage() {
         {/* Recommendations */}
         <Card>
           <CardHeader>
-            <CardTitle>Tipos Recomendados</CardTitle>
+            <CardTitle>Categorías Recomendadas</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

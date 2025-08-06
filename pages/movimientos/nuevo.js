@@ -207,14 +207,14 @@ export default function NuevoMovimientoPage() {
             <div className="text-center py-12">
               <div className="text-6xl mb-4">⚙️</div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No hay tipos de movimiento configurados
+                No hay categorías configuradas
               </h3>
               <p className="text-gray-600 mb-6">
-                Necesitas crear al menos un tipo de movimiento antes de poder añadir transacciones.
+                Necesitas crear al menos una categoría antes de poder añadir transacciones.
               </p>
               <Link href="/gestion-tipos">
                 <Button>
-                  Configurar tipos de movimiento
+                  Configurar categorías
                 </Button>
               </Link>
             </div>

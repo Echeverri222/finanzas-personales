@@ -9,17 +9,28 @@ const navigationItems = [
   { name: 'Metas', href: '/metas', icon: '🎯' },
   { name: 'Ahorros', href: '/ahorros', icon: '🏦' },
   { name: 'Análisis', href: '/stock-analysis', icon: '📈' },
-  { name: 'Configuración', href: '/gestion-tipos', icon: '⚙️' },
+  { name: 'Categorías', href: '/gestion-tipos', icon: '⚙️' },
 ];
 
 export default function Layout({ children }) {
   const router = useRouter();
   const { signOut } = useAuth();
 
-  const handleSignOut = () => {
-    localStorage.removeItem('demo-bypass');
-    signOut();
-    window.location.reload();
+  const handleSignOut = async () => {
+    try {
+      // Clear demo bypass first
+      localStorage.removeItem('demo-bypass');
+      
+      // Sign out from Supabase if authenticated
+      await signOut();
+      
+      // Force reload to clear all state and redirect to auth
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Even if signOut fails, clear state and redirect
+      window.location.href = '/';
+    }
   };
 
   return (

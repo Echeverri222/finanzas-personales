@@ -26,7 +26,7 @@ export function useTiposMovimiento() {
       setTiposMovimiento(data || []);
     } catch (err) {
       setError(err.message);
-      console.error('Error fetching tipos movimiento:', err);
+      console.error('Error fetching categorías:', err);
     } finally {
       setLoading(false);
     }
@@ -55,31 +55,36 @@ export function useTiposMovimiento() {
       setTiposMovimiento(prev => [...prev, data]);
       return { data, error: null };
     } catch (err) {
+      console.error('Error creating categoría:', err);
       return { error: err.message };
     }
   };
 
-  const updateTipoMovimiento = async (id, updates) => {
+  const updateTipoMovimiento = async (id, updateData) => {
     if (!userProfile?.id) {
       return { error: 'Perfil de usuario no disponible. Por favor, recarga la página e intenta nuevamente.' };
     }
-    
+
     try {
       const { data, error } = await supabase
         .from('tipo_movimiento')
-        .update(updates)
+        .update({
+          nombre: updateData.nombre,
+          meta: updateData.meta,
+        })
         .eq('id', id)
         .eq('usuario_id', userProfile.id)
         .select()
         .single();
 
       if (error) throw error;
-
-      setTiposMovimiento(prev =>
-        prev.map(tipo => (tipo.id === id ? data : tipo))
+      
+      setTiposMovimiento(prev => 
+        prev.map(tipo => tipo.id === id ? data : tipo)
       );
       return { data, error: null };
     } catch (err) {
+      console.error('Error updating categoría:', err);
       return { error: err.message };
     }
   };
@@ -88,7 +93,7 @@ export function useTiposMovimiento() {
     if (!userProfile?.id) {
       return { error: 'Perfil de usuario no disponible. Por favor, recarga la página e intenta nuevamente.' };
     }
-    
+
     try {
       const { error } = await supabase
         .from('tipo_movimiento')
@@ -97,10 +102,11 @@ export function useTiposMovimiento() {
         .eq('usuario_id', userProfile.id);
 
       if (error) throw error;
-
+      
       setTiposMovimiento(prev => prev.filter(tipo => tipo.id !== id));
       return { error: null };
     } catch (err) {
+      console.error('Error deleting categoría:', err);
       return { error: err.message };
     }
   };

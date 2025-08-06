@@ -27,7 +27,8 @@ export function useMovimientos() {
           )
         `)
         .eq('usuario_id', userProfile.id)
-        .order('fecha', { ascending: false });
+        .order('fecha', { ascending: false })
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setMovimientos(data || []);

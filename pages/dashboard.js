@@ -15,26 +15,35 @@ export default function DashboardPage() {
   const { movimientos, loading } = useMovimientos();
   const { tiposMovimiento } = useTiposMovimiento();
 
-  // Helper function to categorize movement types (same as in movimientos)
-  const categorizeTipo = (tipoNombre) => {
-    const ingresos = ['salario', 'freelance', 'inversiones', 'bonus', 'comision', 'dividendos'];
-    const ahorros = ['ahorro', 'emergencia', 'inversion', 'meta'];
+  // Helper function to get tipo by id and return its categoria
+  const getTipoCategoria = (idTipoMovimiento) => {
+    const tipo = tiposMovimiento.find(t => t.id === idTipoMovimiento);
+    if (!tipo) return 'gastos'; // default
     
-    const nombre = tipoNombre.toLowerCase();
+    // Use the categoria field from database or categorize by name
+    if (tipo.categoria) {
+      return tipo.categoria;
+    }
     
-    if (ingresos.some(ing => nombre.includes(ing))) return 'ingresos';
-    if (ahorros.some(ah => nombre.includes(ah))) return 'ahorros';
+    // Fallback categorization by name
+    const nombre = tipo.nombre.toLowerCase();
+    if (['salario', 'freelance', 'inversiones', 'bonus', 'comision', 'dividendos'].some(ing => nombre.includes(ing))) {
+      return 'ingresos';
+    }
+    if (['ahorro', 'emergencia', 'inversion', 'meta'].some(ah => nombre.includes(ah))) {
+      return 'ahorros';
+    }
     return 'gastos';
   };
 
-  // Add categoria to movimientos
+  // Add categoria to movimientos using fecha for date filtering
   const movimientosWithCategoria = movimientos.map(mov => ({
     ...mov,
-    categoria: mov.tipo_movimiento ? categorizeTipo(mov.tipo_movimiento.nombre) : 'gastos',
-    fecha: new Date(mov.fecha)
+    categoria: getTipoCategoria(mov.id_tipo_movimiento),
+    fecha: new Date(mov.fecha) // Use fecha field, not created_at
   }));
 
-  // Filter by selected month and year
+  // Filter by selected month and year using fecha
   const currentMovimientos = movimientosWithCategoria.filter(mov => {
     const movDate = new Date(mov.fecha);
     return movDate.getFullYear() === selectedYear && movDate.getMonth() === selectedMonth;
@@ -48,7 +57,7 @@ export default function DashboardPage() {
     ahorrosMes: currentMovimientos.filter(m => m.categoria === 'ahorros').reduce((sum, m) => sum + Math.abs(m.importe), 0)
   };
 
-  // Monthly evolution data (last 6 months)
+  // Monthly evolution data (last 6 months) using fecha
   const monthlyData = [];
   for (let i = 5; i >= 0; i--) {
     const date = new Date();
@@ -57,7 +66,7 @@ export default function DashboardPage() {
     const year = date.getFullYear();
     
     const monthMovimientos = movimientosWithCategoria.filter(mov => {
-      const movDate = new Date(mov.fecha);
+      const movDate = new Date(mov.fecha); // Use fecha, not created_at
       return movDate.getFullYear() === year && movDate.getMonth() === month;
     });
     
@@ -72,9 +81,9 @@ export default function DashboardPage() {
     });
   }
 
-  // Expenses by category
+  // Expenses by category using tipos with gastos categoria
   const expensesByCategory = tiposMovimiento
-    .filter(tipo => categorizeTipo(tipo.nombre) === 'gastos')
+    .filter(tipo => getTipoCategoria(tipo.id) === 'gastos')
     .map(tipo => {
       const gastos = currentMovimientos
         .filter(m => m.id_tipo_movimiento === tipo.id)
@@ -111,9 +120,9 @@ export default function DashboardPage() {
   ];
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-ES', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'EUR',
+      currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -268,7 +277,7 @@ export default function DashboardPage() {
                 <AreaChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="mes" />
-                  <YAxis tickFormatter={(value) => `€${(value/1000).toFixed(0)}k`} />
+                  <YAxis tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
                   <Tooltip formatter={(value) => [formatCurrency(value), '']} />
                   <Area type="monotone" dataKey="ingresos" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.6} />
                   <Area type="monotone" dataKey="gastos" stackId="2" stroke="#EF4444" fill="#EF4444" fillOpacity={0.6} />
@@ -290,7 +299,7 @@ export default function DashboardPage() {
                   <BarChart data={expensesByCategory}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="nombre" angle={-45} textAnchor="end" height={80} />
-                    <YAxis tickFormatter={(value) => `€${value}`} />
+                    <YAxis tickFormatter={(value) => `$${value}`} />
                     <Tooltip formatter={(value) => [formatCurrency(value), '']} />
                     <Bar dataKey="gasto" fill="#3B82F6" />
                     <Bar dataKey="meta" fill="#E5E7EB" />

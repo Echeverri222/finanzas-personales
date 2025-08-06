@@ -1,12 +1,5 @@
-export async function getServerSideProps() {
-  return {
-    redirect: {
-      destination: '/dashboard',
-      permanent: false,
-    },
-  };
-}
+import Auth from '../components/Auth';
 
 export default function Home() {
-  return null;
+  return <Auth />;
 } 

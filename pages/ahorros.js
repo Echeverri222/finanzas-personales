@@ -103,9 +103,9 @@ export default function AhorrosPage() {
   const years = [2022, 2023, 2024, 2025];
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-ES', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'EUR',
+      currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -386,11 +386,8 @@ export default function AhorrosPage() {
               
               {currentMovimientos.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
-                  <div className="text-4xl mb-2">🏦</div>
-                  <p>No hay ahorros este mes</p>
-                  <Link href="/movimientos/nuevo?tipo=ahorros" className="mt-2 inline-block">
-                    <Button size="sm">Añadir ahorro</Button>
-                  </Link>
+                  <div className="text-4xl mb-2">🎯</div>
+                  <p>Configura tus metas de ahorro en la página de Metas</p>
                 </div>
               )}
             </div>

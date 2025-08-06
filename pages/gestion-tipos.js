@@ -153,9 +153,9 @@ export default function GestionTiposPage() {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-ES', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'EUR',
+      currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -221,7 +221,7 @@ export default function GestionTiposPage() {
                   Meta mensual (opcional)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2 text-gray-500">€</span>
+                  <span className="absolute left-3 top-2 text-gray-500">$</span>
                   <input
                     type="number"
                     name="meta"

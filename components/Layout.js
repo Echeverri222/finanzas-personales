@@ -19,8 +19,10 @@ export default function Layout({ children }) {
   const handleSignOut = async () => {
     try {
       await signOut();
+      router.push('/'); // Redirect to home page after sign out
     } catch (error) {
       console.error('Error signing out:', error);
+      router.push('/'); // Redirect anyway
     }
   };
 

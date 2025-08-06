@@ -3,29 +3,25 @@ import Link from 'next/link';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { useMovimientos } from '../hooks/useMovimientos';
+import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
 
 export default function AhorrosPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
 
   const { movimientos, loading } = useMovimientos();
+  const { tiposMovimiento } = useTiposMovimiento();
 
-  // Helper function to categorize movement types
-  const categorizeTipo = (tipoNombre) => {
-    const ingresos = ['salario', 'freelance', 'inversiones', 'bonus', 'comision', 'dividendos'];
-    const ahorros = ['ahorro', 'emergencia', 'inversion', 'meta'];
-    
-    const nombre = tipoNombre.toLowerCase();
-    
-    if (ingresos.some(ing => nombre.includes(ing))) return 'ingresos';
-    if (ahorros.some(ah => nombre.includes(ah))) return 'ahorros';
-    return 'gastos';
+  // Helper function to get tipo name by ID
+  const getTipoNombre = (id) => {
+    const tipo = tiposMovimiento.find(t => t.id === id);
+    return tipo ? tipo.nombre : 'Sin categoría';
   };
 
-  // Filter savings movements
+  // Filter savings movements (using proper database logic)
   const ahorrosMovimientos = movimientos.filter(mov => {
-    if (!mov.tipo_movimiento) return false;
-    return categorizeTipo(mov.tipo_movimiento.nombre) === 'ahorros';
+    const tipoNombre = getTipoNombre(mov.id_tipo_movimiento);
+    return tipoNombre === 'Ahorro';
   });
 
   // Calculate monthly data for the last 12 months
@@ -71,8 +67,8 @@ export default function AhorrosPage() {
 
   // Estimate savings rate (simple calculation based on total movements)
   const allIngresos = movimientos.filter(mov => {
-    if (!mov.tipo_movimiento) return false;
-    return categorizeTipo(mov.tipo_movimiento.nombre) === 'ingresos';
+    const tipoNombre = getTipoNombre(mov.id_tipo_movimiento);
+    return tipoNombre === 'Ingresos';
   });
   
   const estimatedMonthlyIncome = allIngresos.length > 0 ? 
@@ -83,7 +79,7 @@ export default function AhorrosPage() {
   // Savings by category
   const ahorrosPorCategoria = {};
   currentMovimientos.forEach(mov => {
-    const categoria = mov.tipo_movimiento?.nombre || 'Otros';
+    const categoria = getTipoNombre(mov.id_tipo_movimiento);
     if (!ahorrosPorCategoria[categoria]) {
       ahorrosPorCategoria[categoria] = 0;
     }
@@ -374,7 +370,7 @@ export default function AhorrosPage() {
                     <div>
                       <div className="font-medium text-gray-900">{movimiento.nombre}</div>
                       <div className="text-sm text-gray-500">
-                        {new Date(movimiento.fecha).toLocaleDateString('es-ES')} • {movimiento.tipo_movimiento?.nombre}
+                        {new Date(movimiento.fecha).toLocaleDateString('es-ES')} • {getTipoNombre(movimiento.id_tipo_movimiento)}
                       </div>
                     </div>
                   </div>
@@ -405,33 +401,10 @@ export default function AhorrosPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {/* This would be connected to the metas data when available */}
-              <div className="space-y-4">
-                <div className="p-4 border border-gray-100 rounded-lg">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-medium text-gray-900">Fondo de emergencia</span>
-                    <span className="text-sm text-gray-600">64%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="h-2 bg-blue-500 rounded-full" style={{ width: '64%' }}></div>
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">€3,200 / €5,000</div>
-                </div>
-                
-                <div className="p-4 border border-gray-100 rounded-lg">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-medium text-gray-900">Vacaciones</span>
-                    <span className="text-sm text-gray-600">32%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="h-2 bg-green-500 rounded-full" style={{ width: '32%' }}></div>
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">€800 / €2,500</div>
-                </div>
-              </div>
-              
-              <div className="text-center pt-4">
+            <div className="text-center py-8 text-gray-500">
+              <div className="text-4xl mb-2">🎯</div>
+              <p>Configura tus metas de ahorro en la página de Metas</p>
+              <div className="mt-4">
                 <Link href="/metas">
                   <Button variant="outline" size="sm">Gestionar metas</Button>
                 </Link>

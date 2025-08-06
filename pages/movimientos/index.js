@@ -132,15 +132,6 @@ export default function MovimientosPage() {
     setDateFilter({ startDate: '', endDate: '' });
   };
 
-  // Calculate summary stats using old logic: Ingresos vs everything else
-  const totalIngresos = filteredMovimientos
-    .filter(m => m.tipo_nombre === 'Ingresos')
-    .reduce((sum, m) => sum + Math.abs(m.importe), 0);
-    
-  const totalGastos = filteredMovimientos
-    .filter(m => m.tipo_nombre !== 'Ingresos')
-    .reduce((sum, m) => sum + Math.abs(m.importe), 0);
-
   if (loading) {
     return (
       <div className="space-y-6">
@@ -249,31 +240,6 @@ export default function MovimientosPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Summary Stats - Using old logic */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardContent>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(totalIngresos)}
-              </div>
-              <div className="text-sm text-gray-600">Total Ingresos</div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(totalGastos)}
-              </div>
-              <div className="text-sm text-gray-600">Total Gastos</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Movements Table */}
       <Card>

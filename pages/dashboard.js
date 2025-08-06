@@ -235,58 +235,61 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 md:space-y-8 px-2 md:px-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            {categoryFilter === 'all' ? 'Dashboard Financiero' : `Análisis de ${categoryFilter}`}
+          <h1 className="text-xl md:text-3xl font-bold text-gray-900">
+            {categoryFilter === 'all' ? 'Dashboard' : `${categoryFilter}`}
           </h1>
-          <p className="text-gray-600 mt-1">
-            Resumen de tus finanzas para {getSelectedMonthName()} {yearFilter}
+          <p className="text-sm md:text-base text-gray-600 mt-1">
+            {getSelectedMonthName()} {yearFilter}
           </p>
         </div>
         
         {/* Date Filters and System Status Toggle */}
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
           <Button 
             variant="outline" 
             size="sm"
             onClick={() => setShowSystemStatus(!showSystemStatus)}
+            className="w-full sm:w-auto text-xs"
           >
             {showSystemStatus ? 'Ocultar Estado' : 'Estado Sistema'}
           </Button>
           
-          <select 
-            value={yearFilter} 
-            onChange={(e) => setYearFilter(parseInt(e.target.value))}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            {years.map(year => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
-          
-          <select 
-            value={monthFilter}
-            onChange={(e) => setMonthFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            {months.map((month) => (
-              <option key={month.value} value={month.value}>{month.label}</option>
-            ))}
-          </select>
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:space-x-2">
+            <select 
+              value={yearFilter} 
+              onChange={(e) => setYearFilter(parseInt(e.target.value))}
+              className="px-2 py-2 border border-gray-300 rounded-lg text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {years.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+            
+            <select 
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="px-2 py-2 border border-gray-300 rounded-lg text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {months.map((month) => (
+                <option key={month.value} value={month.value}>{month.label}</option>
+              ))}
+            </select>
 
-          <select 
-            value={categoryFilter} 
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">Todas las categorías</option>
-            {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
+            <select 
+              value={categoryFilter} 
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-2 py-2 border border-gray-300 rounded-lg text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">Todas las categorías</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -303,45 +306,59 @@ export default function DashboardPage() {
 
       {/* Stats Cards - Show different stats based on categoryFilter */}
       {categoryFilter === 'all' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           <Card className="hover:shadow-md transition-shadow">
-            <CardContent>
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Total Ingresos</p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-xs md:text-sm font-medium text-gray-600 mb-1">Total Ingresos</p>
+                  <p className="text-lg md:text-2xl font-bold text-green-600">
                     {formatCurrency(totalIngresos)}
                   </p>
                 </div>
-                <div className="text-3xl opacity-60">💰</div>
+                <div className="text-xl md:text-3xl opacity-60">💰</div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="hover:shadow-md transition-shadow">
-            <CardContent>
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Total Gastos</p>
-                  <p className="text-2xl font-bold text-red-600">
+                  <p className="text-xs md:text-sm font-medium text-gray-600 mb-1">Total Gastos</p>
+                  <p className="text-lg md:text-2xl font-bold text-red-600">
                     {formatCurrency(totalGastos)}
                   </p>
                 </div>
-                <div className="text-3xl opacity-60">💸</div>
+                <div className="text-xl md:text-3xl opacity-60">💸</div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="hover:shadow-md transition-shadow">
-            <CardContent>
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Balance Neto</p>
-                  <p className={`text-2xl font-bold ${totalIngresos - totalGastos >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <p className="text-xs md:text-sm font-medium text-gray-600 mb-1">Balance Neto</p>
+                  <p className={`text-lg md:text-2xl font-bold ${totalIngresos - totalGastos >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {formatCurrency(totalIngresos - totalGastos)}
                   </p>
                 </div>
-                <div className="text-3xl opacity-60">📊</div>
+                <div className="text-xl md:text-3xl opacity-60">📊</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs md:text-sm font-medium text-gray-600 mb-1">Ahorrado este período</p>
+                  <p className="text-lg md:text-2xl font-bold text-blue-600">
+                    {formatCurrency(ahorrosMes)}
+                  </p>
+                </div>
+                <div className="text-xl md:text-3xl opacity-60">🏦</div>
               </div>
             </CardContent>
           </Card>
@@ -368,17 +385,17 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>Acciones Rápidas</CardTitle>
+          <CardTitle className="text-lg md:text-xl">Acciones Rápidas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             {quickActions.map((action, index) => (
               <Link key={index} href={action.href}>
                 <button
-                  className={`w-full p-4 rounded-xl ${action.color} hover:opacity-80 transition-opacity text-center`}
+                  className={`w-full p-3 md:p-4 rounded-xl ${action.color} hover:opacity-80 transition-opacity text-center`}
                 >
-                  <div className="text-2xl mb-2">{action.icon}</div>
-                  <div className="font-medium text-sm">{action.title}</div>
+                  <div className="text-lg md:text-2xl mb-1 md:mb-2">{action.icon}</div>
+                  <div className="font-medium text-xs md:text-sm">{action.title}</div>
                 </button>
               </Link>
             ))}
@@ -387,19 +404,26 @@ export default function DashboardPage() {
       </Card>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
         {/* Monthly Evolution Chart - Shows year data */}
         <Card>
           <CardHeader>
-            <CardTitle>Evolución Mensual {yearFilter}</CardTitle>
+            <CardTitle className="text-lg md:text-xl">Evolución Mensual {yearFilter}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-80">
+            <div className="h-64 md:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
+                  <XAxis 
+                    dataKey="month" 
+                    tick={{ fontSize: 12 }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis 
+                    tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`}
+                    tick={{ fontSize: 12 }}
+                  />
                   <Tooltip formatter={(value) => [formatCurrency(value), '']} />
                   <Area type="monotone" dataKey="ingresos" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.6} />
                   <Area type="monotone" dataKey="gastos" stackId="2" stroke="#EF4444" fill="#EF4444" fillOpacity={0.6} />
@@ -412,10 +436,10 @@ export default function DashboardPage() {
         {/* Category Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle>Distribución de Gastos</CardTitle>
+            <CardTitle className="text-lg md:text-xl">Distribución de Gastos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-80">
+            <div className="h-64 md:h-80">
               {categoryData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -425,7 +449,7 @@ export default function DashboardPage() {
                       cy="50%"
                       labelLine={false}
                       label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                      outerRadius={80}
+                      outerRadius={60}
                       fill="#8884d8"
                       dataKey="value"
                     >
@@ -453,34 +477,34 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Movimientos Recientes</CardTitle>
+            <CardTitle className="text-lg md:text-xl">Movimientos Recientes</CardTitle>
             <Link href="/movimientos">
-              <Button variant="ghost" size="sm">Ver todos</Button>
+              <Button variant="ghost" size="sm" className="text-xs md:text-sm">Ver todos</Button>
             </Link>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {filteredMovimientos.slice(0, 5).map((movimiento) => (
-              <div key={movimiento.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+              <div key={movimiento.id} className="flex items-center justify-between p-2 md:p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
+                <div className="flex items-center space-x-2 md:space-x-3 flex-1 min-w-0">
+                  <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${
                     movimiento.tipo_nombre === 'Ingresos' ? 'bg-green-100' :
                     movimiento.tipo_nombre === 'Ahorro' ? 'bg-blue-100' : 'bg-red-100'
                   }`}>
-                    <span className="text-lg">
+                    <span className="text-sm md:text-lg">
                       {movimiento.tipo_nombre === 'Ingresos' ? '💰' :
                        movimiento.tipo_nombre === 'Ahorro' ? '🏦' : '💸'}
                     </span>
                   </div>
-                  <div>
-                    <div className="font-medium text-gray-900">{movimiento.nombre}</div>
-                    <div className="text-sm text-gray-500">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-gray-900 text-sm md:text-base truncate">{movimiento.nombre}</div>
+                    <div className="text-xs md:text-sm text-gray-500">
                       {createSafeDate(movimiento.fecha).toLocaleDateString('es-ES')} • {movimiento.tipo_nombre}
                     </div>
                   </div>
                 </div>
-                <div className={`text-right font-semibold ${
+                <div className={`text-right font-semibold text-sm md:text-base flex-shrink-0 ml-2 ${
                   movimiento.tipo_nombre === 'Ingresos' ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {movimiento.tipo_nombre === 'Ingresos' ? '+' : '-'}{formatCurrency(Math.abs(movimiento.importe))}
@@ -489,9 +513,9 @@ export default function DashboardPage() {
             ))}
             
             {filteredMovimientos.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <div className="text-4xl mb-2">📋</div>
-                <p>No hay movimientos en este período</p>
+              <div className="text-center py-6 md:py-8 text-gray-500">
+                <div className="text-2xl md:text-4xl mb-2">📋</div>
+                <p className="text-sm md:text-base">No hay movimientos en este período</p>
               </div>
             )}
           </div>

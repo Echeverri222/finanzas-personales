@@ -20,7 +20,7 @@ export function useTiposMovimiento() {
         .from('tipo_movimiento')
         .select('*')
         .eq('usuario_id', userProfile.id)
-        .order('nombre', { ascending: true });
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
       setTiposMovimiento(data || []);
@@ -47,7 +47,7 @@ export function useTiposMovimiento() {
             usuario_id: userProfile.id,
           }
         ])
-        .select()
+        .select('*')
         .single();
 
       if (error) throw error;
@@ -74,7 +74,7 @@ export function useTiposMovimiento() {
         })
         .eq('id', id)
         .eq('usuario_id', userProfile.id)
-        .select()
+        .select('*')
         .single();
 
       if (error) throw error;
@@ -111,13 +111,11 @@ export function useTiposMovimiento() {
     }
   };
 
-  const getTiposPorCategoria = (categoria) => {
-    return tiposMovimiento.filter(tipo => tipo.categoria === categoria);
-  };
-
   useEffect(() => {
-    fetchTiposMovimiento();
-  }, [userProfile?.id]);
+    if (userProfile) {
+      fetchTiposMovimiento();
+    }
+  }, [userProfile]);
 
   return {
     tiposMovimiento,
@@ -126,7 +124,6 @@ export function useTiposMovimiento() {
     createTipoMovimiento,
     updateTipoMovimiento,
     deleteTipoMovimiento,
-    getTiposPorCategoria,
     refetch: fetchTiposMovimiento
   };
 } 

@@ -16,21 +16,18 @@ export function useMovimientos() {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      setError(null);
+      
+      const { data, error: supabaseError } = await supabase
         .from('movimientos')
-        .select(`
-          *,
-          tipo_movimiento (
-            id,
-            nombre,
-            meta
-          )
-        `)
+        .select('*')
         .eq('usuario_id', userProfile.id)
-        .order('fecha', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('fecha', { ascending: false });
 
-      if (error) throw error;
+      if (supabaseError) {
+        throw new Error(supabaseError.message);
+      }
+
       setMovimientos(data || []);
     } catch (err) {
       setError(err.message);
@@ -52,14 +49,7 @@ export function useMovimientos() {
             usuario_id: userProfile.id,
           }
         ])
-        .select(`
-          *,
-          tipo_movimiento (
-            id,
-            nombre,
-            meta
-          )
-        `)
+        .select('*')
         .single();
 
       if (error) throw error;
@@ -78,14 +68,7 @@ export function useMovimientos() {
         .update(updates)
         .eq('id', id)
         .eq('usuario_id', userProfile.id)
-        .select(`
-          *,
-          tipo_movimiento (
-            id,
-            nombre,
-            meta
-          )
-        `)
+        .select('*')
         .single();
 
       if (error) throw error;
@@ -117,8 +100,10 @@ export function useMovimientos() {
   };
 
   useEffect(() => {
-    fetchMovimientos();
-  }, [userProfile?.id]);
+    if (userProfile) {
+      fetchMovimientos();
+    }
+  }, [userProfile]);
 
   return {
     movimientos,

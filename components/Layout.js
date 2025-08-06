@@ -18,18 +18,9 @@ export default function Layout({ children }) {
 
   const handleSignOut = async () => {
     try {
-      // Clear demo bypass first
-      localStorage.removeItem('demo-bypass');
-      
-      // Sign out from Supabase if authenticated
       await signOut();
-      
-      // Force reload to clear all state and redirect to auth
-      window.location.href = '/';
     } catch (error) {
       console.error('Error signing out:', error);
-      // Even if signOut fails, clear state and redirect
-      window.location.href = '/';
     }
   };
 

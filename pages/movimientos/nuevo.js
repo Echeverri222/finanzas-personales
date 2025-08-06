@@ -188,6 +188,42 @@ export default function NuevoMovimientoPage() {
     );
   }
 
+  // Handle empty state for tipos
+  if (!tiposLoading && tiposMovimiento.length === 0) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="flex items-center space-x-4">
+          <Link href="/movimientos">
+            <Button variant="ghost" size="sm">
+              ← Volver
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Nuevo Movimiento</h1>
+          </div>
+        </div>
+        <Card>
+          <CardContent>
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">⚙️</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No hay tipos de movimiento configurados
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Necesitas crear al menos un tipo de movimiento antes de poder añadir transacciones.
+              </p>
+              <Link href="/gestion-tipos">
+                <Button>
+                  Configurar tipos de movimiento
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}

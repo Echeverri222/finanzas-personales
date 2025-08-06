@@ -9,7 +9,10 @@ export function useTiposMovimiento() {
   const { userProfile } = useUser();
 
   const fetchTiposMovimiento = async () => {
-    if (!userProfile?.id) return;
+    if (!userProfile?.id) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);

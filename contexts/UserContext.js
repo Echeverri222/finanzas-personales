@@ -27,12 +27,43 @@ export const UserProvider = ({ children }) => {
         .eq('user_id', user.id)
         .single();
 
-      if (error) throw error;
-      setUserProfile(data);
+      if (error && error.code === 'PGRST116') {
+        // User profile doesn't exist, create it
+        console.log('User profile not found, creating new profile...');
+        await createUserProfile();
+      } else if (error) {
+        throw error;
+      } else {
+        setUserProfile(data);
+      }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      setUserProfile(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createUserProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .insert([
+          {
+            user_id: user.id,
+            email: user.email || 'demo@test.com',
+            nombre: user.user_metadata?.name || 'Usuario Demo',
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+      setUserProfile(data);
+      console.log('User profile created successfully:', data);
+    } catch (error) {
+      console.error('Error creating user profile:', error);
+      setUserProfile(null);
     }
   };
 

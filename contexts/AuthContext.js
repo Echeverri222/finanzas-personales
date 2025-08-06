@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext({});
 
@@ -8,13 +8,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar sesión actual
+    // Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    // Escuchar cambios en la autenticación
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: `${window.location.origin}/dashboard`,
         },
       });
       if (error) throw error;
@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
       if (error) throw error;
       setUser(null);
     } catch (error) {
-      console.error('Error al cerrar sesión:', error);
+      console.error('Error signing out:', error);
     }
   };
 

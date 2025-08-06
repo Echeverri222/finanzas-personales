@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import SystemStatus from '../components/SystemStatus';
@@ -24,6 +24,35 @@ const createSafeDate = (dateString) => {
   
   // Para otros casos, intentar parsear normalmente
   return new Date(dateString);
+};
+
+// Custom color scheme from old component
+const COLORS = {
+  'Ingresos': '#10B981',
+  'Alimentacion': '#60A5FA',
+  'Transporte': '#34D399',
+  'Compras': '#F87171',
+  'Gastos fijos': '#FBBF24',
+  'Ahorro': '#6366F1',
+  'Salidas': '#34D399',
+  'Otros': '#A78BFA'
+};
+
+// Custom tooltip from old component
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
+        <p className="font-semibold">{label}</p>
+        {payload.map((entry, index) => (
+          <p key={index} style={{ color: entry.color }}>
+            {entry.name}: ${entry.value.toLocaleString('es-CO')}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
 };
 
 export default function DashboardPage() {
@@ -411,121 +440,144 @@ export default function DashboardPage() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
         {/* Monthly Evolution Chart - Shows year data */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg md:text-xl">Evolución Mensual {yearFilter}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 md:h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="month" 
-                    tick={{ fontSize: 12 }}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis 
-                    tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`}
-                    tick={{ fontSize: 12 }}
-                  />
-                  <Tooltip formatter={(value) => [formatCurrency(value), '']} />
-                  <Area type="monotone" dataKey="ingresos" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.6} />
-                  <Area type="monotone" dataKey="gastos" stackId="2" stroke="#EF4444" fill="#EF4444" fillOpacity={0.6} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Category Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg md:text-xl">Distribución de Gastos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 md:h-80">
-              {categoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                      outerRadius={60}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={`hsl(${index * 360 / categoryData.length}, 70%, 60%)`} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => [formatCurrency(value), '']} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  <div className="text-center">
-                    <div className="text-4xl mb-2">📊</div>
-                    <p>No hay gastos en este período</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Movements - Shows filtered period */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg md:text-xl">Movimientos Recientes</CardTitle>
-            <Link href="/movimientos">
-              <Button variant="ghost" size="sm" className="text-xs md:text-sm">Ver todos</Button>
-            </Link>
+        <div className="bg-white p-4 rounded-xl shadow-md">
+          <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Evolución Mensual {yearFilter}</h3>
+          <div className="h-60 md:h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart 
+                data={monthlyData}
+                margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
+              >
+                <defs>
+                  <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorGastos" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="month" 
+                  tick={{ fill: '#4B5563' }}
+                  axisLine={{ stroke: '#E5E7EB' }}
+                />
+                <YAxis 
+                  tickFormatter={(value) => new Intl.NumberFormat('es-CO', { notation: 'compact', compactDisplay: 'short' }).format(value)}
+                  tick={{ fill: '#4B5563' }}
+                  axisLine={{ stroke: '#E5E7EB' }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Area 
+                  type="monotone" 
+                  dataKey="ingresos" 
+                  stroke="#10B981" 
+                  strokeWidth={2}
+                  dot={{ fill: '#10B981', stroke: '#10B981', strokeWidth: 2 }}
+                  activeDot={{ r: 8 }}
+                  name="Ingresos"
+                  fill="url(#colorIngresos)"
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="gastos" 
+                  stroke="#EF4444" 
+                  strokeWidth={2}
+                  dot={{ fill: '#EF4444', stroke: '#EF4444', strokeWidth: 2 }}
+                  activeDot={{ r: 8 }}
+                  name="Gastos"
+                  fill="url(#colorGastos)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 md:space-y-4">
-            {filteredMovimientos.slice(0, 5).map((movimiento) => (
-              <div key={movimiento.id} className="flex items-center justify-between p-2 md:p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
-                <div className="flex items-center space-x-2 md:space-x-3 flex-1 min-w-0">
-                  <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${
-                    movimiento.tipo_nombre === 'Ingresos' ? 'bg-green-100' :
-                    movimiento.tipo_nombre === 'Ahorro' ? 'bg-blue-100' : 'bg-red-100'
-                  }`}>
-                    <span className="text-sm md:text-lg">
-                      {movimiento.tipo_nombre === 'Ingresos' ? '💰' :
-                       movimiento.tipo_nombre === 'Ahorro' ? '🏦' : '💸'}
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-gray-900 text-sm md:text-base truncate">{movimiento.nombre}</div>
-                    <div className="text-xs md:text-sm text-gray-500">
-                      {createSafeDate(movimiento.fecha).toLocaleDateString('es-ES')} • {movimiento.tipo_nombre}
-                    </div>
-                  </div>
+        </div>
+
+        {/* Category Distribution - Donut Chart */}
+        <div className="bg-white p-4 rounded-xl shadow-md">
+          <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4">Distribución de Gastos</h3>
+          <div className="h-60 md:h-80">
+            {categoryData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                  <Pie 
+                    data={categoryData} 
+                    dataKey="value" 
+                    outerRadius={130}
+                    innerRadius={90}
+                    paddingAngle={2}
+                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={COLORS[entry.name] || `hsl(${index * 360 / categoryData.length}, 70%, 60%)`}
+                        className="transition-opacity hover:opacity-80"
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="text-center">
+                  <div className="text-4xl mb-2">📊</div>
+                  <p>No hay gastos en este período</p>
                 </div>
-                <div className={`text-right font-semibold text-sm md:text-base flex-shrink-0 ml-2 ${
-                  movimiento.tipo_nombre === 'Ingresos' ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {movimiento.tipo_nombre === 'Ingresos' ? '+' : '-'}{formatCurrency(Math.abs(movimiento.importe))}
-                </div>
-              </div>
-            ))}
-            
-            {filteredMovimientos.length === 0 && (
-              <div className="text-center py-6 md:py-8 text-gray-500">
-                <div className="text-2xl md:text-4xl mb-2">📋</div>
-                <p className="text-sm md:text-base">No hay movimientos en este período</p>
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* Recent Movements - Shows filtered period */}
+      <div className="bg-white p-4 rounded-xl shadow-md">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base md:text-lg font-semibold text-gray-800">Movimientos Recientes</h3>
+          <Link href="/movimientos">
+            <Button variant="ghost" size="sm" className="text-xs md:text-sm">Ver todos</Button>
+          </Link>
+        </div>
+        <div className="space-y-3 md:space-y-4">
+          {filteredMovimientos.slice(0, 5).map((movimiento) => (
+            <div key={movimiento.id} className="flex items-center justify-between p-2 md:p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
+              <div className="flex items-center space-x-2 md:space-x-3 flex-1 min-w-0">
+                <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${
+                  movimiento.tipo_nombre === 'Ingresos' ? 'bg-green-100' :
+                  movimiento.tipo_nombre === 'Ahorro' ? 'bg-blue-100' : 'bg-red-100'
+                }`}>
+                  <span className="text-sm md:text-lg">
+                    {movimiento.tipo_nombre === 'Ingresos' ? '💰' :
+                     movimiento.tipo_nombre === 'Ahorro' ? '🏦' : '💸'}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-gray-900 text-sm md:text-base truncate">{movimiento.nombre}</div>
+                  <div className="text-xs md:text-sm text-gray-500">
+                    {createSafeDate(movimiento.fecha).toLocaleDateString('es-ES')} • {movimiento.tipo_nombre}
+                  </div>
+                </div>
+              </div>
+              <div className={`text-right font-semibold text-sm md:text-base flex-shrink-0 ml-2 ${
+                movimiento.tipo_nombre === 'Ingresos' ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {movimiento.tipo_nombre === 'Ingresos' ? '+' : '-'}{formatCurrency(Math.abs(movimiento.importe))}
+              </div>
+            </div>
+          ))}
+          
+          {filteredMovimientos.length === 0 && (
+            <div className="text-center py-6 md:py-8 text-gray-500">
+              <div className="text-2xl md:text-4xl mb-2">📋</div>
+              <p className="text-sm md:text-base">No hay movimientos en este período</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 } 

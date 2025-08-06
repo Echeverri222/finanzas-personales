@@ -152,89 +152,17 @@ export default function AhorrosPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Este Mes</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {formatCurrency(currentMonthSavings)}
-                </p>
-              </div>
-              <div className="text-3xl opacity-60">🏦</div>
-            </div>
-            <div className="mt-2">
-              <span className={`text-sm font-medium ${
-                growthRate >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {growthRate >= 0 ? '+' : ''}{growthRate.toFixed(1)}%
-              </span>
-              <span className="text-sm text-gray-500 ml-2">vs mes anterior</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Total Acumulado</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(totalSavings)}
-                </p>
-              </div>
-              <div className="text-3xl opacity-60">💰</div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Promedio Mensual</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {formatCurrency(avgMonthlySavings)}
-                </p>
-              </div>
-              <div className="text-3xl opacity-60">📊</div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Tasa de Ahorro</p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {savingsRate.toFixed(1)}%
-                </p>
-              </div>
-              <div className="text-3xl opacity-60">📈</div>
-            </div>
-            <div className="mt-2">
-              <span className="text-xs text-gray-500">
-                {savingsRate >= 20 ? 'Excelente' : savingsRate >= 10 ? 'Bueno' : 'Mejorable'}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>Acciones Rápidas</CardTitle>
+          <CardTitle className="text-lg md:text-xl">Acciones Rápidas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
             <Link href="/movimientos/nuevo?tipo=ahorros">
-              <button className="w-full p-4 rounded-xl bg-blue-50 text-blue-700 hover:opacity-80 transition-opacity text-center">
-                <div className="text-2xl mb-2">🏦</div>
-                <div className="font-medium text-sm">Nuevo Ahorro</div>
+              <button className="w-full p-3 md:p-4 rounded-xl bg-blue-50 text-blue-700 hover:opacity-80 transition-opacity text-center">
+                <div className="text-lg md:text-2xl mb-1 md:mb-2">🏦</div>
+                <div className="font-medium text-xs md:text-sm">Nuevo Ahorro</div>
               </button>
             </Link>
             <Link href="/metas">
@@ -243,176 +171,52 @@ export default function AhorrosPage() {
                 <div className="font-medium text-sm">Crear Meta</div>
               </button>
             </Link>
-            <Link href="/gestion-tipos">
-              <button className="w-full p-4 rounded-xl bg-green-50 text-green-700 hover:opacity-80 transition-opacity text-center">
-                <div className="text-2xl mb-2">⚙️</div>
-                <div className="font-medium text-sm">Tipos de Ahorro</div>
-              </button>
-            </Link>
-            <Link href="/movimientos?tipo=ahorros">
-              <button className="w-full p-4 rounded-xl bg-gray-50 text-gray-700 hover:opacity-80 transition-opacity text-center">
-                <div className="text-2xl mb-2">📋</div>
-                <div className="font-medium text-sm">Ver Historial</div>
-              </button>
-            </Link>
           </div>
         </CardContent>
       </Card>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly Evolution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Evolución Mensual</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              {monthlyData.length > 0 ? (
-                <div className="space-y-4">
-                  {/* Simple chart representation */}
-                  <div className="grid grid-cols-6 gap-2">
-                    {monthlyData.slice(-6).map((data, index) => {
-                      const maxValue = Math.max(...monthlyData.map(d => d.ahorro));
-                      const height = maxValue > 0 ? (data.ahorro / maxValue) * 100 : 0;
-                      
-                      return (
-                        <div key={index} className="text-center">
-                          <div className="h-32 flex items-end justify-center">
-                            <div 
-                              className="w-8 bg-blue-500 rounded-t"
-                              style={{ height: `${Math.max(height, 5)}%` }}
-                              title={`${data.mes}: ${formatCurrency(data.ahorro)}`}
-                            ></div>
-                          </div>
-                          <div className="text-xs text-gray-600 mt-1">{data.mes}</div>
-                          <div className="text-xs font-medium">{formatCurrency(data.ahorro)}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  <div className="text-center">
-                    <div className="text-4xl mb-2">📊</div>
-                    <p>No hay datos de ahorros</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Savings by Category */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Ahorros por Categoría</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              {categoriesData.length > 0 ? (
-                <div className="space-y-4">
-                  {categoriesData.map((item, index) => {
-                    const percentage = (item.monto / currentMonthSavings) * 100;
+      {/* Cumulative Evolution Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg md:text-xl">Evolución Acumulada de Ahorros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-80">
+            {monthlyData.length > 0 ? (
+              <div className="space-y-4">
+                {/* Simple chart representation */}
+                <div className="grid grid-cols-6 gap-2">
+                  {monthlyData.slice(-6).map((data, index) => {
+                    const maxValue = Math.max(...monthlyData.map(d => d.acumulado));
+                    const height = maxValue > 0 ? (data.acumulado / maxValue) * 100 : 0;
                     
                     return (
-                      <div key={index} className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-700">{item.categoria}</span>
-                          <span className="text-sm font-bold text-blue-600">
-                            {formatCurrency(item.monto)} ({percentage.toFixed(0)}%)
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="h-2 bg-blue-500 rounded-full"
-                            style={{ width: `${percentage}%` }}
+                      <div key={index} className="text-center">
+                        <div className="h-32 flex items-end justify-center">
+                          <div 
+                            className="w-8 bg-blue-500 rounded-t"
+                            style={{ height: `${Math.max(height, 5)}%` }}
+                            title={`${data.mes}: ${formatCurrency(data.acumulado)} acumulado`}
                           ></div>
                         </div>
+                        <div className="text-xs text-gray-600 mt-1">{data.mes}</div>
+                        <div className="text-xs font-medium">{formatCurrency(data.acumulado)}</div>
                       </div>
                     );
                   })}
                 </div>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  <div className="text-center">
-                    <div className="text-4xl mb-2">🏦</div>
-                    <p>No hay ahorros este mes</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Savings and Goals Progress */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Savings */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Ahorros Recientes</CardTitle>
-              <Link href="/movimientos?tipo=ahorros">
-                <Button variant="ghost" size="sm">Ver todos</Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {currentMovimientos.slice(0, 5).map((movimiento) => (
-                <div key={movimiento.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                      <span className="text-lg">🏦</span>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-900">{movimiento.nombre}</div>
-                      <div className="text-sm text-gray-500">
-                        {new Date(movimiento.fecha).toLocaleDateString('es-ES')} • {getTipoNombre(movimiento.id_tipo_movimiento)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right font-semibold text-blue-600">
-                    +{formatCurrency(Math.abs(movimiento.importe))}
-                  </div>
-                </div>
-              ))}
-              
-              {currentMovimientos.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <div className="text-4xl mb-2">🎯</div>
-                  <p>Configura tus metas de ahorro en la página de Metas</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Goals Progress */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Progreso de Metas</CardTitle>
-              <Link href="/metas">
-                <Button variant="ghost" size="sm">Ver todas</Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8 text-gray-500">
-              <div className="text-4xl mb-2">🎯</div>
-              <p>Configura tus metas de ahorro en la página de Metas</p>
-              <div className="mt-4">
-                <Link href="/metas">
-                  <Button variant="outline" size="sm">Gestionar metas</Button>
-                </Link>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="text-center">
+                  <div className="text-4xl mb-2">📊</div>
+                  <p>No hay datos de ahorros</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 } 

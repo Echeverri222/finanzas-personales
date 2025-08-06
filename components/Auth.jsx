@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import DemoHelper from './DemoHelper';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -7,11 +8,13 @@ export default function Auth() {
   const [message, setMessage] = useState('');
   const { signIn } = useAuth();
 
+  const isDemoBypassAllowed = process.env.NEXT_PUBLIC_ALLOW_DEMO_BYPASS === 'true';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Temporary demo bypass for testing deployment
-    if (email === 'demo@test.com') {
+    // Demo bypass for testing (only if allowed via environment variable)
+    if (email === 'demo@test.com' && isDemoBypassAllowed) {
       localStorage.setItem('demo-bypass', 'true');
       window.location.reload();
       return;
@@ -71,13 +74,16 @@ export default function Auth() {
               {message}
             </div>
           )}
-          <div className="text-center">
-            <p className="text-xs text-gray-500">
-              Para testing: usa <code className="bg-gray-100 px-1 rounded">demo@test.com</code>
-            </p>
-          </div>
+          {isDemoBypassAllowed && (
+            <div className="text-center">
+              <p className="text-xs text-gray-500">
+                Para testing: usa <code className="bg-gray-100 px-1 rounded">demo@test.com</code>
+              </p>
+            </div>
+          )}
         </form>
       </div>
+      <DemoHelper />
     </div>
   );
 } 

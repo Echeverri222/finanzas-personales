@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import SystemStatus from '../components/SystemStatus';
 import { useMovimientos } from '../hooks/useMovimientos';
 import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
 import Link from 'next/link';
@@ -9,6 +10,7 @@ import Link from 'next/link';
 export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [showSystemStatus, setShowSystemStatus] = useState(false);
 
   const { movimientos, loading } = useMovimientos();
   const { tiposMovimiento } = useTiposMovimiento();
@@ -138,8 +140,16 @@ export default function DashboardPage() {
           </p>
         </div>
         
-        {/* Date Filters */}
+        {/* Date Filters and System Status Toggle */}
         <div className="flex items-center space-x-3">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowSystemStatus(!showSystemStatus)}
+          >
+            {showSystemStatus ? '🔧 Ocultar Estado' : '🔧 Estado Sistema'}
+          </Button>
+          
           <select 
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
@@ -161,6 +171,9 @@ export default function DashboardPage() {
           </select>
         </div>
       </div>
+
+      {/* System Status (conditionally shown) */}
+      {showSystemStatus && <SystemStatus />}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

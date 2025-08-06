@@ -43,15 +43,15 @@ export default function StockAnalysisPage() {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
-  // Mock performance data for different timeframes (can be enhanced with real historical data)
+  // Performance data will be replaced with real historical data
   const performanceData = {
     '1D': { change: currentStock.changePercent },
-    '1W': { change: 2.45 },
-    '1M': { change: -1.23 },
-    '3M': { change: 8.76 },
-    '6M': { change: 15.42 },
-    '1Y': { change: 23.67 },
-    'YTD': { change: 12.34 }
+    '1W': { change: 0 },
+    '1M': { change: 0 },
+    '3M': { change: 0 },
+    '6M': { change: 0 },
+    '1Y': { change: 0 },
+    'YTD': { change: 0 }
   };
 
   const fundamentalMetrics = [

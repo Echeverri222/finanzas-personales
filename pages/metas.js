@@ -13,33 +13,8 @@ export default function MetasPage() {
   });
   const [addMoneyAmount, setAddMoneyAmount] = useState('');
 
-  // Mock data - will be replaced with Supabase
-  const [metas, setMetas] = useState([
-    {
-      id: 1,
-      nombre: 'Vacaciones Verano 2024',
-      metaTotal: 2000,
-      montoActual: 750,
-      fechaLimite: '2024-06-01',
-      fechaCreacion: '2024-01-01'
-    },
-    {
-      id: 2,
-      nombre: 'Fondo de Emergencia',
-      metaTotal: 5000,
-      montoActual: 3200,
-      fechaLimite: '2024-12-31',
-      fechaCreacion: '2024-01-15'
-    },
-    {
-      id: 3,
-      nombre: 'Nuevo Laptop',
-      metaTotal: 1200,
-      montoActual: 1200,
-      fechaLimite: '2024-03-01',
-      fechaCreacion: '2024-01-01'
-    }
-  ]);
+  // Will be replaced with real Supabase data hooks
+  const [metas, setMetas] = useState([]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-ES', {

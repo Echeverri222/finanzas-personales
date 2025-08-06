@@ -5,25 +5,12 @@ import Button from '../components/ui/Button';
 export default function AhorrosPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('year');
   
-  // Mock data - will be replaced with Supabase
-  const ahorrosData = [
-    { mes: 'Ene 2024', ahorro: 300, acumulado: 300 },
-    { mes: 'Feb 2024', ahorro: 250, acumulado: 550 },
-    { mes: 'Mar 2024', ahorro: 400, acumulado: 950 },
-    { mes: 'Abr 2024', ahorro: 350, acumulado: 1300 },
-    { mes: 'May 2024', ahorro: 300, acumulado: 1600 },
-    { mes: 'Jun 2024', ahorro: 500, acumulado: 2100 },
-    { mes: 'Jul 2024', ahorro: 450, acumulado: 2550 },
-    { mes: 'Ago 2024', ahorro: 380, acumulado: 2930 },
-    { mes: 'Sep 2024', ahorro: 320, acumulado: 3250 },
-    { mes: 'Oct 2024', ahorro: 400, acumulado: 3650 },
-    { mes: 'Nov 2024', ahorro: 350, acumulado: 4000 },
-    { mes: 'Dic 2024', ahorro: 300, acumulado: 4300 }
-  ];
+  // Will be replaced with real Supabase data hooks
+  const ahorrosData = [];
 
   const currentMonthSavings = ahorrosData[ahorrosData.length - 1]?.ahorro || 0;
   const totalSavings = ahorrosData[ahorrosData.length - 1]?.acumulado || 0;
-  const avgMonthlySavings = totalSavings / ahorrosData.length;
+  const avgMonthlySavings = ahorrosData.length > 0 ? totalSavings / ahorrosData.length : 0;
   const lastMonthSavings = ahorrosData[ahorrosData.length - 2]?.ahorro || 0;
   const growthRate = lastMonthSavings > 0 ? ((currentMonthSavings - lastMonthSavings) / lastMonthSavings * 100) : 0;
 
@@ -42,7 +29,7 @@ export default function AhorrosPage() {
 
   // Calculate savings rate (simple mock calculation)
   const estimatedIncome = 3000; // This would come from actual income data
-  const savingsRate = (avgMonthlySavings / estimatedIncome) * 100;
+  const savingsRate = avgMonthlySavings > 0 ? (avgMonthlySavings / estimatedIncome) * 100 : 0;
 
   return (
     <div className="space-y-6">

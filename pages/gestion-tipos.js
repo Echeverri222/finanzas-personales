@@ -12,15 +12,8 @@ export default function GestionTiposPage() {
     color: '#3B82F6'
   });
 
-  // Mock data - will be replaced with Supabase
-  const [tiposMovimiento, setTiposMovimiento] = useState([
-    { id: 1, nombre: 'Alimentación', categoria: 'gastos', meta: 600, color: '#EF4444', gastado: 420 },
-    { id: 2, nombre: 'Transporte', categoria: 'gastos', meta: 200, color: '#F59E0B', gastado: 150 },
-    { id: 3, nombre: 'Entretenimiento', categoria: 'gastos', meta: 150, color: '#8B5CF6', gastado: 180 },
-    { id: 4, nombre: 'Salario', categoria: 'ingresos', meta: 0, color: '#10B981', gastado: 0 },
-    { id: 5, nombre: 'Freelance', categoria: 'ingresos', meta: 0, color: '#06B6D4', gastado: 0 },
-    { id: 6, nombre: 'Ahorro', categoria: 'ahorros', meta: 500, color: '#3B82F6', gastado: 320 }
-  ]);
+  // Will be replaced with real Supabase data hooks
+  const [tiposMovimiento, setTiposMovimiento] = useState([]);
 
   const categorias = [
     { value: 'ingresos', label: 'Ingresos', icon: '💰', color: 'text-green-600' },

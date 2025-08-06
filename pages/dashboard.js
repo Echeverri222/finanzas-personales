@@ -7,12 +7,12 @@ export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
 
-  // Mock data - will be replaced with real Supabase data
+  // Will be replaced with real Supabase data hooks
   const stats = {
-    totalIngresos: 3250,
-    totalGastos: 2180,
-    balanceNeto: 1070,
-    ahorrosMes: 320
+    totalIngresos: 0,
+    totalGastos: 0,
+    balanceNeto: 0,
+    ahorrosMes: 0
   };
 
   const months = [

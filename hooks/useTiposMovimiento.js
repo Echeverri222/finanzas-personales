@@ -20,7 +20,6 @@ export function useTiposMovimiento() {
         .from('tipo_movimiento')
         .select('*')
         .eq('usuario_id', userProfile.id)
-        .order('categoria', { ascending: true })
         .order('nombre', { ascending: true });
 
       if (error) throw error;

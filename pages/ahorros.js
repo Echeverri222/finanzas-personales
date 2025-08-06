@@ -1,18 +1,106 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import { useMovimientos } from '../hooks/useMovimientos';
 
 export default function AhorrosPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState('year');
-  
-  // Will be replaced with real Supabase data hooks
-  const ahorrosData = [];
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
 
-  const currentMonthSavings = ahorrosData[ahorrosData.length - 1]?.ahorro || 0;
-  const totalSavings = ahorrosData[ahorrosData.length - 1]?.acumulado || 0;
-  const avgMonthlySavings = ahorrosData.length > 0 ? totalSavings / ahorrosData.length : 0;
-  const lastMonthSavings = ahorrosData[ahorrosData.length - 2]?.ahorro || 0;
+  const { movimientos, loading } = useMovimientos();
+
+  // Helper function to categorize movement types
+  const categorizeTipo = (tipoNombre) => {
+    const ingresos = ['salario', 'freelance', 'inversiones', 'bonus', 'comision', 'dividendos'];
+    const ahorros = ['ahorro', 'emergencia', 'inversion', 'meta'];
+    
+    const nombre = tipoNombre.toLowerCase();
+    
+    if (ingresos.some(ing => nombre.includes(ing))) return 'ingresos';
+    if (ahorros.some(ah => nombre.includes(ah))) return 'ahorros';
+    return 'gastos';
+  };
+
+  // Filter savings movements
+  const ahorrosMovimientos = movimientos.filter(mov => {
+    if (!mov.tipo_movimiento) return false;
+    return categorizeTipo(mov.tipo_movimiento.nombre) === 'ahorros';
+  });
+
+  // Calculate monthly data for the last 12 months
+  const monthlyData = [];
+  const monthNames = [
+    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+  ];
+
+  for (let i = 11; i >= 0; i--) {
+    const date = new Date();
+    date.setMonth(date.getMonth() - i);
+    const month = date.getMonth();
+    const year = date.getFullYear();
+    
+    const monthAhorros = ahorrosMovimientos.filter(mov => {
+      const movDate = new Date(mov.fecha);
+      return movDate.getFullYear() === year && movDate.getMonth() === month;
+    });
+    
+    const monthTotal = monthAhorros.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
+    
+    monthlyData.push({
+      mes: `${monthNames[month]} ${year.toString().slice(-2)}`,
+      ahorro: monthTotal,
+      acumulado: monthlyData.length > 0 ? monthlyData[monthlyData.length - 1].acumulado + monthTotal : monthTotal
+    });
+  }
+
+  // Current month data
+  const currentMovimientos = ahorrosMovimientos.filter(mov => {
+    const movDate = new Date(mov.fecha);
+    return movDate.getFullYear() === selectedYear && movDate.getMonth() === selectedMonth;
+  });
+
+  const currentMonthSavings = currentMovimientos.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
+  const totalSavings = ahorrosMovimientos.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
+  
+  // Calculate averages and rates
+  const avgMonthlySavings = monthlyData.length > 0 ? totalSavings / 12 : 0;
+  const lastMonthSavings = monthlyData.length > 1 ? monthlyData[monthlyData.length - 2].ahorro : 0;
   const growthRate = lastMonthSavings > 0 ? ((currentMonthSavings - lastMonthSavings) / lastMonthSavings * 100) : 0;
+
+  // Estimate savings rate (simple calculation based on total movements)
+  const allIngresos = movimientos.filter(mov => {
+    if (!mov.tipo_movimiento) return false;
+    return categorizeTipo(mov.tipo_movimiento.nombre) === 'ingresos';
+  });
+  
+  const estimatedMonthlyIncome = allIngresos.length > 0 ? 
+    allIngresos.reduce((sum, mov) => sum + Math.abs(mov.importe), 0) / 12 : 3000;
+  
+  const savingsRate = avgMonthlySavings > 0 ? (avgMonthlySavings / estimatedMonthlyIncome) * 100 : 0;
+
+  // Savings by category
+  const ahorrosPorCategoria = {};
+  currentMovimientos.forEach(mov => {
+    const categoria = mov.tipo_movimiento?.nombre || 'Otros';
+    if (!ahorrosPorCategoria[categoria]) {
+      ahorrosPorCategoria[categoria] = 0;
+    }
+    ahorrosPorCategoria[categoria] += Math.abs(mov.importe);
+  });
+
+  const categoriesData = Object.entries(ahorrosPorCategoria).map(([categoria, monto]) => ({
+    categoria,
+    monto
+  }));
+
+  const months = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+
+  const years = [2022, 2023, 2024, 2025];
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-ES', {
@@ -23,13 +111,15 @@ export default function AhorrosPage() {
     }).format(amount);
   };
 
-  const formatPercentage = (value) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
-  };
-
-  // Calculate savings rate (simple mock calculation)
-  const estimatedIncome = 3000; // This would come from actual income data
-  const savingsRate = avgMonthlySavings > 0 ? (avgMonthlySavings / estimatedIncome) * 100 : 0;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <div className="text-lg">Cargando datos de ahorros...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -38,41 +128,36 @@ export default function AhorrosPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Ahorros</h1>
           <p className="text-gray-600 mt-1">
-            Seguimiento de tu progreso de ahorro
+            Seguimiento de tus ahorros para {months[selectedMonth]} {selectedYear}
           </p>
         </div>
         
-        {/* Period Filter */}
-        <div className="flex items-center space-x-2">
+        {/* Date Filters */}
+        <div className="flex items-center space-x-3">
           <select 
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="year">Este año</option>
-            <option value="6months">Últimos 6 meses</option>
-            <option value="3months">Últimos 3 meses</option>
-            <option value="all">Todo el tiempo</option>
+            {months.map((month, index) => (
+              <option key={index} value={index}>{month}</option>
+            ))}
+          </select>
+          
+          <select 
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            {years.map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))}
           </select>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Total Ahorrado</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(totalSavings)}
-                </p>
-              </div>
-              <div className="text-2xl opacity-60">🏦</div>
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="hover:shadow-md transition-shadow">
           <CardContent>
             <div className="flex items-center justify-between">
@@ -81,14 +166,30 @@ export default function AhorrosPage() {
                 <p className="text-2xl font-bold text-blue-600">
                   {formatCurrency(currentMonthSavings)}
                 </p>
-                <div className={`flex items-center mt-2 text-sm ${
-                  growthRate >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  <span className="mr-1">{growthRate >= 0 ? '↗' : '↘'}</span>
-                  <span>{formatPercentage(growthRate)} vs mes anterior</span>
-                </div>
               </div>
-              <div className="text-2xl opacity-60">💰</div>
+              <div className="text-3xl opacity-60">🏦</div>
+            </div>
+            <div className="mt-2">
+              <span className={`text-sm font-medium ${
+                growthRate >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {growthRate >= 0 ? '+' : ''}{growthRate.toFixed(1)}%
+              </span>
+              <span className="text-sm text-gray-500 ml-2">vs mes anterior</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Total Acumulado</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {formatCurrency(totalSavings)}
+                </p>
+              </div>
+              <div className="text-3xl opacity-60">💰</div>
             </div>
           </CardContent>
         </Card>
@@ -102,7 +203,7 @@ export default function AhorrosPage() {
                   {formatCurrency(avgMonthlySavings)}
                 </p>
               </div>
-              <div className="text-2xl opacity-60">📊</div>
+              <div className="text-3xl opacity-60">📊</div>
             </div>
           </CardContent>
         </Card>
@@ -112,195 +213,236 @@ export default function AhorrosPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Tasa de Ahorro</p>
-                <p className="text-2xl font-bold text-indigo-600">
+                <p className="text-2xl font-bold text-orange-600">
                   {savingsRate.toFixed(1)}%
                 </p>
-                <p className="text-xs text-gray-500 mt-1">De tus ingresos</p>
               </div>
-              <div className="text-2xl opacity-60">🎯</div>
+              <div className="text-3xl opacity-60">📈</div>
+            </div>
+            <div className="mt-2">
+              <span className="text-xs text-gray-500">
+                {savingsRate >= 20 ? 'Excelente' : savingsRate >= 10 ? 'Bueno' : 'Mejorable'}
+              </span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly Savings Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Ahorros Mensuales</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 flex flex-col">
-              {/* Simple bar chart representation */}
-              <div className="flex-1 flex items-end justify-between space-x-1">
-                {ahorrosData.slice(-6).map((data, index) => {
-                  const height = (data.ahorro / Math.max(...ahorrosData.map(d => d.ahorro))) * 100;
-                  return (
-                    <div key={index} className="flex flex-col items-center flex-1">
-                      <div 
-                        className="w-full bg-blue-500 rounded-t-sm mb-2 min-h-[4px] flex items-end justify-center"
-                        style={{ height: `${height}%` }}
-                      >
-                        <span className="text-xs text-white font-medium pb-1">
-                          {Math.round(data.ahorro)}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-600 text-center">
-                        {data.mes.split(' ')[0]}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="text-center mt-4 text-sm text-gray-500">
-                📊 Ahorros por mes (últimos 6 meses)
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Accumulated Savings Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Ahorros Acumulados</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 flex flex-col">
-              {/* Simple line chart representation */}
-              <div className="flex-1 flex items-end justify-between space-x-1">
-                {ahorrosData.slice(-6).map((data, index) => {
-                  const height = (data.acumulado / Math.max(...ahorrosData.map(d => d.acumulado))) * 100;
-                  return (
-                    <div key={index} className="flex flex-col items-center flex-1">
-                      <div className="flex flex-col items-center justify-end h-full">
-                        <div className="w-3 h-3 bg-green-500 rounded-full mb-1"></div>
-                        <div 
-                          className="w-0.5 bg-green-300"
-                          style={{ height: `${height - 10}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-xs text-gray-600 text-center mt-2">
-                        {data.mes.split(' ')[0]}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="text-center mt-4 text-sm text-gray-500">
-                📈 Progresión de ahorros acumulados
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Savings Movements */}
+      {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Movimientos de Ahorro Recientes</CardTitle>
-            <Button variant="ghost" size="sm">
-              Ver todos
-            </Button>
-          </div>
+          <CardTitle>Acciones Rápidas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {/* Sample recent savings entries */}
-            {[
-              { fecha: '2024-01-15', concepto: 'Ahorro mensual automático', cantidad: 300, tipo: 'Ahorro Regular' },
-              { fecha: '2024-01-10', concepto: 'Extra freelance guardado', cantidad: 150, tipo: 'Ahorro Extra' },
-              { fecha: '2024-01-05', concepto: 'Sobras del presupuesto', cantidad: 75, tipo: 'Ahorro Ocasional' },
-              { fecha: '2024-01-01', concepto: 'Meta año nuevo', cantidad: 500, tipo: 'Ahorro Meta' }
-            ].map((movimiento, index) => (
-              <div key={index} className="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <span className="text-green-600 text-lg">🏦</span>
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-900">{movimiento.concepto}</div>
-                    <div className="text-sm text-gray-500">
-                      {new Date(movimiento.fecha).toLocaleDateString('es-ES')} • {movimiento.tipo}
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold text-green-600">
-                    +{formatCurrency(movimiento.cantidad)}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Summary */}
-          <div className="mt-6 p-4 bg-green-50 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium text-green-900">¡Excelente progreso! 🎉</h4>
-                <p className="text-sm text-green-700 mt-1">
-                  Has ahorrado {formatCurrency(currentMonthSavings)} este mes. 
-                  Mantén el ritmo para alcanzar tus metas.
-                </p>
-              </div>
-              <Button variant="success" size="sm">
-                Añadir Ahorro
-              </Button>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Link href="/movimientos/nuevo?tipo=ahorros">
+              <button className="w-full p-4 rounded-xl bg-blue-50 text-blue-700 hover:opacity-80 transition-opacity text-center">
+                <div className="text-2xl mb-2">🏦</div>
+                <div className="font-medium text-sm">Nuevo Ahorro</div>
+              </button>
+            </Link>
+            <Link href="/metas">
+              <button className="w-full p-4 rounded-xl bg-purple-50 text-purple-700 hover:opacity-80 transition-opacity text-center">
+                <div className="text-2xl mb-2">🎯</div>
+                <div className="font-medium text-sm">Crear Meta</div>
+              </button>
+            </Link>
+            <Link href="/gestion-tipos">
+              <button className="w-full p-4 rounded-xl bg-green-50 text-green-700 hover:opacity-80 transition-opacity text-center">
+                <div className="text-2xl mb-2">⚙️</div>
+                <div className="font-medium text-sm">Tipos de Ahorro</div>
+              </button>
+            </Link>
+            <Link href="/movimientos?tipo=ahorros">
+              <button className="w-full p-4 rounded-xl bg-gray-50 text-gray-700 hover:opacity-80 transition-opacity text-center">
+                <div className="text-2xl mb-2">📋</div>
+                <div className="font-medium text-sm">Ver Historial</div>
+              </button>
+            </Link>
           </div>
         </CardContent>
       </Card>
 
-      {/* Savings Goals Progress */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Progreso hacia Metas de Ahorro</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Sample savings goals */}
-            {[
-              { nombre: 'Fondo de Emergencia', meta: 5000, actual: 3200, prioridad: 'alta' },
-              { nombre: 'Vacaciones 2024', meta: 2000, actual: 750, prioridad: 'media' },
-              { nombre: 'Nuevo Laptop', meta: 1200, actual: 1200, prioridad: 'completada' }
-            ].map((meta, index) => {
-              const progress = (meta.actual / meta.meta) * 100;
-              const isCompleted = progress >= 100;
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Monthly Evolution */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Evolución Mensual</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              {monthlyData.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Simple chart representation */}
+                  <div className="grid grid-cols-6 gap-2">
+                    {monthlyData.slice(-6).map((data, index) => {
+                      const maxValue = Math.max(...monthlyData.map(d => d.ahorro));
+                      const height = maxValue > 0 ? (data.ahorro / maxValue) * 100 : 0;
+                      
+                      return (
+                        <div key={index} className="text-center">
+                          <div className="h-32 flex items-end justify-center">
+                            <div 
+                              className="w-8 bg-blue-500 rounded-t"
+                              style={{ height: `${Math.max(height, 5)}%` }}
+                              title={`${data.mes}: ${formatCurrency(data.ahorro)}`}
+                            ></div>
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">{data.mes}</div>
+                          <div className="text-xs font-medium">{formatCurrency(data.ahorro)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <div className="text-center">
+                    <div className="text-4xl mb-2">📊</div>
+                    <p>No hay datos de ahorros</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Savings by Category */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Ahorros por Categoría</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              {categoriesData.length > 0 ? (
+                <div className="space-y-4">
+                  {categoriesData.map((item, index) => {
+                    const percentage = (item.monto / currentMonthSavings) * 100;
+                    
+                    return (
+                      <div key={index} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-700">{item.categoria}</span>
+                          <span className="text-sm font-bold text-blue-600">
+                            {formatCurrency(item.monto)} ({percentage.toFixed(0)}%)
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="h-2 bg-blue-500 rounded-full"
+                            style={{ width: `${percentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <div className="text-center">
+                    <div className="text-4xl mb-2">🏦</div>
+                    <p>No hay ahorros este mes</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Savings and Goals Progress */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Savings */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Ahorros Recientes</CardTitle>
+              <Link href="/movimientos?tipo=ahorros">
+                <Button variant="ghost" size="sm">Ver todos</Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {currentMovimientos.slice(0, 5).map((movimiento) => (
+                <div key={movimiento.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <span className="text-lg">🏦</span>
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">{movimiento.nombre}</div>
+                      <div className="text-sm text-gray-500">
+                        {new Date(movimiento.fecha).toLocaleDateString('es-ES')} • {movimiento.tipo_movimiento?.nombre}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right font-semibold text-blue-600">
+                    +{formatCurrency(Math.abs(movimiento.importe))}
+                  </div>
+                </div>
+              ))}
               
-              return (
-                <div key={index} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-900">{meta.nombre}</span>
-                    <span className="text-sm text-gray-600">
-                      {formatCurrency(meta.actual)} / {formatCurrency(meta.meta)}
-                    </span>
+              {currentMovimientos.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-2">🏦</div>
+                  <p>No hay ahorros este mes</p>
+                  <Link href="/movimientos/nuevo?tipo=ahorros" className="mt-2 inline-block">
+                    <Button size="sm">Añadir ahorro</Button>
+                  </Link>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Goals Progress */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Progreso de Metas</CardTitle>
+              <Link href="/metas">
+                <Button variant="ghost" size="sm">Ver todas</Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* This would be connected to the metas data when available */}
+              <div className="space-y-4">
+                <div className="p-4 border border-gray-100 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-gray-900">Fondo de emergencia</span>
+                    <span className="text-sm text-gray-600">64%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full transition-all duration-300 ${
-                        isCompleted ? 'bg-green-500' : 
-                        meta.prioridad === 'alta' ? 'bg-red-400' :
-                        meta.prioridad === 'media' ? 'bg-yellow-400' : 'bg-blue-400'
-                      }`}
-                      style={{ width: `${Math.min(progress, 100)}%` }}
-                    ></div>
+                    <div className="h-2 bg-blue-500 rounded-full" style={{ width: '64%' }}></div>
                   </div>
-                  <div className="flex justify-between items-center text-xs text-gray-500">
-                    <span>{progress.toFixed(1)}% completado</span>
-                    {isCompleted ? (
-                      <span className="text-green-600 font-medium">✅ Completada</span>
-                    ) : (
-                      <span>Faltan {formatCurrency(meta.meta - meta.actual)}</span>
-                    )}
-                  </div>
+                  <div className="text-sm text-gray-600 mt-1">€3,200 / €5,000</div>
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                
+                <div className="p-4 border border-gray-100 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-gray-900">Vacaciones</span>
+                    <span className="text-sm text-gray-600">32%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="h-2 bg-green-500 rounded-full" style={{ width: '32%' }}></div>
+                  </div>
+                  <div className="text-sm text-gray-600 mt-1">€800 / €2,500</div>
+                </div>
+              </div>
+              
+              <div className="text-center pt-4">
+                <Link href="/metas">
+                  <Button variant="outline" size="sm">Gestionar metas</Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 } 

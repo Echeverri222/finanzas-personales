@@ -1,30 +1,144 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
 
 export default function GestionTiposPage() {
-  const [showNewType, setShowNewType] = useState(false);
-  const [editingType, setEditingType] = useState(null);
-  const [newType, setNewType] = useState({
-    nombre: '',
-    categoria: 'gastos',
-    meta: '',
-    color: '#3B82F6'
-  });
+  const [formData, setFormData] = useState({ nombre: '', meta: '' });
+  const [editingId, setEditingId] = useState(null);
+  const [editFormData, setEditFormData] = useState({ nombre: '', meta: '' });
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  // Will be replaced with real Supabase data hooks
-  const [tiposMovimiento, setTiposMovimiento] = useState([]);
+  const { 
+    tiposMovimiento, 
+    loading, 
+    error: hookError, 
+    createTipoMovimiento, 
+    updateTipoMovimiento, 
+    deleteTipoMovimiento 
+  } = useTiposMovimiento();
 
-  const categorias = [
-    { value: 'ingresos', label: 'Ingresos', icon: '💰', color: 'text-green-600' },
-    { value: 'gastos', label: 'Gastos', icon: '💸', color: 'text-red-600' },
-    { value: 'ahorros', label: 'Ahorros', icon: '🏦', color: 'text-blue-600' }
-  ];
+  // Categorize tipos for better organization
+  const categorizeTipo = (tipoNombre) => {
+    const ingresos = ['salario', 'freelance', 'inversiones', 'bonus', 'comision', 'dividendos'];
+    const ahorros = ['ahorro', 'emergencia', 'inversion', 'meta'];
+    
+    const nombre = tipoNombre.toLowerCase();
+    
+    if (ingresos.some(ing => nombre.includes(ing))) return 'ingresos';
+    if (ahorros.some(ah => nombre.includes(ah))) return 'ahorros';
+    return 'gastos';
+  };
 
-  const colores = [
-    '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', 
-    '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6B7280'
-  ];
+  const tiposWithCategoria = tiposMovimiento.map(tipo => ({
+    ...tipo,
+    categoria: categorizeTipo(tipo.nombre)
+  }));
+
+  // Group by category
+  const tiposPorCategoria = {
+    ingresos: tiposWithCategoria.filter(t => t.categoria === 'ingresos'),
+    gastos: tiposWithCategoria.filter(t => t.categoria === 'gastos'),
+    ahorros: tiposWithCategoria.filter(t => t.categoria === 'ahorros')
+  };
+
+  // Recommended types
+  const recomendados = {
+    ingresos: ['Salario', 'Freelance', 'Inversiones', 'Bonificaciones', 'Comisiones', 'Dividendos'],
+    gastos: ['Alimentación', 'Transporte', 'Vivienda', 'Servicios', 'Entretenimiento', 'Salud', 'Educación', 'Compras'],
+    ahorros: ['Fondo de emergencia', 'Inversión a largo plazo', 'Ahorro para vacaciones', 'Ahorro para casa']
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (error) setError('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.nombre.trim()) {
+      setError('El nombre es obligatorio');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const { error: createError } = await createTipoMovimiento({
+        nombre: formData.nombre.trim(),
+        meta: formData.meta ? parseFloat(formData.meta) : null
+      });
+
+      if (createError) {
+        throw new Error(createError);
+      }
+
+      setFormData({ nombre: '', meta: '' });
+    } catch (err) {
+      setError('Error al crear tipo: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = (tipo) => {
+    setEditingId(tipo.id);
+    setEditFormData({
+      nombre: tipo.nombre,
+      meta: tipo.meta || ''
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditFormData({ nombre: '', meta: '' });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editFormData.nombre.trim()) {
+      setError('El nombre es obligatorio');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const { error: updateError } = await updateTipoMovimiento(editingId, {
+        nombre: editFormData.nombre.trim(),
+        meta: editFormData.meta ? parseFloat(editFormData.meta) : null
+      });
+
+      if (updateError) {
+        throw new Error(updateError);
+      }
+
+      setEditingId(null);
+      setEditFormData({ nombre: '', meta: '' });
+    } catch (err) {
+      setError('Error al actualizar tipo: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id, nombre) => {
+    if (confirm(`¿Estás seguro de que quieres eliminar "${nombre}"?`)) {
+      const { error: deleteError } = await deleteTipoMovimiento(id);
+      if (deleteError) {
+        setError('Error al eliminar tipo: ' + deleteError);
+      }
+    }
+  };
+
+  const addRecommended = (nombre) => {
+    setFormData(prev => ({ ...prev, nombre }));
+  };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-ES', {
@@ -35,336 +149,257 @@ export default function GestionTiposPage() {
     }).format(amount);
   };
 
-  const handleCreateType = (e) => {
-    e.preventDefault();
-    const nuevoTipo = {
-      id: tiposMovimiento.length + 1,
-      nombre: newType.nombre,
-      categoria: newType.categoria,
-      meta: parseFloat(newType.meta) || 0,
-      color: newType.color,
-      gastado: 0
-    };
-    setTiposMovimiento([...tiposMovimiento, nuevoTipo]);
-    setNewType({ nombre: '', categoria: 'gastos', meta: '', color: '#3B82F6' });
-    setShowNewType(false);
-  };
-
-  const handleEditType = (tipo) => {
-    setEditingType(tipo);
-    setNewType({
-      nombre: tipo.nombre,
-      categoria: tipo.categoria,
-      meta: tipo.meta.toString(),
-      color: tipo.color
-    });
-    setShowNewType(true);
-  };
-
-  const handleUpdateType = (e) => {
-    e.preventDefault();
-    setTiposMovimiento(tiposMovimiento.map(tipo => 
-      tipo.id === editingType.id 
-        ? {
-            ...tipo,
-            nombre: newType.nombre,
-            categoria: newType.categoria,
-            meta: parseFloat(newType.meta) || 0,
-            color: newType.color
-          }
-        : tipo
-    ));
-    setEditingType(null);
-    setNewType({ nombre: '', categoria: 'gastos', meta: '', color: '#3B82F6' });
-    setShowNewType(false);
-  };
-
-  const handleDeleteType = (id) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este tipo de movimiento?')) {
-      setTiposMovimiento(tiposMovimiento.filter(tipo => tipo.id !== id));
-    }
-  };
-
-  const getProgressPercentage = (gastado, meta) => {
-    if (meta === 0) return 0;
-    return Math.min((gastado / meta) * 100, 100);
-  };
-
-  const getProgressColor = (gastado, meta, categoria) => {
-    if (categoria !== 'gastos' || meta === 0) return 'bg-blue-500';
-    
-    const percentage = (gastado / meta) * 100;
-    if (percentage >= 100) return 'bg-red-500';
-    if (percentage >= 80) return 'bg-yellow-500';
-    return 'bg-green-500';
-  };
-
-  const getTiposPorCategoria = (categoria) => {
-    return tiposMovimiento.filter(tipo => tipo.categoria === categoria);
-  };
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <div className="text-lg">Cargando tipos de movimiento...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gestión de Tipos</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Configuración de Tipos</h1>
           <p className="text-gray-600 mt-1">
-            Configura las categorías de tus movimientos y sus presupuestos
+            Gestiona tus categorías de ingresos, gastos y ahorros
           </p>
         </div>
-        <Button onClick={() => setShowNewType(true)}>
-          + Nuevo Tipo
-        </Button>
+        <Link href="/movimientos">
+          <Button variant="outline">← Volver a Movimientos</Button>
+        </Link>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {categorias.map((categoria) => {
-          const tipos = getTiposPorCategoria(categoria.value);
-          const totalMeta = tipos.reduce((sum, tipo) => sum + tipo.meta, 0);
-          const totalGastado = tipos.reduce((sum, tipo) => sum + tipo.gastado, 0);
-          
-          return (
-            <Card key={categoria.value} className="hover:shadow-md transition-shadow">
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-2xl">{categoria.icon}</span>
-                      <h3 className={`font-semibold ${categoria.color}`}>
-                        {categoria.label}
-                      </h3>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-sm text-gray-600">
-                        {tipos.length} tipos configurados
-                      </div>
-                      {categoria.value === 'gastos' && (
-                        <div className="text-sm">
-                          <span className="text-gray-600">Presupuesto: </span>
-                          <span className="font-medium">{formatCurrency(totalMeta)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {tipos.length}
-                    </div>
+      {/* Error Message */}
+      {(error || hookError) && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-600 text-sm">{error || hookError}</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Create New Type Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Crear Nuevo Tipo</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nombre del tipo *
+                </label>
+                <input
+                  type="text"
+                  name="nombre"
+                  value={formData.nombre}
+                  onChange={handleInputChange}
+                  placeholder="Ej: Alimentación, Salario, Ahorro..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Meta mensual (opcional)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">€</span>
+                  <input
+                    type="number"
+                    name="meta"
+                    value={formData.meta}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Para gastos: límite máximo. Para ingresos/ahorros: objetivo mínimo.
+                </p>
+              </div>
+
+              <Button type="submit" disabled={saving} className="w-full">
+                {saving ? 'Guardando...' : 'Crear Tipo'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Recommendations */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Tipos Recomendados</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {Object.entries(recomendados).map(([categoria, tipos]) => (
+                <div key={categoria}>
+                  <h4 className={`font-medium mb-2 capitalize ${
+                    categoria === 'ingresos' ? 'text-green-600' :
+                    categoria === 'ahorros' ? 'text-blue-600' : 'text-red-600'
+                  }`}>
+                    {categoria}
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {tipos.map((tipo) => (
+                      <button
+                        key={tipo}
+                        onClick={() => addRecommended(tipo)}
+                        className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg transition-colors"
+                      >
+                        + {tipo}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Types by Category */}
-      {categorias.map((categoria) => {
-        const tipos = getTiposPorCategoria(categoria.value);
-        if (tipos.length === 0) return null;
-
-        return (
-          <Card key={categoria.value}>
+      {/* Current Types */}
+      <div className="space-y-6">
+        {Object.entries(tiposPorCategoria).map(([categoria, tipos]) => (
+          <Card key={categoria}>
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <span className="text-2xl">{categoria.icon}</span>
-                <span>{categoria.label}</span>
-                <span className="text-sm text-gray-500">({tipos.length})</span>
+              <CardTitle className={`capitalize ${
+                categoria === 'ingresos' ? 'text-green-600' :
+                categoria === 'ahorros' ? 'text-blue-600' : 'text-red-600'
+              }`}>
+                {categoria} ({tipos.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Nombre</th>
-                      {categoria.value === 'gastos' && (
-                        <>
-                          <th className="text-right py-3 px-4 font-medium text-gray-700">Presupuesto</th>
-                          <th className="text-right py-3 px-4 font-medium text-gray-700">Gastado</th>
-                          <th className="text-center py-3 px-4 font-medium text-gray-700">Progreso</th>
-                        </>
-                      )}
-                      <th className="text-center py-3 px-4 font-medium text-gray-700">Color</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-700">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tipos.map((tipo) => {
-                      const progress = getProgressPercentage(tipo.gastado, tipo.meta);
-                      const progressColor = getProgressColor(tipo.gastado, tipo.meta, tipo.categoria);
-                      
-                      return (
+              {tipos.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-2">
+                    {categoria === 'ingresos' ? '💰' :
+                     categoria === 'ahorros' ? '🏦' : '💸'}
+                  </div>
+                  <p>No hay tipos de {categoria} configurados</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">Nombre</th>
+                        <th className="text-right py-3 px-4 font-medium text-gray-700">Meta Mensual</th>
+                        <th className="text-center py-3 px-4 font-medium text-gray-700">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tipos.map((tipo) => (
                         <tr key={tipo.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-4 px-4">
-                            <div className="font-medium text-gray-900">{tipo.nombre}</div>
-                          </td>
-                          {categoria.value === 'gastos' && (
+                          {editingId === tipo.id ? (
+                            // Edit row
                             <>
-                              <td className="py-4 px-4 text-right font-semibold text-gray-900">
-                                {formatCurrency(tipo.meta)}
+                              <td className="py-3 px-4">
+                                <input
+                                  type="text"
+                                  value={editFormData.nombre}
+                                  onChange={(e) => setEditFormData(prev => ({ ...prev, nombre: e.target.value }))}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                />
                               </td>
-                              <td className="py-4 px-4 text-right">
-                                <span className={`font-semibold ${
-                                  tipo.gastado > tipo.meta ? 'text-red-600' : 'text-gray-900'
-                                }`}>
-                                  {formatCurrency(tipo.gastado)}
-                                </span>
+                              <td className="py-3 px-4">
+                                <input
+                                  type="number"
+                                  value={editFormData.meta}
+                                  onChange={(e) => setEditFormData(prev => ({ ...prev, meta: e.target.value }))}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-right"
+                                  step="0.01"
+                                  min="0"
+                                />
                               </td>
-                              <td className="py-4 px-4">
-                                <div className="flex items-center space-x-3">
-                                  <div className="flex-1">
-                                    <div className="w-full bg-gray-200 rounded-full h-2">
-                                      <div
-                                        className={`h-2 rounded-full transition-all duration-300 ${progressColor}`}
-                                        style={{ width: `${progress}%` }}
-                                      ></div>
-                                    </div>
-                                  </div>
-                                  <span className="text-sm text-gray-600 min-w-[3rem]">
-                                    {progress.toFixed(0)}%
-                                  </span>
+                              <td className="py-3 px-4 text-center">
+                                <div className="flex items-center justify-center space-x-2">
+                                  <Button variant="ghost" size="sm" onClick={handleSaveEdit} disabled={saving}>
+                                    ✓
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
+                                    ✕
+                                  </Button>
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            // Display row
+                            <>
+                              <td className="py-3 px-4 font-medium text-gray-900">
+                                {tipo.nombre}
+                              </td>
+                              <td className="py-3 px-4 text-right text-gray-600">
+                                {tipo.meta ? formatCurrency(tipo.meta) : '-'}
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <div className="flex items-center justify-center space-x-2">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => handleEdit(tipo)}
+                                  >
+                                    ✏️
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => handleDelete(tipo.id, tipo.nombre)}
+                                  >
+                                    🗑️
+                                  </Button>
                                 </div>
                               </td>
                             </>
                           )}
-                          <td className="py-4 px-4 text-center">
-                            <div 
-                              className="w-6 h-6 rounded-full mx-auto border border-gray-200"
-                              style={{ backgroundColor: tipo.color }}
-                            ></div>
-                          </td>
-                          <td className="py-4 px-4 text-center">
-                            <div className="flex items-center justify-center space-x-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleEditType(tipo)}
-                              >
-                                ✏️
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleDeleteType(tipo.id)}
-                              >
-                                🗑️
-                              </Button>
-                            </div>
-                          </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
-        );
-      })}
+        ))}
+      </div>
 
-      {/* New/Edit Type Modal */}
-      {showNewType && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>
-                {editingType ? 'Editar Tipo de Movimiento' : 'Nuevo Tipo de Movimiento'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={editingType ? handleUpdateType : handleCreateType} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nombre del tipo
-                  </label>
-                  <input
-                    type="text"
-                    value={newType.nombre}
-                    onChange={(e) => setNewType({...newType, nombre: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Ej: Alimentación, Transporte..."
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Categoría
-                  </label>
-                  <select
-                    value={newType.categoria}
-                    onChange={(e) => setNewType({...newType, categoria: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {categorias.map((categoria) => (
-                      <option key={categoria.value} value={categoria.value}>
-                        {categoria.icon} {categoria.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                {newType.categoria === 'gastos' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Presupuesto mensual (€)
-                    </label>
-                    <input
-                      type="number"
-                      value={newType.meta}
-                      onChange={(e) => setNewType({...newType, meta: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="600"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                )}
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Color
-                  </label>
-                  <div className="grid grid-cols-5 gap-2">
-                    {colores.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setNewType({...newType, color})}
-                        className={`w-10 h-10 rounded-lg border-2 transition-all ${
-                          newType.color === color ? 'border-gray-400 scale-110' : 'border-gray-200'
-                        }`}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="flex space-x-3 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => {
-                      setShowNewType(false);
-                      setEditingType(null);
-                      setNewType({ nombre: '', categoria: 'gastos', meta: '', color: '#3B82F6' });
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit" className="flex-1">
-                    {editingType ? 'Actualizar' : 'Crear'} Tipo
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Resumen</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">
+                {tiposPorCategoria.ingresos.length}
+              </div>
+              <div className="text-sm text-green-700">Tipos de Ingresos</div>
+            </div>
+            <div className="text-center p-4 bg-red-50 rounded-lg">
+              <div className="text-2xl font-bold text-red-600">
+                {tiposPorCategoria.gastos.length}
+              </div>
+              <div className="text-sm text-red-700">Tipos de Gastos</div>
+            </div>
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">
+                {tiposPorCategoria.ahorros.length}
+              </div>
+              <div className="text-sm text-blue-700">Tipos de Ahorros</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 } 

@@ -9,7 +9,10 @@ export function useMovimientos() {
   const { userProfile } = useUser();
 
   const fetchMovimientos = async () => {
-    if (!userProfile?.id) return;
+    if (!userProfile?.id) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -20,8 +23,6 @@ export function useMovimientos() {
           tipo_movimiento (
             id,
             nombre,
-            categoria,
-            color,
             meta
           )
         `)
@@ -55,8 +56,6 @@ export function useMovimientos() {
           tipo_movimiento (
             id,
             nombre,
-            categoria,
-            color,
             meta
           )
         `)
@@ -83,8 +82,6 @@ export function useMovimientos() {
           tipo_movimiento (
             id,
             nombre,
-            categoria,
-            color,
             meta
           )
         `)

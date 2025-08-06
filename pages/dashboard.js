@@ -128,6 +128,11 @@ export default function DashboardPage() {
     .filter(mov => mov.tipo_nombre !== 'Ingresos')
     .reduce((sum, mov) => sum + Number(mov.importe), 0);
 
+  // Calculate savings for this period (exact copy from old component)
+  const ahorrosMes = filteredMovimientos
+    .filter(mov => mov.tipo_nombre === 'Ahorro')
+    .reduce((sum, mov) => sum + Number(mov.importe), 0);
+
   // Monthly evolution data (exact copy from old component)
   const monthlyData = Object.entries(
     yearFilteredMovimientos.reduce((acc, mov) => {

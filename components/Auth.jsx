@@ -10,6 +10,13 @@ export default function Auth() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Temporary demo bypass for testing deployment
+    if (email === 'demo@test.com') {
+      localStorage.setItem('demo-bypass', 'true');
+      window.location.reload();
+      return;
+    }
+
     try {
       setLoading(true);
       setMessage('');
@@ -64,6 +71,11 @@ export default function Auth() {
               {message}
             </div>
           )}
+          <div className="text-center">
+            <p className="text-xs text-gray-500">
+              Para testing: usa <code className="bg-gray-100 px-1 rounded">demo@test.com</code>
+            </p>
+          </div>
         </form>
       </div>
     </div>

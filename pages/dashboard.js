@@ -236,13 +236,6 @@ export default function DashboardPage() {
     { value: '11', label: 'Diciembre' }
   ];
 
-  const quickActions = [
-    { title: 'Nuevo Ingreso', href: '/movimientos/nuevo?tipo=ingresos', color: 'bg-green-50 text-green-700', icon: '💰' },
-    { title: 'Nuevo Gasto', href: '/movimientos/nuevo?tipo=gastos', color: 'bg-red-50 text-red-700', icon: '💸' },
-    { title: 'Ahorrar Dinero', href: '/movimientos/nuevo?tipo=ahorros', color: 'bg-blue-50 text-blue-700', icon: '🏦' },
-    { title: 'Nueva Meta', href: '/metas', color: 'bg-purple-50 text-purple-700', icon: '🎯' }
-  ];
-
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -338,7 +331,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Stats Cards - Show different stats based on categoryFilter */}
+      {/* Stats Cards with Integrated Actions */}
       {categoryFilter === 'all' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           <Card className="hover:shadow-md transition-shadow">
@@ -350,7 +343,11 @@ export default function DashboardPage() {
                     {formatCurrency(totalIngresos)}
                   </p>
                 </div>
-                <div className="text-xl md:text-3xl opacity-60">💰</div>
+                <Link href="/movimientos/nuevo?tipo=ingresos">
+                  <button className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-green-100 hover:bg-green-200 flex items-center justify-center transition-colors">
+                    <span className="text-lg md:text-xl text-green-600">+</span>
+                  </button>
+                </Link>
               </div>
             </CardContent>
           </Card>
@@ -364,7 +361,11 @@ export default function DashboardPage() {
                     {formatCurrency(totalGastos)}
                   </p>
                 </div>
-                <div className="text-xl md:text-3xl opacity-60">💸</div>
+                <Link href="/movimientos/nuevo?tipo=gastos">
+                  <button className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center transition-colors">
+                    <span className="text-lg md:text-xl text-red-600">+</span>
+                  </button>
+                </Link>
               </div>
             </CardContent>
           </Card>
@@ -378,7 +379,11 @@ export default function DashboardPage() {
                     {formatCurrency(totalIngresos - totalGastos)}
                   </p>
                 </div>
-                <div className="text-xl md:text-3xl opacity-60">📊</div>
+                <Link href="/metas">
+                  <button className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-blue-100 hover:bg-blue-200 flex items-center justify-center transition-colors">
+                    <span className="text-lg md:text-xl text-blue-600">📊</span>
+                  </button>
+                </Link>
               </div>
             </CardContent>
           </Card>
@@ -392,7 +397,11 @@ export default function DashboardPage() {
                     {formatCurrency(ahorrosMes)}
                   </p>
                 </div>
-                <div className="text-xl md:text-3xl opacity-60">🏦</div>
+                <Link href="/movimientos/nuevo?tipo=ahorros">
+                  <button className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-blue-100 hover:bg-blue-200 flex items-center justify-center transition-colors">
+                    <span className="text-lg md:text-xl text-blue-600">+</span>
+                  </button>
+                </Link>
               </div>
             </CardContent>
           </Card>
@@ -415,27 +424,6 @@ export default function DashboardPage() {
           </Card>
         </div>
       )}
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg md:text-xl">Acciones Rápidas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-            {quickActions.map((action, index) => (
-              <Link key={index} href={action.href}>
-                <button
-                  className={`w-full p-3 md:p-4 rounded-xl ${action.color} hover:opacity-80 transition-opacity text-center`}
-                >
-                  <div className="text-lg md:text-2xl mb-1 md:mb-2">{action.icon}</div>
-                  <div className="font-medium text-xs md:text-sm">{action.title}</div>
-                </button>
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">

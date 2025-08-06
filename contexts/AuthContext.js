@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: `https://finanzas-personales-q1938nfyh-simon-echeverri-zapatas-projects.vercel.app/dashboard`,
         },
       });
       if (error) throw error;

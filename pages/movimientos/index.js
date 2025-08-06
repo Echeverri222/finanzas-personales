@@ -38,7 +38,6 @@ export default function MovimientosPage() {
   // Filtering logic (matching old component)
   const filteredMovimientos = movimientos.filter(mov => {
     const matchesSearch = mov.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (mov.notas && mov.notas.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          (mov.tipo_nombre && mov.tipo_nombre.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesType = typeFilter === 'all' || mov.id_tipo_movimiento === typeFilter;
@@ -85,8 +84,7 @@ export default function MovimientosPage() {
       fecha: movimiento.fecha.split('T')[0], // Convert ISO to YYYY-MM-DD
       nombre: movimiento.nombre,
       importe: Math.abs(movimiento.importe).toString(),
-      id_tipo_movimiento: movimiento.id_tipo_movimiento,
-      notas: movimiento.notas || ''
+      id_tipo_movimiento: movimiento.id_tipo_movimiento
     });
   };
 
@@ -97,12 +95,15 @@ export default function MovimientosPage() {
 
   const handleSaveEdit = async () => {
     try {
+      // Match exact old component logic
+      const [year, month, day] = editFormData.fecha.split('-').map(Number);
+      const fecha = new Date(Date.UTC(year, month - 1, day));
+      
       const updatedData = {
-        fecha: new Date(editFormData.fecha).toISOString(),
-        nombre: editFormData.nombre,
-        importe: parseFloat(editFormData.importe), // Store as positive, display logic handles sign
-        id_tipo_movimiento: editFormData.id_tipo_movimiento,
-        notas: editFormData.notas || null
+        fecha: fecha.toISOString(),
+        nombre: editFormData.nombre.trim(),
+        importe: Number(editFormData.importe),
+        id_tipo_movimiento: editFormData.id_tipo_movimiento
       };
 
       const { error } = await updateMovimiento(editingId, updatedData);
@@ -191,7 +192,7 @@ export default function MovimientosPage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Nombre, notas, categoría..."
+                placeholder="Nombre, categoría..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -349,6 +350,7 @@ export default function MovimientosPage() {
                               value={editFormData.nombre}
                               onChange={(e) => setEditFormData(prev => ({ ...prev, nombre: e.target.value }))}
                               className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                              placeholder="Descripción del movimiento"
                             />
                           </td>
                           <td className="py-3 px-4">
@@ -357,6 +359,7 @@ export default function MovimientosPage() {
                               onChange={(e) => setEditFormData(prev => ({ ...prev, id_tipo_movimiento: e.target.value }))}
                               className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                             >
+                              <option value="">Seleccione categoría</option>
                               {tiposMovimiento.map(tipo => (
                                 <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
                               ))}
@@ -369,6 +372,7 @@ export default function MovimientosPage() {
                               onChange={(e) => setEditFormData(prev => ({ ...prev, importe: e.target.value }))}
                               className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-right"
                               step="0.01"
+                              placeholder="0"
                             />
                           </td>
                           <td className="py-3 px-4 text-center">
@@ -390,9 +394,6 @@ export default function MovimientosPage() {
                           </td>
                           <td className="py-3 px-4">
                             <div className="font-medium text-gray-900">{movimiento.nombre}</div>
-                            {movimiento.notas && (
-                              <div className="text-sm text-gray-600">{movimiento.notas}</div>
-                            )}
                           </td>
                           <td className="py-3 px-4">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

@@ -9,49 +9,52 @@ import Link from 'next/link';
 
 export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString()); // Default to current month as string
   const [showSystemStatus, setShowSystemStatus] = useState(false);
 
   const { movimientos, loading } = useMovimientos();
   const { tiposMovimiento } = useTiposMovimiento();
 
-  // Filter by selected month and year using fecha
-  const currentMovimientos = movimientos.filter(mov => {
+  // Filter by selected month and year using EXACT old logic
+  const filteredMovimientos = movimientos.filter(mov => {
     const movDate = new Date(mov.fecha);
-    return movDate.getFullYear() === selectedYear && movDate.getMonth() === selectedMonth;
+    const matchesYear = movDate.getFullYear() === selectedYear;
+    const matchesMonth = selectedMonth === 'all' || movDate.getMonth() === parseInt(selectedMonth);
+    return matchesYear && matchesMonth;
   });
 
-  // Calculate stats using EXACT old logic
+  // Year-only filtered data for monthly evolution (matches old component)
+  const yearFilteredMovimientos = movimientos.filter(mov => {
+    const movDate = new Date(mov.fecha);
+    return movDate.getFullYear() === selectedYear;
+  });
+
+  // Calculate stats using filtered data (only selected month/year)
   const stats = {
-    totalIngresos: currentMovimientos
+    totalIngresos: filteredMovimientos
       .filter(m => m.tipo_nombre === 'Ingresos')
       .reduce((sum, m) => sum + Math.abs(m.importe), 0),
-    totalGastos: currentMovimientos
+    totalGastos: filteredMovimientos
       .filter(m => m.tipo_nombre !== 'Ingresos' && m.tipo_nombre !== 'Ahorro')
       .reduce((sum, m) => sum + Math.abs(m.importe), 0),
-    balanceNeto: currentMovimientos.reduce((sum, m) => {
+    balanceNeto: filteredMovimientos.reduce((sum, m) => {
       if (m.tipo_nombre === 'Ingresos') {
         return sum + Math.abs(m.importe);
       } else {
         return sum - Math.abs(m.importe);
       }
     }, 0),
-    ahorrosMes: currentMovimientos
+    ahorrosMes: filteredMovimientos
       .filter(m => m.tipo_nombre === 'Ahorro')
       .reduce((sum, m) => sum + Math.abs(m.importe), 0)
   };
 
-  // Monthly evolution data (last 6 months) using EXACT old logic
+  // Monthly evolution data using full year data (like old component)
   const monthlyData = [];
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date();
-    date.setMonth(date.getMonth() - i);
-    const month = date.getMonth();
-    const year = date.getFullYear();
-    
-    const monthMovimientos = movimientos.filter(mov => {
+  for (let i = 0; i < 12; i++) {
+    const monthMovimientos = yearFilteredMovimientos.filter(mov => {
       const movDate = new Date(mov.fecha);
-      return movDate.getFullYear() === year && movDate.getMonth() === month;
+      return movDate.getMonth() === i;
     });
     
     const ingresos = monthMovimientos
@@ -61,19 +64,22 @@ export default function DashboardPage() {
       .filter(m => m.tipo_nombre !== 'Ingresos' && m.tipo_nombre !== 'Ahorro')
       .reduce((sum, m) => sum + Math.abs(m.importe), 0);
     
+    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
+                       'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    
     monthlyData.push({
-      mes: date.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }),
+      mes: monthNames[i],
       ingresos,
       gastos,
       balance: ingresos - gastos
     });
   }
 
-  // Expenses by category - only non-Ingresos, non-Ahorro tipos
+  // Expenses by category using filtered data (only selected month/year)
   const expensesByCategory = tiposMovimiento
     .filter(tipo => tipo.nombre !== 'Ingresos' && tipo.nombre !== 'Ahorro')
     .map(tipo => {
-      const gastos = currentMovimientos
+      const gastos = filteredMovimientos
         .filter(m => m.id_tipo_movimiento === tipo.id)
         .reduce((sum, m) => sum + Math.abs(m.importe), 0);
       
@@ -86,7 +92,7 @@ export default function DashboardPage() {
     })
     .filter(item => item.gasto > 0);
 
-  // Pie chart data for categories
+  // Pie chart data for categories using filtered data
   const pieData = [
     { name: 'Ingresos', value: stats.totalIngresos, color: '#10B981' },
     { name: 'Gastos', value: stats.totalGastos, color: '#EF4444' },
@@ -94,8 +100,19 @@ export default function DashboardPage() {
   ].filter(item => item.value > 0);
 
   const months = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    { value: 'all', label: 'Todos' },
+    { value: '0', label: 'Enero' },
+    { value: '1', label: 'Febrero' },
+    { value: '2', label: 'Marzo' },
+    { value: '3', label: 'Abril' },
+    { value: '4', label: 'Mayo' },
+    { value: '5', label: 'Junio' },
+    { value: '6', label: 'Julio' },
+    { value: '7', label: 'Agosto' },
+    { value: '8', label: 'Septiembre' },
+    { value: '9', label: 'Octubre' },
+    { value: '10', label: 'Noviembre' },
+    { value: '11', label: 'Diciembre' }
   ];
 
   const years = [2022, 2023, 2024, 2025];
@@ -116,6 +133,12 @@ export default function DashboardPage() {
     }).format(amount);
   };
 
+  const getSelectedMonthName = () => {
+    if (selectedMonth === 'all') return 'Todo el año';
+    const monthObj = months.find(m => m.value === selectedMonth);
+    return monthObj ? monthObj.label : '';
+  };
+
   if (loading) {
     return (
       <div className="space-y-8">
@@ -133,7 +156,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600 mt-1">
-            Resumen de tus finanzas para {months[selectedMonth]} {selectedYear}
+            Resumen de tus finanzas para {getSelectedMonthName()} {selectedYear}
           </p>
         </div>
         
@@ -149,11 +172,11 @@ export default function DashboardPage() {
           
           <select 
             value={selectedMonth}
-            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+            onChange={(e) => setSelectedMonth(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            {months.map((month, index) => (
-              <option key={index} value={index}>{month}</option>
+            {months.map((month) => (
+              <option key={month.value} value={month.value}>{month.label}</option>
             ))}
           </select>
           
@@ -220,7 +243,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Ahorrado este mes</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">Ahorrado este período</p>
                 <p className="text-2xl font-bold text-blue-600">
                   {formatCurrency(stats.ahorrosMes)}
                 </p>
@@ -254,10 +277,10 @@ export default function DashboardPage() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly Evolution Chart */}
+        {/* Monthly Evolution Chart - Shows full year */}
         <Card>
           <CardHeader>
-            <CardTitle>Evolución Mensual</CardTitle>
+            <CardTitle>Evolución Mensual {selectedYear}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-80">
@@ -275,7 +298,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Expenses by Category */}
+        {/* Expenses by Category - Shows filtered period */}
         <Card>
           <CardHeader>
             <CardTitle>Gastos por Categoría</CardTitle>
@@ -308,7 +331,7 @@ export default function DashboardPage() {
 
       {/* Distribution and Recent Movements */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Distribution Pie Chart */}
+        {/* Distribution Pie Chart - Shows filtered period */}
         <Card>
           <CardHeader>
             <CardTitle>Distribución del Dinero</CardTitle>
@@ -347,7 +370,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Movements */}
+        {/* Recent Movements - Shows filtered period */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -359,7 +382,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {currentMovimientos.slice(0, 5).map((movimiento) => (
+              {filteredMovimientos.slice(0, 5).map((movimiento) => (
                 <div key={movimiento.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
                   <div className="flex items-center space-x-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
@@ -386,10 +409,10 @@ export default function DashboardPage() {
                 </div>
               ))}
               
-              {currentMovimientos.length === 0 && (
+              {filteredMovimientos.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <div className="text-4xl mb-2">📋</div>
-                  <p>No hay movimientos este mes</p>
+                  <p>No hay movimientos en este período</p>
                 </div>
               )}
             </div>

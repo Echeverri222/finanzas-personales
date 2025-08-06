@@ -15,49 +15,33 @@ export default function DashboardPage() {
   const { movimientos, loading } = useMovimientos();
   const { tiposMovimiento } = useTiposMovimiento();
 
-  // Helper function to get tipo by id and return its categoria
-  const getTipoCategoria = (idTipoMovimiento) => {
-    const tipo = tiposMovimiento.find(t => t.id === idTipoMovimiento);
-    if (!tipo) return 'gastos'; // default
-    
-    // Use the categoria field from database or categorize by name
-    if (tipo.categoria) {
-      return tipo.categoria;
-    }
-    
-    // Fallback categorization by name
-    const nombre = tipo.nombre.toLowerCase();
-    if (['salario', 'freelance', 'inversiones', 'bonus', 'comision', 'dividendos'].some(ing => nombre.includes(ing))) {
-      return 'ingresos';
-    }
-    if (['ahorro', 'emergencia', 'inversion', 'meta'].some(ah => nombre.includes(ah))) {
-      return 'ahorros';
-    }
-    return 'gastos';
-  };
-
-  // Add categoria to movimientos using fecha for date filtering
-  const movimientosWithCategoria = movimientos.map(mov => ({
-    ...mov,
-    categoria: getTipoCategoria(mov.id_tipo_movimiento),
-    fecha: new Date(mov.fecha) // Use fecha field, not created_at
-  }));
-
   // Filter by selected month and year using fecha
-  const currentMovimientos = movimientosWithCategoria.filter(mov => {
+  const currentMovimientos = movimientos.filter(mov => {
     const movDate = new Date(mov.fecha);
     return movDate.getFullYear() === selectedYear && movDate.getMonth() === selectedMonth;
   });
 
-  // Calculate stats
+  // Calculate stats using EXACT old logic
   const stats = {
-    totalIngresos: currentMovimientos.filter(m => m.categoria === 'ingresos').reduce((sum, m) => sum + Math.abs(m.importe), 0),
-    totalGastos: currentMovimientos.filter(m => m.categoria === 'gastos').reduce((sum, m) => sum + Math.abs(m.importe), 0),
-    balanceNeto: currentMovimientos.reduce((sum, m) => sum + m.importe, 0),
-    ahorrosMes: currentMovimientos.filter(m => m.categoria === 'ahorros').reduce((sum, m) => sum + Math.abs(m.importe), 0)
+    totalIngresos: currentMovimientos
+      .filter(m => m.tipo_nombre === 'Ingresos')
+      .reduce((sum, m) => sum + Math.abs(m.importe), 0),
+    totalGastos: currentMovimientos
+      .filter(m => m.tipo_nombre !== 'Ingresos' && m.tipo_nombre !== 'Ahorro')
+      .reduce((sum, m) => sum + Math.abs(m.importe), 0),
+    balanceNeto: currentMovimientos.reduce((sum, m) => {
+      if (m.tipo_nombre === 'Ingresos') {
+        return sum + Math.abs(m.importe);
+      } else {
+        return sum - Math.abs(m.importe);
+      }
+    }, 0),
+    ahorrosMes: currentMovimientos
+      .filter(m => m.tipo_nombre === 'Ahorro')
+      .reduce((sum, m) => sum + Math.abs(m.importe), 0)
   };
 
-  // Monthly evolution data (last 6 months) using fecha
+  // Monthly evolution data (last 6 months) using EXACT old logic
   const monthlyData = [];
   for (let i = 5; i >= 0; i--) {
     const date = new Date();
@@ -65,13 +49,17 @@ export default function DashboardPage() {
     const month = date.getMonth();
     const year = date.getFullYear();
     
-    const monthMovimientos = movimientosWithCategoria.filter(mov => {
-      const movDate = new Date(mov.fecha); // Use fecha, not created_at
+    const monthMovimientos = movimientos.filter(mov => {
+      const movDate = new Date(mov.fecha);
       return movDate.getFullYear() === year && movDate.getMonth() === month;
     });
     
-    const ingresos = monthMovimientos.filter(m => m.categoria === 'ingresos').reduce((sum, m) => sum + Math.abs(m.importe), 0);
-    const gastos = monthMovimientos.filter(m => m.categoria === 'gastos').reduce((sum, m) => sum + Math.abs(m.importe), 0);
+    const ingresos = monthMovimientos
+      .filter(m => m.tipo_nombre === 'Ingresos')
+      .reduce((sum, m) => sum + Math.abs(m.importe), 0);
+    const gastos = monthMovimientos
+      .filter(m => m.tipo_nombre !== 'Ingresos' && m.tipo_nombre !== 'Ahorro')
+      .reduce((sum, m) => sum + Math.abs(m.importe), 0);
     
     monthlyData.push({
       mes: date.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }),
@@ -81,9 +69,9 @@ export default function DashboardPage() {
     });
   }
 
-  // Expenses by category using tipos with gastos categoria
+  // Expenses by category - only non-Ingresos, non-Ahorro tipos
   const expensesByCategory = tiposMovimiento
-    .filter(tipo => getTipoCategoria(tipo.id) === 'gastos')
+    .filter(tipo => tipo.nombre !== 'Ingresos' && tipo.nombre !== 'Ahorro')
     .map(tipo => {
       const gastos = currentMovimientos
         .filter(m => m.id_tipo_movimiento === tipo.id)
@@ -375,25 +363,25 @@ export default function DashboardPage() {
                 <div key={movimiento.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
                   <div className="flex items-center space-x-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      movimiento.categoria === 'ingresos' ? 'bg-green-100' :
-                      movimiento.categoria === 'ahorros' ? 'bg-blue-100' : 'bg-red-100'
+                      movimiento.tipo_nombre === 'Ingresos' ? 'bg-green-100' :
+                      movimiento.tipo_nombre === 'Ahorro' ? 'bg-blue-100' : 'bg-red-100'
                     }`}>
                       <span className="text-lg">
-                        {movimiento.categoria === 'ingresos' ? '💰' :
-                         movimiento.categoria === 'ahorros' ? '🏦' : '💸'}
+                        {movimiento.tipo_nombre === 'Ingresos' ? '💰' :
+                         movimiento.tipo_nombre === 'Ahorro' ? '🏦' : '💸'}
                       </span>
                     </div>
                     <div>
                       <div className="font-medium text-gray-900">{movimiento.nombre}</div>
                       <div className="text-sm text-gray-500">
-                        {new Date(movimiento.fecha).toLocaleDateString('es-ES')} • {movimiento.tipo_movimiento?.nombre}
+                        {new Date(movimiento.fecha).toLocaleDateString('es-ES')} • {movimiento.tipo_nombre}
                       </div>
                     </div>
                   </div>
                   <div className={`text-right font-semibold ${
-                    movimiento.categoria === 'ingresos' ? 'text-green-600' : 'text-red-600'
+                    movimiento.tipo_nombre === 'Ingresos' ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    {movimiento.categoria === 'ingresos' ? '+' : '-'}{formatCurrency(Math.abs(movimiento.importe))}
+                    {movimiento.tipo_nombre === 'Ingresos' ? '+' : '-'}{formatCurrency(Math.abs(movimiento.importe))}
                   </div>
                 </div>
               ))}

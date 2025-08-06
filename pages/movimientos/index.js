@@ -16,23 +16,11 @@ export default function MovimientosPage() {
   const { movimientos, loading, error, updateMovimiento, deleteMovimiento } = useMovimientos();
   const { tiposMovimiento, loading: tiposLoading } = useTiposMovimiento();
 
-  // Helper function to categorize movement types
-  const categorizeTipo = (tipoNombre) => {
-    const ingresos = ['salario', 'freelance', 'inversiones', 'bonus', 'comision', 'dividendos'];
-    const ahorros = ['ahorro', 'emergencia', 'inversion', 'meta'];
-    
-    const nombre = tipoNombre.toLowerCase();
-    
-    if (ingresos.some(ing => nombre.includes(ing))) return 'ingresos';
-    if (ahorros.some(ah => nombre.includes(ah))) return 'ahorros';
-    return 'gastos';
+  // Function to get tipo name by ID (exactly like old component)
+  const getTipoNombre = (id) => {
+    const tipo = tiposMovimiento.find(t => t.id === id);
+    return tipo ? tipo.nombre : 'Sin categoría';
   };
-
-  // Add categoria to movimientos based on tipo_movimiento
-  const movimientosWithCategoria = movimientos.map(mov => ({
-    ...mov,
-    categoria: mov.tipo_movimiento ? categorizeTipo(mov.tipo_movimiento.nombre) : 'gastos'
-  }));
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -47,13 +35,13 @@ export default function MovimientosPage() {
     return new Date(dateString).toLocaleDateString('es-ES');
   };
 
-  // Filtering logic
-  const filteredMovimientos = movimientosWithCategoria.filter(mov => {
+  // Filtering logic (matching old component)
+  const filteredMovimientos = movimientos.filter(mov => {
     const matchesSearch = mov.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (mov.notas && mov.notas.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                         (mov.tipo_movimiento?.nombre && mov.tipo_movimiento.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+                         (mov.tipo_nombre && mov.tipo_nombre.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesType = typeFilter === 'all' || mov.categoria === typeFilter;
+    const matchesType = typeFilter === 'all' || mov.id_tipo_movimiento === typeFilter;
     
     let matchesDate = true;
     if (dateFilter.startDate) {
@@ -66,7 +54,7 @@ export default function MovimientosPage() {
     return matchesSearch && matchesType && matchesDate;
   });
 
-  // Sorting logic
+  // Sorting logic (matching old component)
   const sortedMovimientos = [...filteredMovimientos].sort((a, b) => {
     let aVal = a[sortConfig.key];
     let bVal = b[sortConfig.key];
@@ -94,7 +82,7 @@ export default function MovimientosPage() {
   const handleEdit = (movimiento) => {
     setEditingId(movimiento.id);
     setEditFormData({
-      fecha: movimiento.fecha,
+      fecha: movimiento.fecha.split('T')[0], // Convert ISO to YYYY-MM-DD
       nombre: movimiento.nombre,
       importe: Math.abs(movimiento.importe).toString(),
       id_tipo_movimiento: movimiento.id_tipo_movimiento,
@@ -109,16 +97,11 @@ export default function MovimientosPage() {
 
   const handleSaveEdit = async () => {
     try {
-      const movimiento = movimientos.find(m => m.id === editingId);
-      const categoria = movimiento.categoria;
-      
       const updatedData = {
-        fecha: editFormData.fecha,
+        fecha: new Date(editFormData.fecha).toISOString(),
         nombre: editFormData.nombre,
-        importe: categoria === 'gastos' || categoria === 'ahorros' 
-          ? -Math.abs(parseFloat(editFormData.importe))
-          : Math.abs(parseFloat(editFormData.importe)),
-        id_tipo_movimiento: parseInt(editFormData.id_tipo_movimiento),
+        importe: parseFloat(editFormData.importe), // Store as positive, display logic handles sign
+        id_tipo_movimiento: editFormData.id_tipo_movimiento,
         notas: editFormData.notas || null
       };
 
@@ -147,6 +130,15 @@ export default function MovimientosPage() {
     setTypeFilter('all');
     setDateFilter({ startDate: '', endDate: '' });
   };
+
+  // Calculate summary stats using old logic: Ingresos vs everything else
+  const totalIngresos = filteredMovimientos
+    .filter(m => m.tipo_nombre === 'Ingresos')
+    .reduce((sum, m) => sum + Math.abs(m.importe), 0);
+    
+  const totalGastos = filteredMovimientos
+    .filter(m => m.tipo_nombre !== 'Ingresos')
+    .reduce((sum, m) => sum + Math.abs(m.importe), 0);
 
   if (loading) {
     return (
@@ -204,10 +196,10 @@ export default function MovimientosPage() {
               />
             </div>
 
-            {/* Type Filter */}
+            {/* Type Filter - Show tipos from database */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo
+                Categoría
               </label>
               <select
                 value={typeFilter}
@@ -215,9 +207,9 @@ export default function MovimientosPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">Todos</option>
-                <option value="ingresos">Ingresos</option>
-                <option value="gastos">Gastos</option>
-                <option value="ahorros">Ahorros</option>
+                {tiposMovimiento.map((tipo) => (
+                  <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
+                ))}
               </select>
             </div>
 
@@ -257,16 +249,13 @@ export default function MovimientosPage() {
         </CardContent>
       </Card>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Summary Stats - Using old logic */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardContent>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(filteredMovimientos
-                  .filter(m => m.categoria === 'ingresos')
-                  .reduce((sum, m) => sum + Math.abs(m.importe), 0)
-                )}
+                {formatCurrency(totalIngresos)}
               </div>
               <div className="text-sm text-gray-600">Total Ingresos</div>
             </div>
@@ -277,26 +266,9 @@ export default function MovimientosPage() {
           <CardContent>
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(filteredMovimientos
-                  .filter(m => m.categoria === 'gastos')
-                  .reduce((sum, m) => sum + Math.abs(m.importe), 0)
-                )}
+                {formatCurrency(totalGastos)}
               </div>
               <div className="text-sm text-gray-600">Total Gastos</div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {formatCurrency(filteredMovimientos
-                  .filter(m => m.categoria === 'ahorros')
-                  .reduce((sum, m) => sum + Math.abs(m.importe), 0)
-                )}
-              </div>
-              <div className="text-sm text-gray-600">Total Ahorros</div>
             </div>
           </CardContent>
         </Card>
@@ -424,17 +396,17 @@ export default function MovimientosPage() {
                           </td>
                           <td className="py-3 px-4">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              movimiento.categoria === 'ingresos' ? 'bg-green-100 text-green-800' :
-                              movimiento.categoria === 'ahorros' ? 'bg-blue-100 text-blue-800' :
-                              'bg-red-100 text-red-800'
+                              movimiento.tipo_nombre === 'Ingresos' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
                             }`}>
-                              {movimiento.tipo_movimiento?.nombre || 'Sin categoría'}
+                              {movimiento.tipo_nombre}
                             </span>
                           </td>
                           <td className={`py-3 px-4 text-right font-semibold ${
-                            movimiento.categoria === 'ingresos' ? 'text-green-600' : 'text-red-600'
+                            movimiento.tipo_nombre === 'Ingresos' ? 'text-green-600' : 'text-red-600'
                           }`}>
-                            {movimiento.categoria === 'ingresos' ? '+' : '-'}{formatCurrency(movimiento.importe)}
+                            {formatCurrency(movimiento.importe)}
                           </td>
                           <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center space-x-2">

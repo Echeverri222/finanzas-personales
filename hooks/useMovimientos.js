@@ -18,9 +18,17 @@ export function useMovimientos() {
       setLoading(true);
       setError(null);
       
+      // Fetch movimientos with JOIN to get tipo_movimiento name
       const { data, error: supabaseError } = await supabase
         .from('movimientos')
-        .select('*')
+        .select(`
+          *,
+          tipo_movimiento!inner (
+            id,
+            nombre,
+            meta
+          )
+        `)
         .eq('usuario_id', userProfile.id)
         .order('fecha', { ascending: false });
 
@@ -28,7 +36,13 @@ export function useMovimientos() {
         throw new Error(supabaseError.message);
       }
 
-      setMovimientos(data || []);
+      // Add tipo_nombre field to match old structure
+      const movimientosConTipo = (data || []).map(mov => ({
+        ...mov,
+        tipo_nombre: mov.tipo_movimiento?.nombre || 'Sin categoría'
+      }));
+
+      setMovimientos(movimientosConTipo);
     } catch (err) {
       setError(err.message);
       console.error('Error fetching movimientos:', err);
@@ -49,13 +63,26 @@ export function useMovimientos() {
             usuario_id: userProfile.id,
           }
         ])
-        .select('*')
+        .select(`
+          *,
+          tipo_movimiento!inner (
+            id,
+            nombre,
+            meta
+          )
+        `)
         .single();
 
       if (error) throw error;
       
-      setMovimientos(prev => [data, ...prev]);
-      return { data, error: null };
+      // Add tipo_nombre field
+      const movimientoConTipo = {
+        ...data,
+        tipo_nombre: data.tipo_movimiento?.nombre || 'Sin categoría'
+      };
+      
+      setMovimientos(prev => [movimientoConTipo, ...prev]);
+      return { data: movimientoConTipo, error: null };
     } catch (err) {
       return { error: err.message };
     }
@@ -68,15 +95,28 @@ export function useMovimientos() {
         .update(updates)
         .eq('id', id)
         .eq('usuario_id', userProfile.id)
-        .select('*')
+        .select(`
+          *,
+          tipo_movimiento!inner (
+            id,
+            nombre,
+            meta
+          )
+        `)
         .single();
 
       if (error) throw error;
 
+      // Add tipo_nombre field
+      const movimientoConTipo = {
+        ...data,
+        tipo_nombre: data.tipo_movimiento?.nombre || 'Sin categoría'
+      };
+
       setMovimientos(prev =>
-        prev.map(mov => (mov.id === id ? data : mov))
+        prev.map(mov => (mov.id === id ? movimientoConTipo : mov))
       );
-      return { data, error: null };
+      return { data: movimientoConTipo, error: null };
     } catch (err) {
       return { error: err.message };
     }

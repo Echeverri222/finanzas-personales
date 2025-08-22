@@ -33,34 +33,44 @@ export default function AhorrosPage() {
       'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
     ];
 
-    let monthsToShow = 12;
     let startMonthsAgo = 11; // For 1 year, start 11 months ago
     
     switch (timePeriod) {
       case '3months':
-        monthsToShow = 3;
         startMonthsAgo = 2; // For 3 months, start 2 months ago
         break;
       case 'ytd':
         // From January 1st of current year to current month
         const currentMonth = new Date().getMonth();
-        monthsToShow = currentMonth + 1; // January = 0, so +1
         startMonthsAgo = currentMonth; // Start from January of current year
         break;
       case '1year':
       default:
-        monthsToShow = 12;
         startMonthsAgo = 11;
         break;
     }
 
     const chartData = [];
-    let cumulativeTotal = 0;
-
-    // Calculate cumulative total from the beginning of all data for proper cumulative effect
-    const allHistoricalData = [];
     
-    // First, collect all historical data in chronological order
+    // For cumulative calculation, we need to decide the baseline
+    let cumulativeTotal = 0;
+    
+    // For 3M and YTD, start cumulative from 0
+    // For 1Y, we might want to show true cumulative from beginning of data
+    if (timePeriod === '3months' || timePeriod === 'ytd') {
+      cumulativeTotal = 0; // Reset for these periods
+    } else {
+      // For 1Y, calculate all previous savings before the 12-month period
+      const allPreviousMovimientos = ahorrosMovimientos.filter(mov => {
+        const movDate = new Date(mov.fecha);
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+        return movDate < twelveMonthsAgo;
+      });
+      cumulativeTotal = allPreviousMovimientos.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
+    }
+    
+    // Collect data in chronological order
     for (let i = startMonthsAgo; i >= 0; i--) {
       const date = new Date();
       
@@ -82,14 +92,14 @@ export default function AhorrosPage() {
       const monthTotal = monthAhorros.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
       cumulativeTotal += monthTotal;
       
-      allHistoricalData.push({
+      chartData.push({
         mes: `${monthNames[month]} ${year.toString().slice(-2)}`,
         ahorro: monthTotal,
         acumulado: cumulativeTotal
       });
     }
 
-    return allHistoricalData;
+    return chartData;
   };
 
   const chartData = getChartData();

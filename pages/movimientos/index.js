@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import Card, { CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useMovimientos } from '../../hooks/useMovimientos';
@@ -8,13 +9,29 @@ import { useTiposMovimiento } from '../../hooks/useTiposMovimiento';
 export default function MovimientosPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState({ startDate: '', endDate: '' });
+  const [monthFilter, setMonthFilter] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editFormData, setEditFormData] = useState({});
   const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
 
+  const router = useRouter();
   const { movimientos, loading, error, updateMovimiento, deleteMovimiento } = useMovimientos();
   const { tiposMovimiento, loading: tiposLoading } = useTiposMovimiento();
+
+  // Handle URL parameters for filtering
+  useEffect(() => {
+    if (router.isReady) {
+      const { month, category } = router.query;
+      
+      if (month) {
+        setMonthFilter(month);
+      }
+      
+      if (category) {
+        setTypeFilter(category);
+      }
+    }
+  }, [router.isReady, router.query]);
 
   // Function to get tipo name by ID (exactly like old component)
   const getTipoNombre = (id) => {
@@ -43,11 +60,10 @@ export default function MovimientosPage() {
     const matchesType = typeFilter === 'all' || mov.id_tipo_movimiento === typeFilter;
     
     let matchesDate = true;
-    if (dateFilter.startDate) {
-      matchesDate = matchesDate && new Date(mov.fecha) >= new Date(dateFilter.startDate);
-    }
-    if (dateFilter.endDate) {
-      matchesDate = matchesDate && new Date(mov.fecha) <= new Date(dateFilter.endDate);
+    if (monthFilter) {
+      const movDate = new Date(mov.fecha);
+      const [filterYear, filterMonth] = monthFilter.split('-').map(Number);
+      matchesDate = movDate.getFullYear() === filterYear && movDate.getMonth() === filterMonth - 1;
     }
     
     return matchesSearch && matchesType && matchesDate;
@@ -129,7 +145,7 @@ export default function MovimientosPage() {
   const clearFilters = () => {
     setSearchTerm('');
     setTypeFilter('all');
-    setDateFilter({ startDate: '', endDate: '' });
+    setMonthFilter('');
   };
 
   if (loading) {
@@ -173,7 +189,7 @@ export default function MovimientosPage() {
           <CardTitle className="text-lg md:text-xl">Filtros</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Search */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -205,28 +221,15 @@ export default function MovimientosPage() {
               </select>
             </div>
 
-            {/* Date From */}
+            {/* Month Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Desde
+                Mes
               </label>
               <input
-                type="date"
-                value={dateFilter.startDate}
-                onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Date To */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Hasta
-              </label>
-              <input
-                type="date"
-                value={dateFilter.endDate}
-                onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
+                type="month"
+                value={monthFilter}
+                onChange={(e) => setMonthFilter(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

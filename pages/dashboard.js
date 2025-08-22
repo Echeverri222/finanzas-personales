@@ -6,6 +6,7 @@ import SystemStatus from '../components/SystemStatus';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 
 // Safe date creation function (exact copy from old component)
 const createSafeDate = (dateString) => {
@@ -65,6 +66,7 @@ export default function DashboardPage() {
   const [showSystemStatus, setShowSystemStatus] = useState(false);
   const { userProfile } = useUser();
   const [tiposMovimiento, setTiposMovimiento] = useState([]);
+  const router = useRouter();
 
   // Load movimientos (exact copy from old component)
   const cargarMovimientos = async () => {
@@ -249,6 +251,23 @@ export default function DashboardPage() {
     if (monthFilter === 'all') return 'Todo el año';
     const monthObj = months.find(m => m.value === monthFilter);
     return monthObj ? monthObj.label : '';
+  };
+
+  // Handle category click in pie chart
+  const handleCategoryClick = (categoryName) => {
+    // Find the tipo_movimiento ID for this category name
+    const tipo = tiposMovimiento.find(t => t.nombre === categoryName);
+    if (!tipo) return;
+
+    // Create the month filter in YYYY-MM format
+    const monthValue = monthFilter === 'all' ? '' : `${yearFilter}-${String(parseInt(monthFilter) + 1).padStart(2, '0')}`;
+    
+    // Navigate to movimientos page with filters
+    const searchParams = new URLSearchParams();
+    if (monthValue) searchParams.set('month', monthValue);
+    searchParams.set('category', tipo.id.toString());
+    
+    router.push(`/movimientos?${searchParams.toString()}`);
   };
 
   if (loading) {
@@ -498,6 +517,8 @@ export default function DashboardPage() {
                     innerRadius={90}
                     paddingAngle={2}
                     label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    onClick={(data) => handleCategoryClick(data.name)}
+                    style={{ cursor: 'pointer' }}
                   >
                     {categoryData.map((entry, index) => (
                       <Cell 

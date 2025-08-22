@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { useMovimientos } from '../hooks/useMovimientos';
@@ -8,6 +9,7 @@ import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
 export default function AhorrosPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [timePeriod, setTimePeriod] = useState('1year'); // 3months, ytd, 1year
 
   const { movimientos, loading } = useMovimientos();
   const { tiposMovimiento } = useTiposMovimiento();
@@ -24,32 +26,65 @@ export default function AhorrosPage() {
     return tipoNombre === 'Ahorro';
   });
 
-  // Calculate monthly data for the last 12 months
-  const monthlyData = [];
-  const monthNames = [
-    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
-  ];
+  // Calculate chart data based on selected time period
+  const getChartData = () => {
+    const monthNames = [
+      'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+    ];
 
-  for (let i = 11; i >= 0; i--) {
-    const date = new Date();
-    date.setMonth(date.getMonth() - i);
-    const month = date.getMonth();
-    const year = date.getFullYear();
+    let monthsToShow = 12;
+    let startDate = new Date();
     
-    const monthAhorros = ahorrosMovimientos.filter(mov => {
-      const movDate = new Date(mov.fecha);
-      return movDate.getFullYear() === year && movDate.getMonth() === month;
-    });
-    
-    const monthTotal = monthAhorros.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
-    
-    monthlyData.push({
-      mes: `${monthNames[month]} ${year.toString().slice(-2)}`,
-      ahorro: monthTotal,
-      acumulado: monthlyData.length > 0 ? monthlyData[monthlyData.length - 1].acumulado + monthTotal : monthTotal
-    });
-  }
+    switch (timePeriod) {
+      case '3months':
+        monthsToShow = 3;
+        break;
+      case 'ytd':
+        // From January 1st of current year to now
+        startDate = new Date(new Date().getFullYear(), 0, 1);
+        monthsToShow = new Date().getMonth() + 1;
+        break;
+      case '1year':
+      default:
+        monthsToShow = 12;
+        break;
+    }
+
+    const chartData = [];
+    let cumulativeTotal = 0;
+
+    for (let i = monthsToShow - 1; i >= 0; i--) {
+      const date = new Date();
+      
+      if (timePeriod === 'ytd') {
+        date.setFullYear(new Date().getFullYear(), i, 1);
+      } else {
+        date.setMonth(date.getMonth() - i);
+      }
+      
+      const month = date.getMonth();
+      const year = date.getFullYear();
+      
+      const monthAhorros = ahorrosMovimientos.filter(mov => {
+        const movDate = new Date(mov.fecha);
+        return movDate.getFullYear() === year && movDate.getMonth() === month;
+      });
+      
+      const monthTotal = monthAhorros.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
+      cumulativeTotal += monthTotal;
+      
+      chartData.push({
+        mes: `${monthNames[month]} ${year.toString().slice(-2)}`,
+        ahorro: monthTotal,
+        acumulado: cumulativeTotal
+      });
+    }
+
+    return chartData;
+  };
+
+  const chartData = getChartData();
 
   // Current month data
   const currentMovimientos = ahorrosMovimientos.filter(mov => {
@@ -61,8 +96,8 @@ export default function AhorrosPage() {
   const totalSavings = ahorrosMovimientos.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
   
   // Calculate averages and rates
-  const avgMonthlySavings = monthlyData.length > 0 ? totalSavings / 12 : 0;
-  const lastMonthSavings = monthlyData.length > 1 ? monthlyData[monthlyData.length - 2].ahorro : 0;
+  const avgMonthlySavings = chartData.length > 0 ? totalSavings / 12 : 0;
+  const lastMonthSavings = chartData.length > 1 ? chartData[chartData.length - 2].ahorro : 0;
   const growthRate = lastMonthSavings > 0 ? ((currentMonthSavings - lastMonthSavings) / lastMonthSavings * 100) : 0;
 
   // Estimate savings rate (simple calculation based on total movements)
@@ -178,39 +213,95 @@ export default function AhorrosPage() {
       {/* Cumulative Evolution Chart */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg md:text-xl">Evolución Acumulada de Ahorros</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg md:text-xl">Evolución Acumulada de Ahorros</CardTitle>
+            
+            {/* Time Period Selector */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setTimePeriod('3months')}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  timePeriod === '3months'
+                    ? 'bg-blue-100 text-blue-700 font-medium'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                3M
+              </button>
+              <button
+                onClick={() => setTimePeriod('ytd')}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  timePeriod === 'ytd'
+                    ? 'bg-blue-100 text-blue-700 font-medium'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                YTD
+              </button>
+              <button
+                onClick={() => setTimePeriod('1year')}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  timePeriod === '1year'
+                    ? 'bg-blue-100 text-blue-700 font-medium'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                1Y
+              </button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-80">
-            {monthlyData.length > 0 ? (
-              <div className="space-y-4">
-                {/* Simple chart representation */}
-                <div className="grid grid-cols-6 gap-2">
-                  {monthlyData.slice(-6).map((data, index) => {
-                    const maxValue = Math.max(...monthlyData.map(d => d.acumulado));
-                    const height = maxValue > 0 ? (data.acumulado / maxValue) * 100 : 0;
-                    
-                    return (
-                      <div key={index} className="text-center">
-                        <div className="h-32 flex items-end justify-center">
-                          <div 
-                            className="w-8 bg-blue-500 rounded-t"
-                            style={{ height: `${Math.max(height, 5)}%` }}
-                            title={`${data.mes}: ${formatCurrency(data.acumulado)} acumulado`}
-                          ></div>
-                        </div>
-                        <div className="text-xs text-gray-600 mt-1">{data.mes}</div>
-                        <div className="text-xs font-medium">{formatCurrency(data.acumulado)}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={chartData}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis 
+                    dataKey="mes" 
+                    stroke="#6b7280"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis 
+                    stroke="#6b7280"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                    formatter={(value, name) => [
+                      formatCurrency(value),
+                      name === 'acumulado' ? 'Acumulado' : 'Ahorro del mes'
+                    ]}
+                    labelStyle={{ color: '#374151', fontWeight: 'medium' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="acumulado"
+                    stroke="#3b82f6"
+                    strokeWidth={3}
+                    dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center">
                   <div className="text-4xl mb-2">📊</div>
-                  <p>No hay datos de ahorros</p>
+                  <p>No hay datos de ahorros para este período</p>
                 </div>
               </div>
             )}

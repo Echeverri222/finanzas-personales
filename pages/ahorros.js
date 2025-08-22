@@ -34,31 +34,39 @@ export default function AhorrosPage() {
     ];
 
     let monthsToShow = 12;
-    let startDate = new Date();
+    let startMonthsAgo = 11; // For 1 year, start 11 months ago
     
     switch (timePeriod) {
       case '3months':
         monthsToShow = 3;
+        startMonthsAgo = 2; // For 3 months, start 2 months ago
         break;
       case 'ytd':
-        // From January 1st of current year to now
-        startDate = new Date(new Date().getFullYear(), 0, 1);
-        monthsToShow = new Date().getMonth() + 1;
+        // From January 1st of current year to current month
+        const currentMonth = new Date().getMonth();
+        monthsToShow = currentMonth + 1; // January = 0, so +1
+        startMonthsAgo = currentMonth; // Start from January of current year
         break;
       case '1year':
       default:
         monthsToShow = 12;
+        startMonthsAgo = 11;
         break;
     }
 
     const chartData = [];
     let cumulativeTotal = 0;
 
-    for (let i = monthsToShow - 1; i >= 0; i--) {
+    // Calculate cumulative total from the beginning of all data for proper cumulative effect
+    const allHistoricalData = [];
+    
+    // First, collect all historical data in chronological order
+    for (let i = startMonthsAgo; i >= 0; i--) {
       const date = new Date();
       
       if (timePeriod === 'ytd') {
-        date.setFullYear(new Date().getFullYear(), i, 1);
+        // For YTD, start from January of current year
+        date.setFullYear(new Date().getFullYear(), startMonthsAgo - i, 1);
       } else {
         date.setMonth(date.getMonth() - i);
       }
@@ -74,14 +82,14 @@ export default function AhorrosPage() {
       const monthTotal = monthAhorros.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
       cumulativeTotal += monthTotal;
       
-      chartData.push({
+      allHistoricalData.push({
         mes: `${monthNames[month]} ${year.toString().slice(-2)}`,
         ahorro: monthTotal,
         acumulado: cumulativeTotal
       });
     }
 
-    return chartData;
+    return allHistoricalData;
   };
 
   const chartData = getChartData();

@@ -52,25 +52,26 @@ export default function AhorrosPage() {
 
     const chartData = [];
     
-    // For cumulative calculation, we need to decide the baseline
-    let cumulativeTotal = 0;
+    // Calculate the true cumulative total up to the start of our period
+    // This ensures we show the real accumulated amount at each point in time
     
-    // For 3M and YTD, start cumulative from 0
-    // For 1Y, we might want to show true cumulative from beginning of data
-    if (timePeriod === '3months' || timePeriod === 'ytd') {
-      cumulativeTotal = 0; // Reset for these periods
+    // First, get all savings before our period starts
+    const periodStartDate = new Date();
+    if (timePeriod === 'ytd') {
+      periodStartDate.setFullYear(new Date().getFullYear(), 0, 1); // January 1st of current year
     } else {
-      // For 1Y, calculate all previous savings before the 12-month period
-      const allPreviousMovimientos = ahorrosMovimientos.filter(mov => {
-        const movDate = new Date(mov.fecha);
-        const twelveMonthsAgo = new Date();
-        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-        return movDate < twelveMonthsAgo;
-      });
-      cumulativeTotal = allPreviousMovimientos.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
+      periodStartDate.setMonth(periodStartDate.getMonth() - startMonthsAgo);
     }
     
-    // Collect data in chronological order
+    // Calculate all savings before the period starts
+    const previousSavings = ahorrosMovimientos.filter(mov => {
+      const movDate = new Date(mov.fecha);
+      return movDate < periodStartDate;
+    });
+    
+    let cumulativeTotal = previousSavings.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
+    
+    // Now collect data for the selected period in chronological order
     for (let i = startMonthsAgo; i >= 0; i--) {
       const date = new Date();
       

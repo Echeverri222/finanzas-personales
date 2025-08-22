@@ -2,6 +2,25 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
 
+// Safe date creation function (same as dashboard)
+const createSafeDate = (dateString) => {
+  if (!dateString) return new Date();
+  
+  // Si es string de fecha (YYYY-MM-DD), crear fecha local
+  if (typeof dateString === 'string' && dateString.includes('-')) {
+    const [year, month, day] = dateString.split('T')[0].split('-');
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  }
+  
+  // Si ya es objeto Date, devolverlo tal como está
+  if (dateString instanceof Date) {
+    return dateString;
+  }
+  
+  // Para otros casos, intentar parsear normalmente
+  return new Date(dateString);
+};
+
 export function useMovimientos() {
   const [movimientos, setMovimientos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,9 +55,11 @@ export function useMovimientos() {
         throw new Error(supabaseError.message);
       }
 
-      // Add tipo_nombre field to match old structure
+      // Add tipo_nombre field and process dates consistently
       const movimientosConTipo = (data || []).map(mov => ({
         ...mov,
+        fecha: createSafeDate(mov.fecha),
+        importe: Number(mov.importe),
         tipo_nombre: mov.tipo_movimiento?.nombre || 'Sin categoría'
       }));
 
@@ -75,9 +96,11 @@ export function useMovimientos() {
 
       if (error) throw error;
       
-      // Add tipo_nombre field
+      // Add tipo_nombre field and process dates consistently
       const movimientoConTipo = {
         ...data,
+        fecha: createSafeDate(data.fecha),
+        importe: Number(data.importe),
         tipo_nombre: data.tipo_movimiento?.nombre || 'Sin categoría'
       };
       
@@ -107,9 +130,11 @@ export function useMovimientos() {
 
       if (error) throw error;
 
-      // Add tipo_nombre field
+      // Add tipo_nombre field and process dates consistently
       const movimientoConTipo = {
         ...data,
+        fecha: createSafeDate(data.fecha),
+        importe: Number(data.importe),
         tipo_nombre: data.tipo_movimiento?.nombre || 'Sin categoría'
       };
 

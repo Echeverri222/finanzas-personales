@@ -6,6 +6,25 @@ import Button from '../components/ui/Button';
 import { useMovimientos } from '../hooks/useMovimientos';
 import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
 
+// Safe date creation function (same as dashboard)
+const createSafeDate = (dateString) => {
+  if (!dateString) return new Date();
+  
+  // Si es string de fecha (YYYY-MM-DD), crear fecha local
+  if (typeof dateString === 'string' && dateString.includes('-')) {
+    const [year, month, day] = dateString.split('T')[0].split('-');
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  }
+  
+  // Si ya es objeto Date, devolverlo tal como está
+  if (dateString instanceof Date) {
+    return dateString;
+  }
+  
+  // Para otros casos, intentar parsear normalmente
+  return new Date(dateString);
+};
+
 export default function AhorrosPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -65,7 +84,7 @@ export default function AhorrosPage() {
     
     // Calculate all savings before the period starts
     const previousSavings = ahorrosMovimientos.filter(mov => {
-      const movDate = new Date(mov.fecha);
+      const movDate = createSafeDate(mov.fecha);
       return movDate < periodStartDate;
     });
     
@@ -86,7 +105,7 @@ export default function AhorrosPage() {
       const year = date.getFullYear();
       
       const monthAhorros = ahorrosMovimientos.filter(mov => {
-        const movDate = new Date(mov.fecha);
+        const movDate = createSafeDate(mov.fecha);
         return movDate.getFullYear() === year && movDate.getMonth() === month;
       });
       
@@ -107,7 +126,7 @@ export default function AhorrosPage() {
 
   // Current month data
   const currentMovimientos = ahorrosMovimientos.filter(mov => {
-    const movDate = new Date(mov.fecha);
+    const movDate = createSafeDate(mov.fecha);
     return movDate.getFullYear() === selectedYear && movDate.getMonth() === selectedMonth;
   });
 

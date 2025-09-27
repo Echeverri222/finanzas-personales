@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Card, { CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import MonthYearPicker from '../../components/ui/MonthYearPicker';
 import { useMovimientos } from '../../hooks/useMovimientos';
 import { useTiposMovimiento } from '../../hooks/useTiposMovimiento';
 
@@ -60,10 +61,19 @@ export default function MovimientosPage() {
     const matchesType = typeFilter === 'all' || mov.id_tipo_movimiento === typeFilter;
     
     let matchesDate = true;
-    if (monthFilter) {
-      const movDate = new Date(mov.fecha);
+    if (monthFilter && monthFilter.trim() !== '') {
+      // mov.fecha is already a Date object from useMovimientos hook
+      const movDate = mov.fecha instanceof Date ? mov.fecha : new Date(mov.fecha);
       const [filterYear, filterMonth] = monthFilter.split('-').map(Number);
-      matchesDate = movDate.getFullYear() === filterYear && movDate.getMonth() === filterMonth - 1;
+      
+      // Ensure we have valid year and month
+      if (filterYear && filterMonth) {
+        // Ensure we handle the date comparison correctly
+        const movYear = movDate.getFullYear();
+        const movMonth = movDate.getMonth() + 1; // getMonth() returns 0-11, we need 1-12
+        
+        matchesDate = movYear === filterYear && movMonth === filterMonth;
+      }
     }
     
     return matchesSearch && matchesType && matchesDate;
@@ -164,7 +174,11 @@ export default function MovimientosPage() {
   const clearFilters = () => {
     setSearchTerm('');
     setTypeFilter('all');
-    setMonthFilter('');
+    setMonthFilter(''); // This will select "Todos los meses"
+    // Also clear URL parameters if they exist
+    if (router.isReady) {
+      router.replace('/movimientos', undefined, { shallow: true });
+    }
   };
 
   if (loading) {
@@ -208,7 +222,7 @@ export default function MovimientosPage() {
           <CardTitle className="text-lg md:text-xl">Filtros</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Search */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -240,16 +254,15 @@ export default function MovimientosPage() {
               </select>
             </div>
 
-            {/* Month Filter */}
+            {/* Month/Year Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mes
+                Período
               </label>
-              <input
-                type="month"
+              <MonthYearPicker 
                 value={monthFilter}
-                onChange={(e) => setMonthFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={setMonthFilter}
+                className="border border-gray-300 rounded-lg p-3"
               />
             </div>
           </div>
@@ -270,6 +283,14 @@ export default function MovimientosPage() {
             <CardTitle className="text-lg md:text-xl">
               Movimientos ({filteredMovimientos.length})
             </CardTitle>
+            {/* Show active filters indicator */}
+            {(searchTerm || typeFilter !== 'all' || (monthFilter && monthFilter.trim() !== '')) && (
+              <div className="text-sm text-gray-500 bg-blue-50 px-2 py-1 rounded">
+                {searchTerm && `Búsqueda: "${searchTerm}" `}
+                {typeFilter !== 'all' && `Categoría filtrada `}
+                {monthFilter && monthFilter.trim() !== '' && `Período: ${monthFilter} `}
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>

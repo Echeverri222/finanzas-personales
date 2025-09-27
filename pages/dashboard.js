@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { COLORS, CHART_DIMENSIONS, CURRENCY } from '../lib/constants';
 
 // Safe date creation function (exact copy from old component)
 const createSafeDate = (dateString) => {
@@ -27,17 +28,7 @@ const createSafeDate = (dateString) => {
   return new Date(dateString);
 };
 
-// Custom color scheme from old component
-const COLORS = {
-  'Ingresos': '#10B981',
-  'Alimentacion': '#60A5FA',
-  'Transporte': '#34D399',
-  'Compras': '#F87171',
-  'Gastos fijos': '#FBBF24',
-  'Ahorro': '#6366F1',
-  'Salidas': '#34D399',
-  'Otros': '#A78BFA'
-};
+// Colors now imported from constants file
 
 // Custom tooltip from old component
 const CustomTooltip = ({ active, payload, label }) => {
@@ -239,11 +230,11 @@ export default function DashboardPage() {
   ];
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(CURRENCY.LOCALE, {
       style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      currency: CURRENCY.CURRENCY,
+      minimumFractionDigits: CURRENCY.MIN_FRACTION_DIGITS,
+      maximumFractionDigits: CURRENCY.MAX_FRACTION_DIGITS,
     }).format(amount);
   };
 
@@ -513,8 +504,8 @@ export default function DashboardPage() {
                   <Pie 
                     data={categoryData} 
                     dataKey="value" 
-                    outerRadius="70%"
-                    innerRadius="45%"
+                    outerRadius={CHART_DIMENSIONS.PIE_OUTER_RADIUS}
+                    innerRadius={CHART_DIMENSIONS.PIE_INNER_RADIUS}
                     paddingAngle={2}
                     label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
                     onClick={(data) => handleCategoryClick(data.name)}

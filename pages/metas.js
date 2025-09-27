@@ -1,12 +1,17 @@
 import { useState } from 'react';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import { useMetas } from '../hooks/useMetas';
+import { MetasPageSkeleton } from '../components/ui/LoadingSkeleton';
 
 export default function MetasPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
   const [selectedMeta, setSelectedMeta] = useState(null);
-  const [metas, setMetas] = useState([]); // Start with empty array instead of mock data
+  const [saving, setSaving] = useState(false);
+  
+  // Use database hook instead of local state
+  const { metas, loading, error, createMeta, deleteMeta, addMoneyToMeta } = useMetas();
 
   const [newMeta, setNewMeta] = useState({
     nombre: '',
@@ -45,36 +50,71 @@ export default function MetasPage() {
     return 'bg-blue-500';
   };
 
-  const handleCreateMeta = (e) => {
+  const handleCreateMeta = async (e) => {
     e.preventDefault();
-    const meta = {
-      id: Date.now(),
-      nombre: newMeta.nombre,
-      objetivo: parseFloat(newMeta.objetivo),
-      actual: 0,
-      fechaCreacion: new Date().toISOString().split('T')[0]
-    };
-    setMetas([...metas, meta]);
-    setNewMeta({ nombre: '', objetivo: '', actual: 0 });
-    setShowCreateModal(false);
+    setSaving(true);
+    
+    try {
+      const metaData = {
+        nombre: newMeta.nombre.trim(),
+        objetivo: parseFloat(newMeta.objetivo)
+      };
+      
+      const { error } = await createMeta(metaData);
+      if (error) {
+        alert('Error al crear la meta: ' + error);
+        return;
+      }
+      
+      // Reset form and close modal
+      setNewMeta({ nombre: '', objetivo: '', actual: 0 });
+      setShowCreateModal(false);
+    } catch (err) {
+      alert('Error al crear la meta: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleAddMoney = (e) => {
+  const handleAddMoney = async (e) => {
     e.preventDefault();
-    const cantidad = parseFloat(addMoneyForm.cantidad);
-    setMetas(metas.map(meta => 
-      meta.id === selectedMeta.id 
-        ? { ...meta, actual: meta.actual + cantidad }
-        : meta
-    ));
-    setAddMoneyForm({ cantidad: '' });
-    setShowAddMoneyModal(false);
-    setSelectedMeta(null);
+    setSaving(true);
+    
+    try {
+      const cantidad = parseFloat(addMoneyForm.cantidad);
+      
+      if (isNaN(cantidad) || cantidad <= 0) {
+        alert('Por favor ingresa una cantidad válida');
+        return;
+      }
+      
+      const { error } = await addMoneyToMeta(selectedMeta.id, cantidad);
+      if (error) {
+        alert('Error al añadir dinero: ' + error);
+        return;
+      }
+      
+      // Reset form and close modal
+      setAddMoneyForm({ cantidad: '' });
+      setShowAddMoneyModal(false);
+      setSelectedMeta(null);
+    } catch (err) {
+      alert('Error al añadir dinero: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteMeta = (id) => {
+  const handleDeleteMeta = async (id) => {
     if (confirm('¿Estás seguro de que quieres eliminar esta meta?')) {
-      setMetas(metas.filter(meta => meta.id !== id));
+      try {
+        const { error } = await deleteMeta(id);
+        if (error) {
+          alert('Error al eliminar la meta: ' + error);
+        }
+      } catch (err) {
+        alert('Error al eliminar la meta: ' + err.message);
+      }
     }
   };
 
@@ -84,6 +124,23 @@ export default function MetasPage() {
     totalObjetivo: metas.reduce((sum, m) => sum + m.objetivo, 0),
     totalAhorrado: metas.reduce((sum, m) => sum + m.actual, 0)
   };
+
+  // Add loading state
+  if (loading) {
+    return <MetasPageSkeleton />;
+  }
+
+  // Add error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg">
+          <p className="font-bold">Error</p>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -286,8 +343,8 @@ export default function MetasPage() {
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" className="flex-1">
-                    Crear Meta
+                  <Button type="submit" className="flex-1" disabled={saving}>
+                    {saving ? 'Creando...' : 'Crear Meta'}
                   </Button>
                 </div>
               </form>
@@ -341,8 +398,8 @@ export default function MetasPage() {
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" className="flex-1">
-                    Añadir Dinero
+                  <Button type="submit" className="flex-1" disabled={saving}>
+                    {saving ? 'Añadiendo...' : 'Añadir Dinero'}
                   </Button>
                 </div>
               </form>

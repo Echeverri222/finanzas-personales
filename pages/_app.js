@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { UserProvider } from '../contexts/UserContext';
 import Layout from '../components/Layout';
 import Auth from '../components/Auth';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 function AppContent({ Component, pageProps }) {
   const { user, loading } = useAuth();
@@ -21,18 +22,24 @@ function AppContent({ Component, pageProps }) {
   }
 
   return (
-    <UserProvider>
-      <Layout>
-        <Component {...pageProps} />
-      </Layout>
-    </UserProvider>
+    <ErrorBoundary>
+      <UserProvider>
+        <Layout>
+          <ErrorBoundary>
+            <Component {...pageProps} />
+          </ErrorBoundary>
+        </Layout>
+      </UserProvider>
+    </ErrorBoundary>
   );
 }
 
 export default function MyApp({ Component, pageProps }) {
   return (
-    <AuthProvider>
-      <AppContent Component={Component} pageProps={pageProps} />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppContent Component={Component} pageProps={pageProps} />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 } 

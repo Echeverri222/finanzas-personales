@@ -96,11 +96,30 @@ export default function MovimientosPage() {
 
   const handleEdit = (movimiento) => {
     setEditingId(movimiento.id);
+    
+    // Handle date conversion properly - movimiento.fecha is already a Date object from useMovimientos
+    let fechaString = '';
+    try {
+      if (movimiento.fecha instanceof Date) {
+        // If it's already a Date object, convert to YYYY-MM-DD format
+        fechaString = movimiento.fecha.toISOString().split('T')[0];
+      } else if (typeof movimiento.fecha === 'string') {
+        // If it's a string, extract the date part
+        fechaString = movimiento.fecha.split('T')[0];
+      } else {
+        // Fallback to today's date
+        fechaString = new Date().toISOString().split('T')[0];
+      }
+    } catch (error) {
+      console.error('Error processing date:', error);
+      fechaString = new Date().toISOString().split('T')[0];
+    }
+    
     setEditFormData({
-      fecha: movimiento.fecha.split('T')[0], // Convert ISO to YYYY-MM-DD
-      nombre: movimiento.nombre,
+      fecha: fechaString,
+      nombre: movimiento.nombre || '',
       importe: Math.abs(movimiento.importe).toString(),
-      id_tipo_movimiento: movimiento.id_tipo_movimiento
+      id_tipo_movimiento: movimiento.id_tipo_movimiento || ''
     });
   };
 

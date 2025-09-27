@@ -513,8 +513,8 @@ export default function DashboardPage() {
                   <Pie 
                     data={categoryData} 
                     dataKey="value" 
-                    outerRadius={130}
-                    innerRadius={90}
+                    outerRadius="70%"
+                    innerRadius="45%"
                     paddingAngle={2}
                     label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
                     onClick={(data) => handleCategoryClick(data.name)}

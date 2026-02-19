@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { UserProvider } from '../contexts/UserContext';
 import Layout from '../components/Layout';
 import Auth from '../components/Auth';
+import RecurringProcessor from '../components/RecurringProcessor';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 function AppContent({ Component, pageProps }) {
@@ -24,6 +25,7 @@ function AppContent({ Component, pageProps }) {
   return (
     <ErrorBoundary>
       <UserProvider>
+        <RecurringProcessor />
         <Layout>
           <ErrorBoundary>
             <Component {...pageProps} />

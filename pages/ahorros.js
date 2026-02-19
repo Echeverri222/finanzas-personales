@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import Button from '../components/ui/Button';
 import { useMovimientos } from '../hooks/useMovimientos';
 import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
 
@@ -191,106 +189,93 @@ export default function AhorrosPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Ahorros</h1>
-          <p className="text-gray-600 mt-1">
-            Seguimiento de tus ahorros para {months[selectedMonth]} {selectedYear}
-          </p>
-        </div>
-        
-        {/* Date Filters */}
-        <div className="flex items-center space-x-3">
-          <select 
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Header - Stitch style */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+          Mis Ahorros
+        </h1>
+        <div className="flex items-center gap-2">
+          <select
             value={selectedMonth}
-            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+            className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary text-slate-900 dark:text-white"
           >
             {months.map((month, index) => (
               <option key={index} value={index}>{month}</option>
             ))}
           </select>
-          
-          <select 
+          <select
             value={selectedYear}
-            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+            className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary text-slate-900 dark:text-white"
           >
-            {years.map(year => (
+            {years.map((year) => (
               <option key={year} value={year}>{year}</option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg md:text-xl">Acciones Rápidas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3 md:gap-4">
+      {/* Hero card - Stitch style */}
+      <div className="rounded-xl p-6 shadow-lg bg-primary text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+        <div className="relative z-10">
+          <p className="text-white/80 text-sm font-medium mb-1">Saldo Total Ahorrado</p>
+          <p className="text-3xl font-bold tracking-tight">{formatCurrency(totalSavings)}</p>
+          <div className="mt-6 flex gap-3 flex-wrap">
             <Link href="/movimientos/nuevo?tipo=ahorros">
-              <button className="w-full p-3 md:p-4 rounded-xl bg-blue-50 text-blue-700 hover:opacity-80 transition-opacity text-center">
-                <div className="text-lg md:text-2xl mb-1 md:mb-2">🏦</div>
-                <div className="font-medium text-xs md:text-sm">Nuevo Ahorro</div>
+              <button className="flex-1 flex items-center justify-center gap-2 bg-white text-primary rounded-lg py-2.5 px-4 font-bold text-sm hover:bg-blue-50 transition-colors">
+                <span className="material-symbols-outlined text-sm">add_circle</span>
+                Ahorrar más
               </button>
             </Link>
             <Link href="/metas">
-              <button className="w-full p-4 rounded-xl bg-purple-50 text-purple-700 hover:opacity-80 transition-opacity text-center">
-                <div className="text-2xl mb-2">🎯</div>
-                <div className="font-medium text-sm">Crear Meta</div>
+              <button className="flex-1 flex items-center justify-center gap-2 bg-primary/20 border border-white/30 text-white rounded-lg py-2.5 px-4 font-bold text-sm hover:bg-primary/40 transition-colors">
+                <span className="material-symbols-outlined text-sm">track_changes</span>
+                Metas
               </button>
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Cumulative Evolution Chart */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg md:text-xl">Evolución Acumulada de Ahorros</CardTitle>
-            
-            {/* Time Period Selector */}
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setTimePeriod('3months')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                  timePeriod === '3months'
-                    ? 'bg-blue-100 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                3M
-              </button>
-              <button
-                onClick={() => setTimePeriod('ytd')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                  timePeriod === 'ytd'
-                    ? 'bg-blue-100 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                YTD
-              </button>
-              <button
-                onClick={() => setTimePeriod('1year')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                  timePeriod === '1year'
-                    ? 'bg-blue-100 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                1Y
-              </button>
-            </div>
+      {/* Cumulative Evolution Chart - Stitch style */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl p-4 md:p-6 shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-slate-900 dark:text-white text-base font-bold">Crecimiento</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-xs">Evolución acumulada</p>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
+            
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setTimePeriod('3months')}
+              className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
+                timePeriod === '3months' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-primary/10'
+              }`}
+            >
+              3M
+            </button>
+            <button
+              onClick={() => setTimePeriod('ytd')}
+              className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
+                timePeriod === 'ytd' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-primary/10'
+              }`}
+            >
+              YTD
+            </button>
+            <button
+              onClick={() => setTimePeriod('1year')}
+              className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
+                timePeriod === '1year' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-primary/10'
+              }`}
+            >
+              1Y
+            </button>
+          </div>
+        </div>
+        <div className="h-80 mt-4">
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
@@ -336,16 +321,15 @@ export default function AhorrosPage() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="flex items-center justify-center h-full text-slate-500 dark:text-slate-400">
                 <div className="text-center">
-                  <div className="text-4xl mb-2">📊</div>
+                  <span className="material-symbols-outlined text-4xl mb-2 block">savings</span>
                   <p>No hay datos de ahorros para este período</p>
                 </div>
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 } 

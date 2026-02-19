@@ -8,19 +8,37 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    let cancelled = false;
+
+    // Check current session (with timeout so we don't hang forever)
+    const sessionPromise = supabase.auth.getSession();
+    const timeout = new Promise((resolve) => setTimeout(resolve, 8000));
+
+    Promise.race([sessionPromise, timeout])
+      .then((result) => {
+        if (cancelled) return;
+        const session = result?.data?.session;
+        setUser(session?.user ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
+      if (!cancelled) {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email) => {
@@ -65,7 +83,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ user, loading, signIn, signInWithGoogle, signOut }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };

@@ -1,70 +1,207 @@
-# Getting Started with Create React App
+# 💰 Finanzas Personales
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Una aplicación web moderna para la gestión de finanzas personales, construida con Next.js y Supabase.
 
-## Available Scripts
+## 🚀 Características
 
-In the project directory, you can run:
+- **📊 Dashboard Interactivo**: Visualización de ingresos, gastos y ahorros con gráficos dinámicos
+- **💳 Gestión de Movimientos**: Registro y seguimiento de transacciones financieras
+- **🎯 Metas Financieras**: Establecimiento y monitoreo de objetivos de ahorro
+- **📈 Análisis de Inversiones**: Seguimiento de acciones y análisis de mercado
+- **🔐 Autenticación Segura**: Login con Google y autenticación por email
+- **📱 Diseño Responsivo**: Optimizado para dispositivos móviles y desktop
 
-### `npm start`
+## 🛠️ Tecnologías
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Frontend**: Next.js 14, React 18, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL, Auth, Real-time)
+- **Gráficos**: Recharts
+- **Autenticación**: Supabase Auth
+- **APIs**: Financial Modeling Prep (para datos de acciones)
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 📋 Prerequisitos
 
-### `npm test`
+- Node.js 18+ 
+- npm o yarn
+- Cuenta de Supabase
+- API Key de Financial Modeling Prep (opcional)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## ⚙️ Instalación
 
-### `npm run build`
+1. **Clonar el repositorio**
+   ```bash
+   git clone <repository-url>
+   cd finanzas-personales
+   ```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+2. **Instalar dependencias**
+   ```bash
+   npm install
+   ```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+3. **Configurar variables de entorno**
+   
+   Crear archivo `.env.local`:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=tu_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_key
+   NEXT_PUBLIC_FMP_API_KEY=tu_fmp_api_key
+   ```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+4. **Configurar base de datos**
+   
+   Ejecutar las siguientes tablas en Supabase:
+   ```sql
+   -- Tabla de usuarios
+   CREATE TABLE usuarios (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     email TEXT UNIQUE NOT NULL,
+     nombre TEXT,
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+   );
 
-### `npm run eject`
+   -- Tabla de tipos de movimiento
+   CREATE TABLE tipo_movimiento (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     usuario_id UUID REFERENCES usuarios(id),
+     nombre TEXT NOT NULL,
+     meta DECIMAL DEFAULT 0,
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+   );
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+   -- Tabla de movimientos
+   CREATE TABLE movimientos (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     usuario_id UUID REFERENCES usuarios(id),
+     id_tipo_movimiento UUID REFERENCES tipo_movimiento(id),
+     nombre TEXT NOT NULL,
+     importe DECIMAL NOT NULL,
+     fecha DATE NOT NULL,
+     descripcion TEXT,
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+   );
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+   -- Tabla de metas
+   CREATE TABLE metas (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     usuario_id UUID REFERENCES usuarios(id),
+     nombre TEXT NOT NULL,
+     monto_objetivo DECIMAL NOT NULL,
+     monto_actual DECIMAL DEFAULT 0,
+     fecha_objetivo DATE,
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+   );
+   ```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## 🚀 Uso
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Desarrollo
+```bash
+npm run dev
+```
+Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
-## Learn More
+### Producción
+```bash
+npm run build
+npm start
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Linting
+```bash
+npm run lint
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## 📁 Estructura del Proyecto
 
-### Code Splitting
+```
+finanzas-personales/
+├── components/          # Componentes reutilizables
+│   ├── Auth.jsx        # Componente de autenticación
+│   ├── dashboard/      # Componentes del dashboard
+│   ├── ui/            # Componentes de UI (Button, Card, etc.)
+│   └── ...
+├── contexts/          # Contextos de React
+│   ├── AuthContext.js # Contexto de autenticación
+│   └── UserContext.js # Contexto de usuario
+├── hooks/            # Custom hooks
+│   ├── useMovimientos.js
+│   ├── useMetas.js
+│   └── useStockData.js
+├── lib/              # Utilidades y configuración
+│   ├── supabaseClient.js
+│   └── constants.js
+├── pages/            # Páginas de Next.js
+│   ├── dashboard.js  # Dashboard principal
+│   ├── movimientos/  # Gestión de movimientos
+│   ├── metas.js      # Gestión de metas
+│   └── ...
+└── styles/           # Estilos globales
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## 🔧 Funcionalidades Principales
 
-### Analyzing the Bundle Size
+### Dashboard
+- Resumen financiero con gráficos interactivos
+- Filtros por año, mes y categoría
+- Evolución mensual de ingresos y gastos
+- Distribución de gastos por categoría
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### Movimientos
+- Registro de ingresos, gastos y ahorros
+- Categorización personalizable
+- Filtros y búsqueda avanzada
+- Historial completo de transacciones
 
-### Making a Progressive Web App
+### Metas
+- Establecimiento de objetivos financieros
+- Seguimiento de progreso
+- Alertas de cumplimiento
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### Análisis de Inversiones
+- Seguimiento de acciones
+- Gráficos de rendimiento
+- Datos en tiempo real (con API key)
 
-### Advanced Configuration
+## 🚨 Estado Actual
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+⚠️ **IMPORTANTE**: Esta aplicación está en desarrollo. Algunas funcionalidades pueden usar datos de prueba.
 
-### Deployment
+### ✅ Completado
+- Autenticación con Supabase
+- Dashboard con gráficos
+- Gestión básica de movimientos
+- Interfaz responsiva
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+### 🔄 En Desarrollo
+- Integración completa con base de datos
+- API de acciones en tiempo real
+- Optimizaciones de rendimiento
 
-### `npm run build` fails to minify
+### 📋 Pendiente
+- Tests automatizados
+- Documentación de API
+- Optimizaciones de SEO
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 🤝 Contribución
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
+
+## 📞 Soporte
+
+Si tienes preguntas o necesitas ayuda, por favor:
+- Abre un issue en GitHub
+- Revisa la documentación de [Supabase](https://supabase.com/docs)
+- Consulta la documentación de [Next.js](https://nextjs.org/docs)
+
+---
+
+**Desarrollado con ❤️ para ayudarte a gestionar mejor tus finanzas personales.**

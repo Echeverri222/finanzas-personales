@@ -5,6 +5,8 @@
 import { useState, useMemo } from 'react';
 import { useMovimientos } from './useMovimientos';
 import { useTiposMovimiento } from './useTiposMovimiento';
+import { useTags } from './useTags';
+import { useMovimientoTags } from './useMovimientoTags';
 import { createSafeDate, MONTH_NAMES, MONTHS_FULL } from '../lib/dateUtils';
 import { CURRENCY } from '../lib/constants';
 
@@ -14,42 +16,49 @@ const DEFAULT_MONTH = new Date().getMonth().toString();
 export function useDashboardData() {
   const { movimientos, loading, error } = useMovimientos();
   const { tiposMovimiento } = useTiposMovimiento();
+  const { tags } = useTags();
+  const { movimientoTagIds } = useMovimientoTags();
 
   const [yearFilter, setYearFilter] = useState(DEFAULT_YEAR);
   const [monthFilter, setMonthFilter] = useState(DEFAULT_MONTH);
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState('all');
 
   const movimientosConTipo = useMemo(() => {
     return movimientos.map((mov) => {
       const tipo = tiposMovimiento.find((t) => t.id === mov.id_tipo_movimiento);
+      const tagIds = movimientoTagIds[mov.id] || [];
       return {
         ...mov,
         tipo_nombre: tipo ? tipo.nombre : '',
         tipo_meta: tipo ? tipo.meta : 0,
+        tagIds,
       };
     });
-  }, [movimientos, tiposMovimiento]);
+  }, [movimientos, tiposMovimiento, movimientoTagIds]);
 
   const categories = useMemo(() => tiposMovimiento.map((t) => t.nombre), [tiposMovimiento]);
 
   const filteredMovimientos = useMemo(() => {
     return movimientosConTipo.filter((mov) => {
       const movDate = createSafeDate(mov.fecha);
-      const matchesYear = movDate.getFullYear() === yearFilter;
+      const matchesYear = yearFilter === 'all' || movDate.getFullYear() === yearFilter;
       const matchesMonth = monthFilter === 'all' || movDate.getMonth() === parseInt(monthFilter, 10);
       const matchesCategory = categoryFilter === 'all' || mov.tipo_nombre === categoryFilter;
-      return matchesYear && matchesMonth && matchesCategory;
+      const matchesTag = tagFilter === 'all' || (mov.tagIds && mov.tagIds.includes(tagFilter));
+      return matchesYear && matchesMonth && matchesCategory && matchesTag;
     });
-  }, [movimientosConTipo, yearFilter, monthFilter, categoryFilter]);
+  }, [movimientosConTipo, yearFilter, monthFilter, categoryFilter, tagFilter]);
 
   const yearFilteredMovimientos = useMemo(() => {
     return movimientosConTipo.filter((mov) => {
       const movDate = createSafeDate(mov.fecha);
-      const matchesYear = movDate.getFullYear() === yearFilter;
+      const matchesYear = yearFilter === 'all' || movDate.getFullYear() === yearFilter;
       const matchesCategory = categoryFilter === 'all' || mov.tipo_nombre === categoryFilter;
-      return matchesYear && matchesCategory;
+      const matchesTag = tagFilter === 'all' || (mov.tagIds && mov.tagIds.includes(tagFilter));
+      return matchesYear && matchesCategory && matchesTag;
     });
-  }, [movimientosConTipo, yearFilter, categoryFilter]);
+  }, [movimientosConTipo, yearFilter, categoryFilter, tagFilter]);
 
   const totalIngresos = useMemo(
     () =>
@@ -141,13 +150,12 @@ export function useDashboardData() {
     return days;
   }, [filteredMovimientos]);
 
-  const years = useMemo(
-    () =>
-      [...new Set(movimientosConTipo.map((m) => createSafeDate(m.fecha).getFullYear()))].sort(
-        (a, b) => b - a
-      ),
-    [movimientosConTipo]
-  );
+  const years = useMemo(() => {
+    const fromData = [...new Set(movimientosConTipo.map((m) => createSafeDate(m.fecha).getFullYear()))].sort(
+      (a, b) => b - a
+    );
+    return fromData.length ? fromData : [new Date().getFullYear()];
+  }, [movimientosConTipo]);
 
   const formatCurrency = (amount) =>
     new Intl.NumberFormat(CURRENCY.LOCALE, {
@@ -163,14 +171,20 @@ export function useDashboardData() {
     return m ? m.label : '';
   };
 
+  const getSelectedYearLabel = () => {
+    if (yearFilter === 'all') return 'Todos los años';
+    return String(yearFilter);
+  };
+
   return {
     loading,
     error,
-    filters: { yearFilter, monthFilter, categoryFilter },
-    setFilters: { setYearFilter, setMonthFilter, setCategoryFilter },
+    filters: { yearFilter, monthFilter, categoryFilter, tagFilter },
+    setFilters: { setYearFilter, setMonthFilter, setCategoryFilter, setTagFilter },
     years,
     months: MONTHS_FULL,
     categories,
+    tags,
     totalIngresos,
     totalGastos,
     balance,
@@ -182,6 +196,7 @@ export function useDashboardData() {
     weeklyChartData,
     formatCurrency,
     getSelectedMonthName,
+    getSelectedYearLabel,
     tiposMovimiento,
   };
 }

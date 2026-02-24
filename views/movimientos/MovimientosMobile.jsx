@@ -14,6 +14,7 @@ const CATEGORY_ICONS = {
 export default function MovimientosMobile({
   sortedMovimientos,
   tiposMovimiento,
+  tags,
   searchTerm,
   setSearchTerm,
   typeFilter,
@@ -22,9 +23,23 @@ export default function MovimientosMobile({
   setMonthFilter,
   formatCurrency,
   formatDate,
+  editingId,
+  editFormData,
+  setEditFormData,
   onEdit,
+  onCancelEdit,
+  onSaveEdit,
   onDelete,
 }) {
+  const handleTagToggle = (tagId) => {
+    const current = editFormData?.tagIds || [];
+    setEditFormData((prev) => ({
+      ...prev,
+      tagIds: current.includes(tagId) ? current.filter((id) => id !== tagId) : [...current, tagId],
+    }));
+  };
+
+  const showEditModal = Boolean(editingId && editFormData?.nombre !== undefined);
   const grouped = groupMovimientosByDate(sortedMovimientos);
   const categoryOptions = [
     { id: 'all', nombre: 'Todo' },
@@ -160,6 +175,98 @@ export default function MovimientosMobile({
           ))
         )}
       </main>
+
+      {/* Edit modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={onCancelEdit}
+            aria-hidden
+          />
+          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-2xl shadow-xl p-6">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Editar movimiento</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Fecha</label>
+                <input
+                  type="date"
+                  value={editFormData.fecha}
+                  onChange={(e) => setEditFormData((p) => ({ ...p, fecha: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Descripción</label>
+                <input
+                  type="text"
+                  value={editFormData.nombre}
+                  onChange={(e) => setEditFormData((p) => ({ ...p, nombre: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                  placeholder="Nombre"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Importe</label>
+                <input
+                  type="number"
+                  value={editFormData.importe}
+                  onChange={(e) => setEditFormData((p) => ({ ...p, importe: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Categoría</label>
+                <select
+                  value={editFormData.id_tipo_movimiento}
+                  onChange={(e) => setEditFormData((p) => ({ ...p, id_tipo_movimiento: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                >
+                  <option value="">Seleccionar</option>
+                  {(tiposMovimiento || []).map((t) => (
+                    <option key={t.id} value={t.id}>{t.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              {(tags || []).length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">Etiquetas</label>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((t) => (
+                      <label
+                        key={t.id}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={(editFormData.tagIds || []).includes(t.id)}
+                          onChange={() => handleTagToggle(t.id)}
+                          className="rounded"
+                        />
+                        <span>{t.nombre}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={onCancelEdit}
+                className="flex-1 px-4 py-2.5 rounded-lg font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={onSaveEdit}
+                className="flex-1 px-4 py-2.5 rounded-lg font-medium text-white bg-primary hover:bg-primary/90"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

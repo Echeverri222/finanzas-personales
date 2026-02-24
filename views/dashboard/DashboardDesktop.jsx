@@ -16,6 +16,7 @@ export default function DashboardDesktop({ data }) {
     years,
     months,
     categories,
+    tags,
     totalIngresos,
     totalGastos,
     balance,
@@ -25,16 +26,18 @@ export default function DashboardDesktop({ data }) {
     categoryData,
     formatCurrency,
     getSelectedMonthName,
+    getSelectedYearLabel,
   } = data;
 
-  const { yearFilter, monthFilter, categoryFilter } = filters;
-  const { setYearFilter, setMonthFilter, setCategoryFilter } = setFilters;
+  const { yearFilter, monthFilter, categoryFilter, tagFilter } = filters;
+  const { setYearFilter, setMonthFilter, setCategoryFilter, setTagFilter } = setFilters;
 
   const handleCategoryClick = (categoryName) => {
     const tipo = data.tiposMovimiento?.find((t) => t.nombre === categoryName);
     if (!tipo) return;
+    const year = yearFilter === 'all' ? new Date().getFullYear() : yearFilter;
     const monthValue =
-      monthFilter === 'all' ? '' : `${yearFilter}-${String(parseInt(monthFilter, 10) + 1).padStart(2, '0')}`;
+      monthFilter === 'all' ? '' : `${year}-${String(parseInt(monthFilter, 10) + 1).padStart(2, '0')}`;
     const params = new URLSearchParams();
     if (monthValue) params.set('month', monthValue);
     params.set('category', tipo.id.toString());
@@ -48,15 +51,19 @@ export default function DashboardDesktop({ data }) {
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            {getSelectedMonthName()} {yearFilter}
+            {getSelectedMonthName()} {getSelectedYearLabel()}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select
             value={yearFilter}
-            onChange={(e) => setYearFilter(parseInt(e.target.value, 10))}
+            onChange={(e) => {
+              const v = e.target.value;
+              setYearFilter(v === 'all' ? 'all' : parseInt(v, 10));
+            }}
             className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           >
+            <option value="all">Todos los años</option>
             {years.map((y) => (
               <option key={y} value={y}>{y}</option>
             ))}
@@ -78,6 +85,16 @@ export default function DashboardDesktop({ data }) {
             <option value="all">Todas las categorías</option>
             {categories.map((c) => (
               <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          <select
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          >
+            <option value="all">Todos los tags</option>
+            {(tags || []).map((t) => (
+              <option key={t.id} value={t.id}>{t.nombre}</option>
             ))}
           </select>
           <Link

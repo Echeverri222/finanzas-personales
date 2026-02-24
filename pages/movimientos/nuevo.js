@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Card, { CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useTiposMovimiento } from '../../hooks/useTiposMovimiento';
 import { useMovimientos } from '../../hooks/useMovimientos';
+import { useTags } from '../../hooks/useTags';
+import { useMovimientoTags } from '../../hooks/useMovimientoTags';
 
 export default function NuevoMovimientoPage() {
   const router = useRouter();
@@ -17,7 +19,8 @@ export default function NuevoMovimientoPage() {
     fecha: today,
     nombre: '',
     importe: '',
-    id_tipo_movimiento: ''
+    id_tipo_movimiento: '',
+    tagIds: [],
   });
 
   const [errors, setErrors] = useState({});
@@ -25,6 +28,8 @@ export default function NuevoMovimientoPage() {
   // Use real data from Supabase
   const { tiposMovimiento, loading: tiposLoading, error: tiposError } = useTiposMovimiento();
   const { createMovimiento } = useMovimientos();
+  const { tags } = useTags();
+  const { setMovimientoTags } = useMovimientoTags();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -33,13 +38,18 @@ export default function NuevoMovimientoPage() {
       [name]: value
     }));
 
-    // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
+  };
+
+  const handleTagToggle = (tagId) => {
+    setFormData(prev => ({
+      ...prev,
+      tagIds: prev.tagIds.includes(tagId)
+        ? prev.tagIds.filter((id) => id !== tagId)
+        : [...prev.tagIds, tagId],
+    }));
   };
 
   const validateForm = () => {
@@ -75,13 +85,16 @@ export default function NuevoMovimientoPage() {
         id_tipo_movimiento: formData.id_tipo_movimiento
       };
 
-      const { error } = await createMovimiento(movimientoData);
+      const { data: created, error } = await createMovimiento(movimientoData);
       
       if (error) {
         throw new Error(error);
       }
 
-      // Success - redirect to movimientos page
+      if (created?.id && formData.tagIds?.length) {
+        await setMovimientoTags(created.id, formData.tagIds);
+      }
+
       router.push('/movimientos');
       
     } catch (error) {
@@ -97,7 +110,8 @@ export default function NuevoMovimientoPage() {
       fecha: today,
       nombre: '',
       importe: '',
-      id_tipo_movimiento: ''
+      id_tipo_movimiento: '',
+      tagIds: [],
     });
     setErrors({});
   };
@@ -230,6 +244,31 @@ export default function NuevoMovimientoPage() {
                 </select>
                 {errors.id_tipo_movimiento && <p className="text-red-600 text-sm">{errors.id_tipo_movimiento}</p>}
               </div>
+
+              {/* Tags */}
+              {tags?.length > 0 && (
+                <div className="md:col-span-2 space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Etiquetas (opcional)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((t) => (
+                      <label
+                        key={t.id}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.tagIds?.includes(t.id)}
+                          onChange={() => handleTagToggle(t.id)}
+                          className="rounded"
+                        />
+                        <span>{t.nombre}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Form Actions */}

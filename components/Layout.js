@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { name: 'Ahorros', href: '/ahorros', icon: 'savings' },
   { name: 'Análisis', href: '/stock-analysis', icon: 'analytics' },
   { name: 'Categorías', href: '/gestion-tipos', icon: 'category' },
+  { name: 'Etiquetas', href: '/etiquetas', icon: 'label' },
 ];
 
 export default function Layout({ children }) {

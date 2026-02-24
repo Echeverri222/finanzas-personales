@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useMovimientos } from '../../hooks/useMovimientos';
 import { useTiposMovimiento } from '../../hooks/useTiposMovimiento';
+import { useTags } from '../../hooks/useTags';
+import { useMovimientoTags } from '../../hooks/useMovimientoTags';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import MovimientosMobile from '../../views/movimientos/MovimientosMobile';
 import MovimientosDesktop from '../../views/movimientos/MovimientosDesktop';
@@ -18,6 +20,8 @@ export default function MovimientosPage() {
   const isMobile = useIsMobile();
   const { movimientos, loading, error, updateMovimiento, deleteMovimiento } = useMovimientos();
   const { tiposMovimiento } = useTiposMovimiento();
+  const { tags } = useTags();
+  const { movimientoTagIds, setMovimientoTags } = useMovimientoTags();
 
   useEffect(() => {
     if (router.isReady) {
@@ -98,6 +102,7 @@ export default function MovimientosPage() {
       nombre: movimiento.nombre || '',
       importe: Math.abs(movimiento.importe).toString(),
       id_tipo_movimiento: movimiento.id_tipo_movimiento || '',
+      tagIds: movimientoTagIds[movimiento.id] || [],
     });
   };
 
@@ -118,6 +123,8 @@ export default function MovimientosPage() {
       };
       const { error } = await updateMovimiento(editingId, updatedData);
       if (error) throw new Error(error);
+      const tagIds = editFormData.tagIds || [];
+      await setMovimientoTags(editingId, tagIds);
       setEditingId(null);
       setEditFormData({});
     } catch (err) {
@@ -166,7 +173,13 @@ export default function MovimientosPage() {
     return (
       <MovimientosMobile
         {...commonProps}
+        tags={tags}
+        editingId={editingId}
+        editFormData={editFormData}
+        setEditFormData={setEditFormData}
         onEdit={handleEdit}
+        onCancelEdit={handleCancelEdit}
+        onSaveEdit={handleSaveEdit}
         onDelete={handleDelete}
       />
     );
@@ -175,6 +188,7 @@ export default function MovimientosPage() {
   return (
     <MovimientosDesktop
       {...commonProps}
+      tags={tags}
       sortConfig={sortConfig}
       handleSort={handleSort}
       editingId={editingId}

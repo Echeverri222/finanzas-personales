@@ -1,9 +1,11 @@
+import React from 'react';
 import Link from 'next/link';
 import { createSafeDate } from '../../lib/dateUtils';
 
 export default function MovimientosDesktop({
   sortedMovimientos,
   tiposMovimiento,
+  tags,
   searchTerm,
   setSearchTerm,
   typeFilter,
@@ -22,6 +24,13 @@ export default function MovimientosDesktop({
   handleSaveEdit,
   handleDelete,
 }) {
+  const handleTagToggle = (tagId) => {
+    const current = editFormData.tagIds || [];
+    setEditFormData((prev) => ({
+      ...prev,
+      tagIds: current.includes(tagId) ? current.filter((id) => id !== tagId) : [...current, tagId],
+    }));
+  };
   const monthOptions = [];
   const year = new Date().getFullYear();
   for (let m = 1; m <= 12; m++) {
@@ -137,7 +146,8 @@ export default function MovimientosDesktop({
                   const isEditing = editingId === mov.id;
                   if (isEditing) {
                     return (
-                      <tr key={mov.id} className="bg-primary/5">
+                      <React.Fragment key={mov.id}>
+                      <tr className="bg-primary/5">
                         <td className="px-6 py-4">
                           <input
                             type="date"
@@ -204,6 +214,34 @@ export default function MovimientosDesktop({
                           </div>
                         </td>
                       </tr>
+                      <tr className="bg-primary/5">
+                        <td colSpan={5} className="px-6 py-3 border-t border-slate-200 dark:border-slate-700">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mr-2">Etiquetas:</span>
+                            {(tags || []).length > 0 ? (
+                              tags.map((t) => (
+                                <label
+                                  key={t.id}
+                                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-sm border border-slate-200 dark:border-slate-600 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={(editFormData.tagIds || []).includes(t.id)}
+                                    onChange={() => handleTagToggle(t.id)}
+                                    className="rounded"
+                                  />
+                                  {t.nombre}
+                                </label>
+                              ))
+                            ) : (
+                              <span className="text-sm text-slate-400">
+                                <Link href="/etiquetas" className="text-primary hover:underline">Crea etiquetas</Link> para usarlas aquí
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      </React.Fragment>
                     );
                   }
                   return (

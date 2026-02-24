@@ -27,7 +27,6 @@ export default function DashboardMobile({ data }) {
     totalIngresos,
     totalGastos,
     recentMovimientos,
-    weeklyChartData,
     monthlyData,
     categoryData,
     formatCurrency,
@@ -138,30 +137,6 @@ export default function DashboardMobile({ data }) {
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Gastos</p>
           <p className="text-lg font-bold text-rose-600 dark:text-rose-400 mt-1">-{formatCurrency(totalGastos)}</p>
-        </div>
-      </section>
-
-      {/* Spending Chart - weekly bars */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Actividad de Gastos</h3>
-          <Link href="/movimientos" className="text-sm font-semibold text-primary">Ver detalle</Link>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
-          <div className="h-32 flex items-end gap-2 mb-2">
-            {(weeklyChartData || []).map((day, i) => (
-              <div
-                key={i}
-                className="flex-1 bg-primary/10 rounded-t-md transition-all"
-                style={{ height: `${Math.max(day.pct, 8)}%` }}
-              />
-            ))}
-          </div>
-          <div className="flex justify-between text-[10px] text-slate-400 uppercase font-bold tracking-wider px-1">
-            {(weeklyChartData || []).map((day, i) => (
-              <span key={i}>{day.day.slice(0, 2)}</span>
-            ))}
-          </div>
         </div>
       </section>
 

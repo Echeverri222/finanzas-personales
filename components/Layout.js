@@ -166,33 +166,39 @@ export default function Layout({ children }) {
           {children}
         </main>
 
-        {/* Mobile bottom nav - Stitch style */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between z-40">
+        {/* Mobile bottom nav - Recurrentes left, Inicio center */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-2 py-3 flex items-center justify-between z-40">
+          <Link
+            href="/pagos-recurrentes"
+            className={`flex flex-col items-center gap-1 min-w-0 flex-1 ${isActive('/pagos-recurrentes') ? 'text-primary' : 'text-slate-400 hover:text-primary transition-colors'}`}
+          >
+            <span className={`material-symbols-outlined ${isActive('/pagos-recurrentes') ? 'fill' : ''}`}>repeat</span>
+            <span className="text-[10px] font-bold">Recurrentes</span>
+          </Link>
+          <Link
+            href="/movimientos"
+            className={`flex flex-col items-center gap-1 min-w-0 flex-1 ${router.pathname.startsWith('/movimientos') ? 'text-primary' : 'text-slate-400 hover:text-primary transition-colors'}`}
+          >
+            <span className={`material-symbols-outlined ${router.pathname.startsWith('/movimientos') ? 'fill' : ''}`}>receipt_long</span>
+            <span className="text-[10px] font-bold">Transacciones</span>
+          </Link>
           <Link
             href="/dashboard"
-            className={`flex flex-col items-center gap-1 ${isActive('/dashboard') ? 'text-primary' : 'text-slate-400 hover:text-primary transition-colors'}`}
+            className={`flex flex-col items-center gap-1 min-w-0 flex-1 ${isActive('/dashboard') ? 'text-primary' : 'text-slate-400 hover:text-primary transition-colors'}`}
           >
             <span className={`material-symbols-outlined ${isActive('/dashboard') ? 'fill' : ''}`}>home</span>
             <span className="text-[10px] font-bold">Inicio</span>
           </Link>
           <Link
-            href="/movimientos"
-            className={`flex flex-col items-center gap-1 ${router.pathname.startsWith('/movimientos') ? 'text-primary' : 'text-slate-400 hover:text-primary transition-colors'}`}
-          >
-            <span className={`material-symbols-outlined ${router.pathname.startsWith('/movimientos') ? 'fill' : ''}`}>receipt_long</span>
-            <span className="text-[10px] font-bold">Transacciones</span>
-          </Link>
-          <div className="w-12 h-1" aria-hidden="true" />
-          <Link
             href="/metas"
-            className={`flex flex-col items-center gap-1 ${isActive('/metas') ? 'text-primary' : 'text-slate-400 hover:text-primary transition-colors'}`}
+            className={`flex flex-col items-center gap-1 min-w-0 flex-1 ${isActive('/metas') ? 'text-primary' : 'text-slate-400 hover:text-primary transition-colors'}`}
           >
             <span className={`material-symbols-outlined ${isActive('/metas') ? 'fill' : ''}`}>track_changes</span>
             <span className="text-[10px] font-bold">Metas</span>
           </Link>
           <Link
             href="/ahorros"
-            className={`flex flex-col items-center gap-1 ${isActive('/ahorros') ? 'text-primary' : 'text-slate-400 hover:text-primary transition-colors'}`}
+            className={`flex flex-col items-center gap-1 min-w-0 flex-1 ${isActive('/ahorros') ? 'text-primary' : 'text-slate-400 hover:text-primary transition-colors'}`}
           >
             <span className={`material-symbols-outlined ${isActive('/ahorros') ? 'fill' : ''}`}>savings</span>
             <span className="text-[10px] font-bold">Ahorros</span>

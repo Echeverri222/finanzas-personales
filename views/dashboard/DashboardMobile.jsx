@@ -1,7 +1,10 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { TrendingUp, ArrowDownLeft, ArrowUpRight, ReceiptText, Wallet, PiggyBank, ShoppingBag } from 'lucide-react';
 import { createSafeDate } from '../../lib/dateUtils';
+import { Select } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
 
 const DashboardCharts = dynamic(
   () => import('../../components/dashboard/DashboardCharts'),
@@ -9,9 +12,9 @@ const DashboardCharts = dynamic(
 );
 
 const ICON_BY_TYPE = {
-  Ingresos: 'payments',
-  Ahorro: 'savings',
-  default: 'shopping_bag',
+  Ingresos: Wallet,
+  Ahorro: PiggyBank,
+  default: ShoppingBag,
 };
 
 export default function DashboardMobile({ data }) {
@@ -51,96 +54,87 @@ export default function DashboardMobile({ data }) {
   };
 
   return (
-    <div className="px-2 md:px-0 space-y-6 max-w-md mx-auto">
-      {/* Filters row - year, month, category, tag */}
+    <div className="mx-auto max-w-md space-y-6">
+      {/* Filters */}
       <section>
         <div className="flex flex-wrap gap-2">
-          <select
+          <Select
             value={yearFilter}
             onChange={(e) => {
               const v = e.target.value;
               setYearFilter(v === 'all' ? 'all' : parseInt(v, 10));
             }}
-            className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            className="w-auto"
           >
             <option value="all">Todos los años</option>
             {years.map((y) => (
               <option key={y} value={y}>{y}</option>
             ))}
-          </select>
-          <select
-            value={monthFilter}
-            onChange={(e) => setMonthFilter(e.target.value)}
-            className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          >
+          </Select>
+          <Select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} className="w-auto">
             {months.map((m) => (
               <option key={m.value} value={m.value}>{m.label}</option>
             ))}
-          </select>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          >
+          </Select>
+          <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-auto">
             <option value="all">Todas las categorías</option>
             {categories.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
-          </select>
-          <select
-            value={tagFilter}
-            onChange={(e) => setTagFilter(e.target.value)}
-            className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          >
+          </Select>
+          <Select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} className="w-auto">
             <option value="all">Todos los tags</option>
             {(tags || []).map((t) => (
               <option key={t.id} value={t.id}>{t.nombre}</option>
             ))}
-          </select>
+          </Select>
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+        <p className="mt-2 text-xs text-muted-foreground">
           {getSelectedMonthName()} {getSelectedYearLabel()}
         </p>
       </section>
 
-      {/* Total Balance Card - Stitch style */}
+      {/* Total Balance */}
       <section>
-        <div className="bg-primary rounded-xl p-6 shadow-xl shadow-primary/20 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-primary-dark/20 rounded-full -ml-12 -mb-12 blur-xl" />
-          <div className="relative z-10">
-            <div className="flex justify-between items-center mb-2">
-              <p className="text-sm font-medium text-white/80">Balance Total</p>
-              <span className="material-symbols-outlined text-sm opacity-60">info</span>
-            </div>
-            <h2 className="text-3xl font-bold tracking-tight mb-6">{formatCurrency(balance)}</h2>
-            <div className="flex items-center gap-2 text-xs font-medium bg-white/10 w-fit px-2 py-1 rounded-lg">
-              <span className="material-symbols-outlined text-xs">trending_up</span>
-              <span>Este mes</span>
-            </div>
-          </div>
+        <div className="rounded-lg bg-primary p-6 text-primary-foreground shadow-sm">
+          <p className="text-sm font-medium text-primary-foreground/70">Balance Total</p>
+          <h2 className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">
+            {formatCurrency(balance)}
+          </h2>
+          <span className="mt-4 inline-flex items-center gap-1 rounded-full bg-primary-foreground/15 px-2 py-1 text-xs font-medium">
+            <TrendingUp className="size-3.5" />
+            {getSelectedMonthName()}
+          </span>
         </div>
       </section>
 
-      {/* Stats: Income & Expenses */}
+      {/* Income & Expenses */}
       <section className="grid grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-slate-900 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-800">
-          <div className="size-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center mb-3">
-            <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-xl">arrow_downward</span>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Ingresos</p>
-          <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">+{formatCurrency(totalIngresos)}</p>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-800">
-          <div className="size-8 rounded-lg bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center mb-3">
-            <span className="material-symbols-outlined text-rose-600 dark:text-rose-400 text-xl">arrow_upward</span>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Gastos</p>
-          <p className="text-lg font-bold text-rose-600 dark:text-rose-400 mt-1">-{formatCurrency(totalGastos)}</p>
-        </div>
+        <Card>
+          <CardContent className="p-4">
+            <div className="mb-3 flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+              <ArrowDownLeft className="size-4" />
+            </div>
+            <p className="text-xs font-medium text-muted-foreground">Ingresos</p>
+            <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+              +{formatCurrency(totalIngresos)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="mb-3 flex size-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
+              <ArrowUpRight className="size-4" />
+            </div>
+            <p className="text-xs font-medium text-muted-foreground">Gastos</p>
+            <p className="mt-1 text-lg font-semibold tabular-nums text-rose-600 dark:text-rose-400">
+              -{formatCurrency(totalGastos)}
+            </p>
+          </CardContent>
+        </Card>
       </section>
 
-      {/* Full charts - evolucion mensual + distribucion */}
+      {/* Charts */}
       <section>
         <DashboardCharts
           monthlyData={monthlyData}
@@ -152,52 +146,46 @@ export default function DashboardMobile({ data }) {
 
       {/* Recent Activity */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Actividad Reciente</h3>
-          <Link href="/movimientos" className="text-sm font-semibold text-primary">Ver todo</Link>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold tracking-tight">Actividad Reciente</h3>
+          <Link href="/movimientos" className="text-sm font-medium text-primary hover:underline">
+            Ver todo
+          </Link>
         </div>
         <div className="space-y-3">
           {recentMovimientos.length === 0 ? (
-            <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-              <span className="material-symbols-outlined text-4xl mb-2 block">receipt_long</span>
+            <div className="py-8 text-center text-muted-foreground">
+              <ReceiptText className="mx-auto mb-2 size-8" />
               <p>No hay movimientos recientes</p>
             </div>
           ) : (
             recentMovimientos.map((mov) => {
               const isIngreso = mov.tipo_nombre === 'Ingresos';
-              const icon = ICON_BY_TYPE[mov.tipo_nombre] || ICON_BY_TYPE.default;
+              const Icon = ICON_BY_TYPE[mov.tipo_nombre] || ICON_BY_TYPE.default;
               return (
                 <div
                   key={mov.id}
-                  className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800"
+                  className="flex items-center justify-between rounded-lg border bg-card p-3"
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`size-10 rounded-full flex items-center justify-center ${
+                      className={`flex size-10 items-center justify-center rounded-full ${
                         isIngreso
-                          ? 'bg-emerald-50 dark:bg-emerald-900/20'
-                          : 'bg-rose-50 dark:bg-rose-900/20'
+                          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'
+                          : 'bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400'
                       }`}
                     >
-                      <span
-                        className={`material-symbols-outlined ${
-                          isIngreso ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                        }`}
-                      >
-                        {icon}
-                      </span>
+                      <Icon className="size-5" />
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[180px]">
-                        {mov.nombre}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                    <div className="min-w-0">
+                      <p className="max-w-[180px] truncate text-sm font-medium">{mov.nombre}</p>
+                      <p className="text-xs text-muted-foreground">
                         {createSafeDate(mov.fecha).toLocaleDateString('es-ES')} • {mov.tipo_nombre}
                       </p>
                     </div>
                   </div>
                   <p
-                    className={`text-sm font-bold flex-shrink-0 ${
+                    className={`flex-shrink-0 text-sm font-semibold tabular-nums ${
                       isIngreso ? 'text-emerald-600' : 'text-rose-600'
                     }`}
                   >

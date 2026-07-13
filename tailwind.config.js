@@ -5,23 +5,56 @@ module.exports = {
     "./components/**/*.{js,ts,jsx,tsx}",
     "./contexts/**/*.{js,ts,jsx,tsx}",
     "./views/**/*.{js,ts,jsx,tsx}",
+    "./lib/**/*.{js,ts,jsx,tsx}",
   ],
   darkMode: "class",
   theme: {
+    container: {
+      center: true,
+      padding: "1.5rem",
+      screens: { "2xl": "1200px" },
+    },
     extend: {
       colors: {
-        primary: "#1d3b8b",
-        "primary-dark": "#152a6b",
-        "background-light": "#f6f6f8",
-        "background-dark": "#121620",
+        // shadcn tokens (HSL CSS variables)
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
       },
       fontFamily: {
         display: ["Inter", "sans-serif"],
         sans: ["Inter", "sans-serif"],
       },
       borderRadius: {
-        DEFAULT: "0.5rem",
-        lg: "1rem",
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
         xl: "1.5rem",
         full: "9999px",
       },
@@ -31,5 +64,5 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 }

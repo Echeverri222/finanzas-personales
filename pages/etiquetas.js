@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import Link from 'next/link';
-import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import { X } from 'lucide-react';
 import { useTags } from '../hooks/useTags';
+import { PageHeader } from '@/components/PageHeader';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function EtiquetasPage() {
   const [nombre, setNombre] = useState('');
@@ -32,23 +34,18 @@ export default function EtiquetasPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <div className="text-slate-500 dark:text-slate-400">Cargando etiquetas...</div>
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="text-muted-foreground">Cargando etiquetas...</div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/dashboard" className="text-primary hover:underline text-sm font-medium">
-          ← Volver al inicio
-        </Link>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mt-2">Etiquetas</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-          Crea etiquetas para describir tus movimientos (ej. trabajo, vacaciones, reembolso)
-        </p>
-      </div>
+      <PageHeader
+        title="Etiquetas"
+        description="Crea etiquetas para describir tus movimientos (ej. trabajo, vacaciones, reembolso)."
+      />
 
       <Card>
         <CardHeader>
@@ -56,18 +53,21 @@ export default function EtiquetasPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex gap-2">
-            <input
+            <Input
               type="text"
               value={nombre}
-              onChange={(e) => { setNombre(e.target.value); setError(''); }}
+              onChange={(e) => {
+                setNombre(e.target.value);
+                setError('');
+              }}
               placeholder="Nombre de la etiqueta"
-              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary outline-none"
+              className="flex-1"
             />
             <Button type="submit" disabled={saving}>
               {saving ? 'Guardando...' : 'Crear'}
             </Button>
           </form>
-          {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
         </CardContent>
       </Card>
 
@@ -77,24 +77,26 @@ export default function EtiquetasPage() {
         </CardHeader>
         <CardContent>
           {tags.length === 0 ? (
-            <p className="text-slate-500 dark:text-slate-400">No hay etiquetas. Crea una para usarla en tus movimientos y filtrar en el dashboard.</p>
+            <p className="text-muted-foreground">
+              No hay etiquetas. Crea una para usarla en tus movimientos y filtrar en el dashboard.
+            </p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {tags.map((t) => (
-                <div
+                <span
                   key={t.id}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-lg"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-sm font-medium text-secondary-foreground"
                 >
-                  <span className="font-medium">{t.nombre}</span>
+                  {t.nombre}
                   <button
                     type="button"
                     onClick={() => handleDelete(t.id, t.nombre)}
-                    className="p-0.5 rounded hover:bg-primary/20 text-primary"
+                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-background hover:text-destructive"
                     title="Eliminar"
                   >
-                    <span className="material-symbols-outlined text-lg">close</span>
+                    <X className="size-3.5" />
                   </button>
-                </div>
+                </span>
               ))}
             </div>
           )}

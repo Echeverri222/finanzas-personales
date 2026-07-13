@@ -1,5 +1,5 @@
 import React from 'react';
-import Button from './ui/Button';
+import { Button } from '@/components/ui/button';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -30,14 +30,14 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       // Custom error UI
       return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
-            <div className="text-center mb-6">
-              <div className="text-6xl mb-4">💥</div>
-              <h1 className="text-xl font-bold text-gray-900 mb-2">
+        <div className="flex min-h-screen items-center justify-center bg-background px-4">
+          <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-sm">
+            <div className="mb-6 text-center">
+              <div className="mb-4 text-6xl">💥</div>
+              <h1 className="mb-2 text-xl font-semibold text-foreground">
                 ¡Oops! Algo salió mal
               </h1>
-              <p className="text-gray-600">
+              <p className="text-muted-foreground">
                 Ha ocurrido un error inesperado. Puedes intentar recargar la página o contactar soporte si el problema persiste.
               </p>
             </div>

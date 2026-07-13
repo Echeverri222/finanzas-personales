@@ -4,7 +4,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import DashboardMobile from '../views/dashboard/DashboardMobile';
 import DashboardDesktop from '../views/dashboard/DashboardDesktop';
 import SystemStatus from '../components/SystemStatus';
-import Button from '../components/ui/Button';
+import { Button } from '@/components/ui/button';
 
 export default function DashboardPage() {
   const [showSystemStatus, setShowSystemStatus] = useState(false);
@@ -15,15 +15,14 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <div className="text-slate-500 dark:text-slate-400">Cargando dashboard...</div>
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="text-muted-foreground">Cargando dashboard...</div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* System status toggle - desktop only to avoid clutter on mobile */}
       {!isMobile && (
         <div className="flex justify-end">
           <Button
@@ -39,8 +38,8 @@ export default function DashboardPage() {
       {showSystemStatus && <SystemStatus />}
 
       {error && (
-        <div className="bg-red-100 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-300 p-4 rounded-lg">
-          <p className="font-bold">Error</p>
+        <div className="rounded-lg border-l-4 border-destructive bg-destructive/10 p-4 text-destructive">
+          <p className="font-semibold">Error</p>
           <p>{error}</p>
         </div>
       )}

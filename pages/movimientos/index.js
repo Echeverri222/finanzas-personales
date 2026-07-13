@@ -7,6 +7,7 @@ import { useMovimientoTags } from '../../hooks/useMovimientoTags';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import MovimientosMobile from '../../views/movimientos/MovimientosMobile';
 import MovimientosDesktop from '../../views/movimientos/MovimientosDesktop';
+import { formatCurrency, formatDate } from '@/lib/format';
 
 export default function MovimientosPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,19 +31,6 @@ export default function MovimientosPage() {
       if (category) setTypeFilter(category);
     }
   }, [router.isReady, router.query]);
-
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(Math.abs(amount));
-
-  const formatDate = (dateInput) => {
-    const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
-    return d.toLocaleDateString('es-ES');
-  };
 
   const filteredMovimientos = movimientos.filter((mov) => {
     const matchesSearch =
@@ -142,15 +130,15 @@ export default function MovimientosPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <div className="text-slate-500 dark:text-slate-400">Cargando movimientos...</div>
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="text-muted-foreground">Cargando movimientos...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-lg bg-red-100 dark:bg-red-900/20 border-l-4 border-red-500 p-4 text-red-700 dark:text-red-300">
+      <div className="rounded-lg border-l-4 border-destructive bg-destructive/10 p-4 text-destructive">
         Error: {error}
       </div>
     );

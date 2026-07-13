@@ -56,6 +56,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const signInWithPassword = async (email, password) => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  };
+
   const signInWithGoogle = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -82,7 +92,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signInWithPassword, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );

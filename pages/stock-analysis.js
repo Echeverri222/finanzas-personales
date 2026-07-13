@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import { PageHeader } from '@/components/PageHeader';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 const FMP_API_KEY = process.env.NEXT_PUBLIC_FMP_API_KEY;
 const BASE_URL = 'https://financialmodelingprep.com/api/v3';
@@ -264,8 +266,8 @@ export default function StockAnalysisPage() {
     return (
       <div className="space-y-6">
         <div className="text-center py-12">
-          <div className="text-red-600 text-lg">⚠️ FMP API Key not configured</div>
-          <p className="text-gray-600 mt-2">
+          <div className="text-rose-600 text-lg">⚠️ FMP API Key not configured</div>
+          <p className="text-muted-foreground mt-2">
             Please add your Financial Modeling Prep API key to environment variables.
           </p>
         </div>
@@ -275,47 +277,36 @@ export default function StockAnalysisPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header and Search */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Análisis Técnico</h1>
-          <p className="text-gray-600 mt-1">Análisis técnico avanzado con ratios SMA</p>
-        </div>
-        
-        <form onSubmit={handleSearch} className="flex gap-2 w-full md:w-auto">
-          <div className="flex flex-col md:flex-row gap-2 w-full">
-            <input
-              type="date"
-              value={dateRange.startDate}
-              onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-              className="w-full md:w-auto px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="date"
-              value={dateRange.endDate}
-              onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-              className="w-full md:w-auto px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
-              placeholder="Símbolo (ej: AAPL)"
-              className="w-full md:w-64 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <Button
-              type="submit"
-              disabled={loading}
-            >
-              {loading ? 'Buscando...' : 'Buscar'}
-            </Button>
-          </div>
+      <PageHeader title="Análisis" description="Análisis técnico avanzado con ratios SMA.">
+        <form onSubmit={handleSearch} className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
+          <Input
+            type="date"
+            value={dateRange.startDate}
+            onChange={(e) => setDateRange((prev) => ({ ...prev, startDate: e.target.value }))}
+            className="sm:w-auto"
+          />
+          <Input
+            type="date"
+            value={dateRange.endDate}
+            onChange={(e) => setDateRange((prev) => ({ ...prev, endDate: e.target.value }))}
+            className="sm:w-auto"
+          />
+          <Input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
+            placeholder="Símbolo (ej: AAPL)"
+            className="sm:w-48"
+          />
+          <Button type="submit" disabled={loading}>
+            {loading ? 'Buscando...' : 'Buscar'}
+          </Button>
         </form>
-      </div>
+      </PageHeader>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600">{error}</p>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          {error}
         </div>
       )}
 
@@ -325,11 +316,11 @@ export default function StockAnalysisPage() {
           {/* Current Price */}
           <Card>
             <CardContent>
-              <h3 className="text-sm font-medium text-gray-500">Precio Actual</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">Precio Actual</h3>
               <div className="mt-1 flex items-baseline">
-                <p className="text-2xl font-semibold text-gray-900">{formatCurrency(stockData.price)}</p>
+                <p className="text-2xl font-semibold text-foreground">{formatCurrency(stockData.price)}</p>
                 <p className={`ml-2 flex items-baseline text-sm font-semibold ${
-                  stockData.change >= 0 ? 'text-green-600' : 'text-red-600'
+                  stockData.change >= 0 ? 'text-emerald-600' : 'text-rose-600'
                 }`}>
                   <span>{stockData.change >= 0 ? '↑' : '↓'}</span>
                   <span className="ml-1">{Math.abs(stockData.change).toFixed(2)}</span>
@@ -344,18 +335,18 @@ export default function StockAnalysisPage() {
             <>
               <Card>
                 <CardContent>
-                  <h3 className="text-sm font-medium text-gray-500">Métricas Fundamentales</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">Métricas Fundamentales</h3>
                   <div className="mt-2 space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">P/E Ratio</span>
+                      <span className="text-muted-foreground">P/E Ratio</span>
                       <span className="font-semibold">{formatNumber(fundamentalMetrics.peRatioTTM || fundamentalMetrics.peRatio)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Price/Book</span>
+                      <span className="text-muted-foreground">Price/Book</span>
                       <span className="font-semibold">{formatNumber(fundamentalMetrics.pbRatioTTM || fundamentalMetrics.pbRatio)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">PEG Ratio</span>
+                      <span className="text-muted-foreground">PEG Ratio</span>
                       <span className="font-semibold">{formatNumber(fundamentalMetrics.pegRatioTTM || fundamentalMetrics.pegRatio)}</span>
                     </div>
                   </div>
@@ -364,18 +355,18 @@ export default function StockAnalysisPage() {
 
               <Card>
                 <CardContent>
-                  <h3 className="text-sm font-medium text-gray-500">Rentabilidad</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">Rentabilidad</h3>
                   <div className="mt-2 space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">ROE</span>
+                      <span className="text-muted-foreground">ROE</span>
                       <span className="font-semibold">{formatPercentage(fundamentalMetrics.roeTTM || fundamentalMetrics.roe)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">ROA</span>
+                      <span className="text-muted-foreground">ROA</span>
                       <span className="font-semibold">{formatPercentage(fundamentalMetrics.roaTTM || fundamentalMetrics.roa)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Dividend Yield</span>
+                      <span className="text-muted-foreground">Dividend Yield</span>
                       <span className="font-semibold">{formatPercentage(fundamentalMetrics.dividendYieldTTM || fundamentalMetrics.dividendYield)}</span>
                     </div>
                   </div>
@@ -384,18 +375,18 @@ export default function StockAnalysisPage() {
 
               <Card>
                 <CardContent>
-                  <h3 className="text-sm font-medium text-gray-500">Estructura Financiera</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">Estructura Financiera</h3>
                   <div className="mt-2 space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Debt/Equity</span>
+                      <span className="text-muted-foreground">Debt/Equity</span>
                       <span className="font-semibold">{formatNumber(fundamentalMetrics.debtToEquityTTM || fundamentalMetrics.debtToEquity)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">FCF Yield</span>
+                      <span className="text-muted-foreground">FCF Yield</span>
                       <span className="font-semibold">{formatPercentage(fundamentalMetrics.freeCashFlowYieldTTM || fundamentalMetrics.freeCashFlowYield)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Market Cap</span>
+                      <span className="text-muted-foreground">Market Cap</span>
                       <span className="font-semibold">{formatLargeNumber(stockData.marketCap)}</span>
                     </div>
                   </div>
@@ -416,9 +407,9 @@ export default function StockAnalysisPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {Object.entries(performanceData).map(([period, data]) => (
                 <div key={period} className="text-center">
-                  <div className="text-sm text-gray-600">{period}</div>
+                  <div className="text-sm text-muted-foreground">{period}</div>
                   <div className={`text-lg font-semibold ${
-                    data >= 0 ? 'text-green-600' : 'text-red-600'
+                    data >= 0 ? 'text-emerald-600' : 'text-rose-600'
                   }`}>
                     {formatPerformancePercentage(data)}
                   </div>
@@ -617,21 +608,21 @@ export default function StockAnalysisPage() {
             <CardTitle>Interpretación de Ratios</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-gray-600">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-muted-foreground">
               <div>
-                <h4 className="font-semibold text-gray-800 mb-2">SMA10/SMA30</h4>
+                <h4 className="font-semibold text-foreground mb-2">SMA10/SMA30</h4>
                 <p>• Ratio &lt; Buy Level: Oportunidad de compra</p>
                 <p>• Ratio &gt; Sell Level: Oportunidad de venta</p>
                 <p>• Mejor para trading corto plazo</p>
               </div>
               <div>
-                <h4 className="font-semibold text-gray-800 mb-2">SMA20/SMA50</h4>
+                <h4 className="font-semibold text-foreground mb-2">SMA20/SMA50</h4>
                 <p>• Ratio &lt; Buy Level: Oportunidad de compra</p>
                 <p>• Ratio &gt; Sell Level: Oportunidad de venta</p>
                 <p>• Mejor para trading medio plazo</p>
               </div>
               <div>
-                <h4 className="font-semibold text-gray-800 mb-2">SMA50/SMA200</h4>
+                <h4 className="font-semibold text-foreground mb-2">SMA50/SMA200</h4>
                 <p>• Ratio &lt; Buy Level: Oportunidad de compra</p>
                 <p>• Ratio &gt; Sell Level: Oportunidad de venta</p>
                 <p>• Mejor para inversión largo plazo (Golden Cross)</p>

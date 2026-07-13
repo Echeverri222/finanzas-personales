@@ -2,20 +2,33 @@
   "name": "finanzas-personales",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18.17.0 <21"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "d3-shape": "^3.2.0",
+    "lucide-react": "^1.24.0",
     "next": "14.2.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "recharts": "^2.15.4"
+    "recharts": "^2.15.4",
+    "tailwind-merge": "^2.6.1",
+    "tailwindcss-animate": "^1.0.7"
   },
   "scripts": {
     "dev": "next dev",
     "dev:turbo": "next dev --turbo",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:studio": "open http://localhost:54423",
+    "db:status": "supabase status"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",

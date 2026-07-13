@@ -101,6 +101,46 @@ npm run dev
 ```
 Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
+## 🧪 Desarrollo local con Supabase (base de datos local)
+
+Para probar toda la app contra una base de datos **local** (sin tocar producción),
+usa el stack local de Supabase en Docker. Refleja el esquema de producción y trae
+datos de prueba, así puedes crear/editar/borrar sin riesgo.
+
+**Requisitos:** [Docker](https://www.docker.com/) y la [CLI de Supabase](https://supabase.com/docs/guides/cli) instalados.
+
+1. **Levantar el stack local** (Postgres, Auth, Storage, Studio, Mailpit):
+   ```bash
+   npm run db:start          # supabase start
+   ```
+   Al terminar imprime las URLs y llaves locales. Studio: http://localhost:54423
+   (este stack usa puertos con offset +100 — API en 54421 — para poder correr a
+   la vez que otros proyectos locales de Supabase en los puertos por defecto).
+
+2. **Configurar las variables de entorno de desarrollo.**
+   Copia `.env.development.local.example` a `.env.development.local` y pega el
+   `anon key` que muestra `npm run db:status`. Este archivo **sobreescribe**
+   `.env.local` solo durante `next dev`; el build de producción sigue usando
+   `.env.local`, por lo que producción no se ve afectada.
+
+3. **Aplicar migraciones + datos de prueba:**
+   ```bash
+   npm run db:reset          # supabase db reset (migraciones + seed.sql)
+   ```
+
+4. **Arrancar la app** contra la base local:
+   ```bash
+   npm run dev
+   ```
+   Inicia sesión con el usuario de prueba definido en `supabase/seed.sql`
+   (email/contraseña; las confirmaciones por correo están desactivadas en local).
+
+**Scripts útiles:** `npm run db:start` · `db:stop` · `db:reset` · `db:studio` · `db:status`.
+
+> El esquema local se genera con `supabase db pull` desde producción (solo lectura,
+> no modifica producción) y vive en `supabase/migrations/`. `supabase/seed.sql`
+> contiene el usuario de prueba y datos de ejemplo.
+
 ### Producción
 ```bash
 npm run build

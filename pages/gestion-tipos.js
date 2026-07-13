@@ -1,9 +1,21 @@
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import { useState } from 'react';
+import { Pencil, Trash2, Check, X, FolderOpen } from 'lucide-react';
 import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
 import { useUser } from '../contexts/UserContext';
+import { formatCurrency } from '@/lib/format';
+import { PageHeader } from '@/components/PageHeader';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Field } from '@/components/ui/field';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 export default function GestionTiposPage() {
   const [formData, setFormData] = useState({ nombre: '', meta: '' });
@@ -13,55 +25,46 @@ export default function GestionTiposPage() {
   const [saving, setSaving] = useState(false);
 
   const { userProfile, loading: userLoading } = useUser();
-  const { 
-    tiposMovimiento, 
-    loading, 
-    error: hookError, 
-    createTipoMovimiento, 
-    updateTipoMovimiento, 
-    deleteTipoMovimiento 
+  const {
+    tiposMovimiento,
+    loading,
+    error: hookError,
+    createTipoMovimiento,
+    updateTipoMovimiento,
+    deleteTipoMovimiento,
   } = useTiposMovimiento();
 
-  // Simple recommended types (no complex categorization)
   const recomendados = [
     'Ingresos',
-    'Alimentación', 'Transporte', 'Vivienda', 'Servicios', 
+    'Alimentación', 'Transporte', 'Vivienda', 'Servicios',
     'Entretenimiento', 'Salud', 'Compras', 'Gastos fijos',
-    'Ahorro', 'Emergencia', 'Inversiones'
+    'Ahorro', 'Emergencia', 'Inversiones',
   ];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!formData.nombre.trim()) {
       setError('El nombre es obligatorio');
       return;
     }
-
     if (!userProfile?.id) {
       setError('Error: Perfil de usuario no disponible. Intenta refrescar la página.');
       return;
     }
-
     setSaving(true);
     setError('');
-
     try {
       const { error: createError } = await createTipoMovimiento({
         nombre: formData.nombre.trim(),
-        meta: formData.meta ? parseFloat(formData.meta) : null
+        meta: formData.meta ? parseFloat(formData.meta) : null,
       });
-
-      if (createError) {
-        throw new Error(createError);
-      }
-
+      if (createError) throw new Error(createError);
       setFormData({ nombre: '', meta: '' });
     } catch (err) {
       setError('Error al crear tipo: ' + err.message);
@@ -72,10 +75,7 @@ export default function GestionTiposPage() {
 
   const handleEdit = (tipo) => {
     setEditingId(tipo.id);
-    setEditFormData({
-      nombre: tipo.nombre,
-      meta: tipo.meta || ''
-    });
+    setEditFormData({ nombre: tipo.nombre, meta: tipo.meta || '' });
   };
 
   const handleCancelEdit = () => {
@@ -88,25 +88,18 @@ export default function GestionTiposPage() {
       setError('El nombre es obligatorio');
       return;
     }
-
     if (!userProfile?.id) {
       setError('Error: Perfil de usuario no disponible. Intenta refrescar la página.');
       return;
     }
-
     setSaving(true);
     setError('');
-
     try {
       const { error: updateError } = await updateTipoMovimiento(editingId, {
         nombre: editFormData.nombre.trim(),
-        meta: editFormData.meta ? parseFloat(editFormData.meta) : null
+        meta: editFormData.meta ? parseFloat(editFormData.meta) : null,
       });
-
-      if (updateError) {
-        throw new Error(updateError);
-      }
-
+      if (updateError) throw new Error(updateError);
       setEditingId(null);
       setEditFormData({ nombre: '', meta: '' });
     } catch (err) {
@@ -119,121 +112,89 @@ export default function GestionTiposPage() {
   const handleDelete = async (id, nombre) => {
     if (confirm(`¿Estás seguro de que quieres eliminar "${nombre}"?`)) {
       const { error: deleteError } = await deleteTipoMovimiento(id);
-      if (deleteError) {
-        setError('Error al eliminar tipo: ' + deleteError);
-      }
+      if (deleteError) setError('Error al eliminar tipo: ' + deleteError);
     }
   };
 
-  const addRecommended = (nombre) => {
-    setFormData(prev => ({ ...prev, nombre }));
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  const addRecommended = (nombre) => setFormData((prev) => ({ ...prev, nombre }));
 
   if (loading || userLoading) {
     return (
-      <div className="space-y-6">
-        <div className="text-center py-12">
-          <div className="text-lg">Cargando categorías...</div>
-        </div>
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="text-muted-foreground">Cargando categorías...</div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gestión de Categorías</h1>
-          <p className="text-gray-600 mt-1">
-            Gestiona tus categorías de ingresos, gastos y ahorros
-          </p>
-        </div>
-        <Link href="/movimientos">
-          <Button variant="outline">← Volver a Movimientos</Button>
-        </Link>
-      </div>
+      <PageHeader
+        title="Categorías"
+        description="Gestiona tus categorías de ingresos, gastos y ahorros."
+      />
 
-      {/* Error Message */}
       {(error || hookError) && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600 text-sm">{error || hookError}</p>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          {error || hookError}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Create New Type Form */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Crear Nueva Categoría</CardTitle>
+            <CardTitle>Crear nueva categoría</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre de la categoría *
-                </label>
-                <input
+              <Field label="Nombre de la categoría *" htmlFor="nombre">
+                <Input
+                  id="nombre"
                   type="text"
                   name="nombre"
                   value={formData.nombre}
                   onChange={handleInputChange}
                   placeholder="Ej: Alimentación, Salario, Ahorro..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Meta mensual (opcional)
-                </label>
+              </Field>
+              <Field label="Meta mensual (opcional)" htmlFor="meta">
                 <div className="relative">
-                  <span className="absolute left-3 top-2 text-gray-500">$</span>
-                  <input
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <Input
+                    id="meta"
                     type="number"
                     name="meta"
                     value={formData.meta}
                     onChange={handleInputChange}
-                    placeholder="0.00"
+                    placeholder="0"
                     step="0.01"
                     min="0"
-                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="pl-7"
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Para gastos: límite máximo. Para ingresos/ahorros: objetivo mínimo.
                 </p>
-              </div>
-
+              </Field>
               <Button type="submit" disabled={saving} className="w-full">
-                {saving ? 'Guardando...' : 'Crear Categoría'}
+                {saving ? 'Guardando...' : 'Crear categoría'}
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        {/* Recommendations */}
         <Card>
           <CardHeader>
-            <CardTitle>Categorías Recomendadas</CardTitle>
+            <CardTitle>Categorías recomendadas</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {recomendados.map((tipo) => (
                 <button
                   key={tipo}
+                  type="button"
                   onClick={() => addRecommended(tipo)}
-                  className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg transition-colors"
+                  className="rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground transition-colors hover:bg-secondary/70"
                 >
                   + {tipo}
                 </button>
@@ -243,122 +204,88 @@ export default function GestionTiposPage() {
         </Card>
       </div>
 
-      {/* All Categories */}
       <Card>
         <CardHeader>
-          <CardTitle>Tus Categorías ({tiposMovimiento.length})</CardTitle>
+          <CardTitle>Tus categorías ({tiposMovimiento.length})</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0">
           {tiposMovimiento.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <div className="text-6xl mb-4">📂</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No hay categorías creadas
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Crea tu primera categoría para empezar a organizar tus movimientos.
-              </p>
+            <div className="py-12 text-center text-muted-foreground">
+              <FolderOpen className="mx-auto mb-3 size-10" />
+              <p className="font-medium text-foreground">No hay categorías creadas</p>
+              <p className="mt-1 text-sm">Crea tu primera categoría para organizar tus movimientos.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Nombre</th>
-                    <th className="text-right py-3 px-4 font-medium text-gray-700">Meta Mensual</th>
-                    <th className="text-center py-3 px-4 font-medium text-gray-700">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tiposMovimiento.map((tipo) => (
-                    <tr key={tipo.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      {editingId === tipo.id ? (
-                        // Edit row
-                        <>
-                          <td className="py-3 px-4">
-                            <input
-                              type="text"
-                              value={editFormData.nombre}
-                              onChange={(e) => setEditFormData(prev => ({ ...prev, nombre: e.target.value }))}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                            />
-                          </td>
-                          <td className="py-3 px-4">
-                            <input
-                              type="number"
-                              value={editFormData.meta}
-                              onChange={(e) => setEditFormData(prev => ({ ...prev, meta: e.target.value }))}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-right"
-                              step="0.01"
-                              min="0"
-                            />
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <div className="flex items-center justify-center space-x-2">
-                              <Button variant="ghost" size="sm" onClick={handleSaveEdit} disabled={saving}>
-                                ✓
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
-                                ✕
-                              </Button>
-                            </div>
-                          </td>
-                        </>
-                      ) : (
-                        // Display row
-                        <>
-                          <td className="py-3 px-4 font-medium text-gray-900">
-                            {tipo.nombre}
-                          </td>
-                          <td className="py-3 px-4 text-right text-gray-600">
-                            {tipo.meta ? formatCurrency(tipo.meta) : '-'}
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <div className="flex items-center justify-center space-x-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleEdit(tipo)}
-                              >
-                                ✏️
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleDelete(tipo.id, tipo.nombre)}
-                              >
-                                🗑️
-                              </Button>
-                            </div>
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-6">Nombre</TableHead>
+                  <TableHead className="text-right">Meta mensual</TableHead>
+                  <TableHead className="pr-6 text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tiposMovimiento.map((tipo) => (
+                  <TableRow key={tipo.id}>
+                    {editingId === tipo.id ? (
+                      <>
+                        <TableCell className="pl-6">
+                          <Input
+                            value={editFormData.nombre}
+                            onChange={(e) => setEditFormData((prev) => ({ ...prev, nombre: e.target.value }))}
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            value={editFormData.meta}
+                            onChange={(e) => setEditFormData((prev) => ({ ...prev, meta: e.target.value }))}
+                            className="h-8 text-right"
+                            step="0.01"
+                            min="0"
+                          />
+                        </TableCell>
+                        <TableCell className="pr-6">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={handleSaveEdit} disabled={saving}>
+                              <Check className="size-4 text-emerald-600" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={handleCancelEdit}>
+                              <X className="size-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell className="pl-6 font-medium">{tipo.nombre}</TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {tipo.meta ? formatCurrency(tipo.meta) : '—'}
+                        </TableCell>
+                        <TableCell className="pr-6">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(tipo)}>
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(tipo.id, tipo.nombre)}
+                            >
+                              <Trash2 className="size-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Resumen</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center p-6">
-            <div className="text-3xl font-bold text-blue-600 mb-2">
-              {tiposMovimiento.length}
-            </div>
-            <div className="text-gray-600">Total de categorías creadas</div>
-            <div className="mt-4 text-sm text-gray-500">
-              Estas categorías se usarán para clasificar tus movimientos
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
   );
-} 
+}

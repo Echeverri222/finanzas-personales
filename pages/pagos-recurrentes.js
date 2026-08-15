@@ -3,6 +3,7 @@ import { Repeat, Plus, Pencil, Power, PowerOff, Trash2 } from 'lucide-react';
 import { useRecurring } from '../hooks/useRecurring';
 import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
 import { formatCurrency } from '@/lib/format';
+import { createSafeDate } from '@/lib/dateUtils';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,24 @@ import { Dialog } from '@/components/ui/dialog';
 
 const DAYS_OF_MONTH = Array.from({ length: 31 }, (_, i) => i + 1);
 const EMPTY_FORM = { nombre: '', importe: '', id_tipo_movimiento: '', dia_mes: new Date().getDate() };
+
+/**
+ * generar_desde is the first date a rule may generate. Existing rules were
+ * backfilled to the start of next month so releasing the fixed generator did
+ * not create movimientos retroactively -- see the recurring_start_date
+ * migration. Only worth showing while it is still in the future.
+ */
+function startsInFuture(generarDesde) {
+  if (!generarDesde) return false;
+  return createSafeDate(generarDesde) > new Date();
+}
+
+function formatStartDate(generarDesde) {
+  return createSafeDate(generarDesde).toLocaleDateString('es-ES', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
 
 export default function PagosRecurrentesPage() {
   const { list, loading, error, createRecurring, updateRecurring, deleteRecurring } = useRecurring();
@@ -133,6 +152,13 @@ export default function PagosRecurrentesPage() {
                     <p className="text-sm text-muted-foreground">
                       {tipoNombre(r)} · Día {r.dia_mes} de cada mes
                     </p>
+                    {/* Without this, a rule that has not started yet looks
+                        broken: it simply never generates and says nothing. */}
+                    {startsInFuture(r.generar_desde) && (
+                      <p className="text-xs text-muted-foreground">
+                        Empieza a generarse desde {formatStartDate(r.generar_desde)}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">

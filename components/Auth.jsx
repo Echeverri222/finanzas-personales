@@ -24,7 +24,17 @@ export default function Auth() {
       if (error) throw error;
       // On success the auth listener redirects; nothing else to do here.
     } catch (error) {
-      setMessage(error.message);
+      // Most accounts here were created through Google or a magic link and so
+      // have no password set at all. Supabase answers those with a bare
+      // "Invalid login credentials", which reads as "wrong password" and sends
+      // people looking for a reset that would not help. Point at the two paths
+      // that actually work for them instead.
+      const sinPassword = /invalid login credentials/i.test(error.message || '');
+      setMessage(
+        sinPassword
+          ? 'No pudimos iniciar sesión con esa contraseña. Si creaste tu cuenta con Google o con un enlace mágico, usa una de esas opciones.'
+          : error.message
+      );
     } finally {
       setLoading(false);
     }
@@ -119,14 +129,17 @@ export default function Auth() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                required
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
             </Button>
+            {/* Not `ghost`: most accounts on this app have no password, so for
+                them this is the primary way in and must not look secondary. */}
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               className="w-full"
               onClick={handleMagicLink}
               disabled={magicLoading}

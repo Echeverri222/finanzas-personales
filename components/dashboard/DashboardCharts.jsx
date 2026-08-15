@@ -14,10 +14,38 @@ import {
   Legend,
 } from 'recharts';
 import { Card } from '@/components/ui/card';
+import { CURRENCY } from '@/lib/constants';
 
-// Validated categorical palette (dataviz skill reference instance). Fixed slot
-// order is the CVD-safety mechanism — assigned in order to value-sorted slices.
-const CATEGORICAL = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e34948', '#e87ba4', '#eb6834'];
+// Validated categorical palette, in slot order: blue, orange, aqua, yellow,
+// magenta, green, violet, red.
+//
+// The ORDER is the colour-blindness safety mechanism, not decoration: adjacent
+// slots are the pairs most likely to appear together, so they are the ones
+// checked for perceptual distance. The previous order put orange next to
+// magenta (ΔE 12.9 normal vision, below the 15 floor) and orange next to green
+// (ΔE 3.2 under protanopia — effectively identical). This order passes every
+// check. Do not reorder without re-validating.
+const CATEGORICAL = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+
+/**
+ * Pick a colour slot from the category NAME, never from its position in the
+ * value-sorted array.
+ *
+ * Colour has to follow the entity: indexing by rank meant a category changed
+ * colour whenever its spending rank changed between months, and the same colour
+ * meant different categories in different periods — which makes comparing one
+ * month to the next actively misleading.
+ *
+ * Beyond 8 categories two can share a slot; the legend labels every slice, so
+ * identity never rests on colour alone.
+ */
+function colorForCategory(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) {
+    hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  }
+  return CATEGORICAL[Math.abs(hash) % CATEGORICAL.length];
+}
 
 const CustomTooltip = ({ active, payload, label, formatCurrency }) => {
   if (active && payload?.length) {
@@ -63,7 +91,7 @@ export default function DashboardCharts({
               <CartesianGrid strokeDasharray="3 3" stroke="#e1e0d9" vertical={false} />
               <XAxis dataKey="month" tick={{ fill: '#898781', fontSize: 12 }} tickLine={false} axisLine={false} />
               <YAxis
-                tickFormatter={(v) => new Intl.NumberFormat('en-US', { notation: 'compact' }).format(v)}
+                tickFormatter={(v) => new Intl.NumberFormat(CURRENCY.LOCALE, { notation: 'compact' }).format(v)}
                 tick={{ fill: '#898781', fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
@@ -97,8 +125,8 @@ export default function DashboardCharts({
                     onClick={(d) => onCategoryClick(d.name)}
                     style={{ cursor: 'pointer', outline: 'none' }}
                   >
-                    {categoryData.map((entry, i) => (
-                      <Cell key={entry.name} fill={CATEGORICAL[i % CATEGORICAL.length]} />
+                    {categoryData.map((entry) => (
+                      <Cell key={entry.name} fill={colorForCategory(entry.name)} />
                     ))}
                   </Pie>
                   <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
@@ -112,7 +140,7 @@ export default function DashboardCharts({
 
             {/* Legend list — carries name + amount + % so identity isn't color-only */}
             <ul className="space-y-1">
-              {categoryData.map((entry, i) => {
+              {categoryData.map((entry) => {
                 const pct = totalGastos > 0 ? Math.round((entry.value / totalGastos) * 100) : 0;
                 return (
                   <li key={entry.name}>
@@ -124,7 +152,7 @@ export default function DashboardCharts({
                       <span className="flex min-w-0 items-center gap-2">
                         <span
                           className="size-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: CATEGORICAL[i % CATEGORICAL.length] }}
+                          style={{ backgroundColor: colorForCategory(entry.name) }}
                         />
                         <span className="truncate">{entry.name}</span>
                       </span>

@@ -13,7 +13,11 @@ import { Field } from '@/components/ui/field';
 import { Dialog } from '@/components/ui/dialog';
 
 const DAYS_OF_MONTH = Array.from({ length: 31 }, (_, i) => i + 1);
-const EMPTY_FORM = { nombre: '', importe: '', id_tipo_movimiento: '', dia_mes: new Date().getDate() };
+// A function, not a constant: evaluated once at module load, the default day
+// would freeze at whatever day the tab was opened and be stale after midnight.
+const emptyForm = () => ({
+  nombre: '', importe: '', id_tipo_movimiento: '', dia_mes: new Date().getDate(),
+});
 
 /**
  * generar_desde is the first date a rule may generate. Existing rules were
@@ -39,17 +43,17 @@ export default function PagosRecurrentesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(emptyForm);
 
   const resetForm = () => {
     setEditingItem(null);
-    setForm(EMPTY_FORM);
+    setForm(emptyForm());
     setShowModal(false);
   };
 
   const openNew = () => {
     setEditingItem(null);
-    setForm(EMPTY_FORM);
+    setForm(emptyForm());
     setShowModal(true);
   };
 
@@ -162,7 +166,7 @@ export default function PagosRecurrentesPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="mr-1 text-lg font-semibold tabular-nums">{formatCurrency(r.importe)}</span>
+                  <span className="mr-1 text-lg font-semibold tabular-nums">{formatCurrency(Math.abs(r.importe))}</span>
                   <Button variant="ghost" size="icon" onClick={() => openEdit(r)} title="Editar">
                     <Pencil className="size-4" />
                   </Button>

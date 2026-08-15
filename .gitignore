@@ -36,3 +36,11 @@ yarn-error.log*
 
 # Vercel
 .vercel
+
+# Database dumps - these contain real financial data, never commit them.
+# Prefer writing dumps outside the repo entirely (~/backups/finanzas/).
+backups/
+*.dump
+*.sql.gz
+!supabase/migrations/*.sql
+!supabase/seed.sql

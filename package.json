@@ -28,7 +28,10 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:studio": "open http://localhost:54423",
-    "db:status": "supabase status"
+    "db:status": "supabase status",
+    "db:backup-prod": "bash scripts/backup-prod.sh",
+    "db:restore-prod": "bash scripts/restore-prod.sh",
+    "db:invariants": "bash scripts/check-invariants.sh"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",

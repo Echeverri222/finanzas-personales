@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
+import { TIPO } from '../lib/constants';
 
 // Safe date creation function (same as dashboard)
 const createSafeDate = (dateString) => {
@@ -45,7 +46,8 @@ export function useMovimientos() {
           tipo_movimiento!inner (
             id,
             nombre,
-            meta
+            meta,
+            tipo
           )
         `)
         .eq('usuario_id', userProfile.id)
@@ -60,7 +62,8 @@ export function useMovimientos() {
         ...mov,
         fecha: createSafeDate(mov.fecha),
         importe: Number(mov.importe),
-        tipo_nombre: mov.tipo_movimiento?.nombre || 'Sin categoría'
+        tipo_nombre: mov.tipo_movimiento?.nombre || 'Sin categoría',
+        tipo_categoria: mov.tipo_movimiento?.tipo || TIPO.GASTO
       }));
 
       setMovimientos(movimientosConTipo);
@@ -89,7 +92,8 @@ export function useMovimientos() {
           tipo_movimiento!inner (
             id,
             nombre,
-            meta
+            meta,
+            tipo
           )
         `)
         .single();
@@ -101,7 +105,8 @@ export function useMovimientos() {
         ...data,
         fecha: createSafeDate(data.fecha),
         importe: Number(data.importe),
-        tipo_nombre: data.tipo_movimiento?.nombre || 'Sin categoría'
+        tipo_nombre: data.tipo_movimiento?.nombre || 'Sin categoría',
+        tipo_categoria: data.tipo_movimiento?.tipo || TIPO.GASTO
       };
       
       setMovimientos(prev => [movimientoConTipo, ...prev]);
@@ -123,7 +128,8 @@ export function useMovimientos() {
           tipo_movimiento!inner (
             id,
             nombre,
-            meta
+            meta,
+            tipo
           )
         `)
         .single();
@@ -135,7 +141,8 @@ export function useMovimientos() {
         ...data,
         fecha: createSafeDate(data.fecha),
         importe: Number(data.importe),
-        tipo_nombre: data.tipo_movimiento?.nombre || 'Sin categoría'
+        tipo_nombre: data.tipo_movimiento?.nombre || 'Sin categoría',
+        tipo_categoria: data.tipo_movimiento?.tipo || TIPO.GASTO
       };
 
       setMovimientos(prev =>

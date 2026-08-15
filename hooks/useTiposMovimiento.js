@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
+import { TIPO } from '../lib/constants';
 
 export function useTiposMovimiento() {
   const [tiposMovimiento, setTiposMovimiento] = useState([]);
@@ -44,6 +45,10 @@ export function useTiposMovimiento() {
           {
             nombre: tipoData.nombre,
             meta: tipoData.meta,
+            // Must be sent explicitly. The column defaults to 'gasto', so a new
+            // income or savings category would otherwise be silently counted as
+            // spending.
+            tipo: tipoData.tipo || TIPO.GASTO,
             usuario_id: userProfile.id,
           }
         ])
@@ -71,6 +76,9 @@ export function useTiposMovimiento() {
         .update({
           nombre: updateData.nombre,
           meta: updateData.meta,
+          // Only overwrite when the caller supplies one, so a partial update
+          // cannot reset an existing category to 'gasto'.
+          ...(updateData.tipo ? { tipo: updateData.tipo } : {}),
         })
         .eq('id', id)
         .eq('usuario_id', userProfile.id)

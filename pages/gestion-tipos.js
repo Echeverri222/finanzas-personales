@@ -3,7 +3,9 @@ import { Pencil, Trash2, Check, X, FolderOpen } from 'lucide-react';
 import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
 import { useUser } from '../contexts/UserContext';
 import { formatCurrency } from '@/lib/format';
+import { TIPO } from '@/lib/constants';
 import { PageHeader } from '@/components/PageHeader';
+import { Select } from '@/components/ui/select';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,9 +20,9 @@ import {
 } from '@/components/ui/table';
 
 export default function GestionTiposPage() {
-  const [formData, setFormData] = useState({ nombre: '', meta: '' });
+  const [formData, setFormData] = useState({ nombre: '', meta: '', tipo: TIPO.GASTO });
   const [editingId, setEditingId] = useState(null);
-  const [editFormData, setEditFormData] = useState({ nombre: '', meta: '' });
+  const [editFormData, setEditFormData] = useState({ nombre: '', meta: '', tipo: TIPO.GASTO });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -34,11 +36,31 @@ export default function GestionTiposPage() {
     deleteTipoMovimiento,
   } = useTiposMovimiento();
 
+  // Each recommendation carries its semantic type, so picking "Ingresos" from
+  // the chips creates an income category rather than silently taking the
+  // 'gasto' column default.
   const recomendados = [
-    'Ingresos',
-    'Alimentación', 'Transporte', 'Vivienda', 'Servicios',
-    'Entretenimiento', 'Salud', 'Compras', 'Gastos fijos',
-    'Ahorro', 'Emergencia', 'Inversiones',
+    { nombre: 'Ingresos', tipo: TIPO.INGRESO },
+    { nombre: 'Alimentación', tipo: TIPO.GASTO },
+    { nombre: 'Transporte', tipo: TIPO.GASTO },
+    { nombre: 'Vivienda', tipo: TIPO.GASTO },
+    { nombre: 'Servicios', tipo: TIPO.GASTO },
+    { nombre: 'Entretenimiento', tipo: TIPO.GASTO },
+    { nombre: 'Salud', tipo: TIPO.GASTO },
+    { nombre: 'Compras', tipo: TIPO.GASTO },
+    { nombre: 'Gastos fijos', tipo: TIPO.GASTO },
+    { nombre: 'Ahorro', tipo: TIPO.AHORRO },
+    { nombre: 'Emergencia', tipo: TIPO.AHORRO },
+    { nombre: 'Inversiones', tipo: TIPO.INVERSION },
+  ];
+
+  // Labels for the tipo selector. Order matches how often they get picked.
+  const TIPO_OPCIONES = [
+    { value: TIPO.GASTO, label: 'Gasto', hint: 'Dinero que sale' },
+    { value: TIPO.INGRESO, label: 'Ingreso', hint: 'Dinero que entra' },
+    { value: TIPO.AHORRO, label: 'Ahorro', hint: 'Dinero que apartas' },
+    { value: TIPO.INVERSION, label: 'Inversión', hint: 'Acciones, cripto, fondos' },
+    { value: TIPO.PRESTAMO, label: 'Préstamo', hint: 'Dinero que prestas y esperas de vuelta' },
   ];
 
   const handleInputChange = (e) => {
@@ -63,9 +85,10 @@ export default function GestionTiposPage() {
       const { error: createError } = await createTipoMovimiento({
         nombre: formData.nombre.trim(),
         meta: formData.meta ? parseFloat(formData.meta) : null,
+        tipo: formData.tipo,
       });
       if (createError) throw new Error(createError);
-      setFormData({ nombre: '', meta: '' });
+      setFormData({ nombre: '', meta: '', tipo: TIPO.GASTO });
     } catch (err) {
       setError('Error al crear tipo: ' + err.message);
     } finally {
@@ -75,12 +98,12 @@ export default function GestionTiposPage() {
 
   const handleEdit = (tipo) => {
     setEditingId(tipo.id);
-    setEditFormData({ nombre: tipo.nombre, meta: tipo.meta || '' });
+    setEditFormData({ nombre: tipo.nombre, meta: tipo.meta || '', tipo: tipo.tipo || TIPO.GASTO });
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setEditFormData({ nombre: '', meta: '' });
+    setEditFormData({ nombre: '', meta: '', tipo: TIPO.GASTO });
   };
 
   const handleSaveEdit = async () => {
@@ -98,10 +121,11 @@ export default function GestionTiposPage() {
       const { error: updateError } = await updateTipoMovimiento(editingId, {
         nombre: editFormData.nombre.trim(),
         meta: editFormData.meta ? parseFloat(editFormData.meta) : null,
+        tipo: editFormData.tipo,
       });
       if (updateError) throw new Error(updateError);
       setEditingId(null);
-      setEditFormData({ nombre: '', meta: '' });
+      setEditFormData({ nombre: '', meta: '', tipo: TIPO.GASTO });
     } catch (err) {
       setError('Error al actualizar tipo: ' + err.message);
     } finally {
@@ -116,7 +140,7 @@ export default function GestionTiposPage() {
     }
   };
 
-  const addRecommended = (nombre) => setFormData((prev) => ({ ...prev, nombre }));
+  const addRecommended = (r) => setFormData((prev) => ({ ...prev, nombre: r.nombre, tipo: r.tipo }));
 
   if (loading || userLoading) {
     return (
@@ -157,6 +181,23 @@ export default function GestionTiposPage() {
                   required
                 />
               </Field>
+              <Field label="Tipo *" htmlFor="tipo">
+                <Select
+                  id="tipo"
+                  name="tipo"
+                  value={formData.tipo}
+                  onChange={handleInputChange}
+                >
+                  {TIPO_OPCIONES.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label} — {o.hint}
+                    </option>
+                  ))}
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Define cómo se cuenta en los totales. Cambiar el nombre no lo afecta.
+                </p>
+              </Field>
               <Field label="Meta mensual (opcional)" htmlFor="meta">
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
@@ -189,14 +230,14 @@ export default function GestionTiposPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {recomendados.map((tipo) => (
+              {recomendados.map((r) => (
                 <button
-                  key={tipo}
+                  key={r.nombre}
                   type="button"
-                  onClick={() => addRecommended(tipo)}
+                  onClick={() => addRecommended(r)}
                   className="rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground transition-colors hover:bg-secondary/70"
                 >
-                  + {tipo}
+                  + {r.nombre}
                 </button>
               ))}
             </div>

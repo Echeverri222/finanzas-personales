@@ -8,7 +8,8 @@ import { useTiposMovimiento } from './useTiposMovimiento';
 import { useTags } from './useTags';
 import { useMovimientoTags } from './useMovimientoTags';
 import { createSafeDate, MONTH_NAMES, MONTHS_FULL } from '../lib/dateUtils';
-import { CURRENCY } from '../lib/constants';
+import { TIPO } from '../lib/constants';
+import { formatCurrency } from '../lib/format';
 
 const DEFAULT_YEAR = new Date().getFullYear();
 const DEFAULT_MONTH = new Date().getMonth().toString();
@@ -31,6 +32,9 @@ export function useDashboardData() {
       return {
         ...mov,
         tipo_nombre: tipo ? tipo.nombre : '',
+        // Semantic classification. tipo_nombre stays for display and for the
+        // category filter; all income/expense/savings logic reads this instead.
+        tipo_categoria: tipo ? tipo.tipo : TIPO.GASTO,
         tipo_meta: tipo ? tipo.meta : 0,
         tagIds,
       };
@@ -63,15 +67,18 @@ export function useDashboardData() {
   const totalIngresos = useMemo(
     () =>
       filteredMovimientos
-        .filter((m) => m.tipo_nombre === 'Ingresos')
+        .filter((m) => m.tipo_categoria === TIPO.INGRESO)
         .reduce((sum, m) => sum + Number(m.importe), 0),
     [filteredMovimientos]
   );
 
+  // NOTE: this counts AHORRO as an expense, while monthlyData below excludes it.
+  // That inconsistency predates the tipo migration and is preserved deliberately
+  // so this refactor changes no displayed number. Worth resolving separately.
   const totalGastos = useMemo(
     () =>
       filteredMovimientos
-        .filter((m) => m.tipo_nombre !== 'Ingresos')
+        .filter((m) => m.tipo_categoria !== TIPO.INGRESO)
         .reduce((sum, m) => sum + Number(m.importe), 0),
     [filteredMovimientos]
   );
@@ -81,7 +88,7 @@ export function useDashboardData() {
   const ahorrosMes = useMemo(
     () =>
       filteredMovimientos
-        .filter((m) => m.tipo_nombre === 'Ahorro')
+        .filter((m) => m.tipo_categoria === TIPO.AHORRO)
         .reduce((sum, m) => sum + Number(m.importe), 0),
     [filteredMovimientos]
   );
@@ -96,9 +103,9 @@ export function useDashboardData() {
         acc[monthYear] = { month: monthYear, timestamp: new Date(year, month, 1).getTime() };
       }
       if (categoryFilter === 'all') {
-        if (mov.tipo_nombre === 'Ingresos') {
+        if (mov.tipo_categoria === TIPO.INGRESO) {
           acc[monthYear].ingresos = (acc[monthYear].ingresos || 0) + Number(mov.importe);
-        } else if (mov.tipo_nombre !== 'Ahorro') {
+        } else if (mov.tipo_categoria !== TIPO.AHORRO) {
           acc[monthYear].gastos = (acc[monthYear].gastos || 0) + Number(mov.importe);
         }
       } else if (mov.tipo_nombre === categoryFilter) {
@@ -112,7 +119,7 @@ export function useDashboardData() {
   const categoryData = useMemo(() => {
     const acc = {};
     filteredMovimientos
-      .filter((m) => m.tipo_nombre !== 'Ingresos')
+      .filter((m) => m.tipo_categoria !== TIPO.INGRESO)
       .forEach((mov) => {
         const cat = mov.tipo_nombre;
         if (!acc[cat]) acc[cat] = { name: cat, value: 0, meta: mov.tipo_meta || 0 };
@@ -134,7 +141,7 @@ export function useDashboardData() {
       const total = filteredMovimientos
         .filter((m) => {
           const fd = createSafeDate(m.fecha);
-          return fd >= d && fd <= dayEnd && m.tipo_nombre !== 'Ingresos';
+          return fd >= d && fd <= dayEnd && m.tipo_categoria !== TIPO.INGRESO;
         })
         .reduce((s, m) => s + Math.abs(Number(m.importe)), 0);
       days.push({
@@ -157,13 +164,9 @@ export function useDashboardData() {
     return fromData.length ? fromData : [new Date().getFullYear()];
   }, [movimientosConTipo]);
 
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat(CURRENCY.LOCALE, {
-      style: 'currency',
-      currency: CURRENCY.CURRENCY,
-      minimumFractionDigits: CURRENCY.MIN_FRACTION_DIGITS,
-      maximumFractionDigits: CURRENCY.MAX_FRACTION_DIGITS,
-    }).format(amount);
+  // Re-exported from lib/format so the dashboard and the rest of the app cannot
+  // drift apart. This used to be a second inline Intl formatter that returned
+  // "$NaN" for nullish where lib/format returns an em-dash.
 
   const getSelectedMonthName = () => {
     if (monthFilter === 'all') return 'Todo el año';

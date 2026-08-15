@@ -8,6 +8,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
+import { TIPO } from '@/lib/constants';
 import {
   Table,
   TableHeader,
@@ -193,7 +194,7 @@ export default function DashboardDesktop({ data }) {
               </TableRow>
             ) : (
               recentMovimientos.map((mov) => {
-                const isIngreso = mov.tipo_nombre === 'Ingresos';
+                const isIngreso = mov.tipo_categoria === TIPO.INGRESO;
                 return (
                   <TableRow
                     key={mov.id}

@@ -5,6 +5,7 @@ import { TrendingUp, ArrowDownLeft, ArrowUpRight, ReceiptText, Wallet, PiggyBank
 import { createSafeDate } from '../../lib/dateUtils';
 import { Select } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
+import { TIPO } from '@/lib/constants';
 
 const DashboardCharts = dynamic(
   () => import('../../components/dashboard/DashboardCharts'),
@@ -160,7 +161,7 @@ export default function DashboardMobile({ data }) {
             </div>
           ) : (
             recentMovimientos.map((mov) => {
-              const isIngreso = mov.tipo_nombre === 'Ingresos';
+              const isIngreso = mov.tipo_categoria === TIPO.INGRESO;
               const Icon = ICON_BY_TYPE[mov.tipo_nombre] || ICON_BY_TYPE.default;
               return (
                 <div

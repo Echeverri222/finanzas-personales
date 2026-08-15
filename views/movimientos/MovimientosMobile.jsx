@@ -8,6 +8,7 @@ import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Dialog } from '@/components/ui/dialog';
+import { TIPO } from '@/lib/constants';
 
 const CATEGORY_ICONS = {
   Ingresos: Wallet,
@@ -112,7 +113,7 @@ export default function MovimientosMobile({
               </h2>
               <div className="overflow-hidden rounded-lg border bg-card">
                 {group.items.map((mov) => {
-                  const isIngreso = mov.tipo_nombre === 'Ingresos';
+                  const isIngreso = mov.tipo_categoria === TIPO.INGRESO;
                   const Icon = getIcon(mov.tipo_nombre);
                   return (
                     <div

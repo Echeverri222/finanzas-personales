@@ -8,6 +8,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { TIPO } from '@/lib/constants';
 import {
   Table,
   TableHeader,
@@ -125,7 +126,7 @@ export default function MovimientosDesktop({
               </TableRow>
             ) : (
               sortedMovimientos.map((mov) => {
-                const isIngreso = mov.tipo_nombre === 'Ingresos';
+                const isIngreso = mov.tipo_categoria === TIPO.INGRESO;
                 const isEditing = editingId === mov.id;
                 if (isEditing) {
                   return (

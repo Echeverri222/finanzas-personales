@@ -5,6 +5,7 @@ import { Plus, Target, PiggyBank } from 'lucide-react';
 import { useMovimientos } from '../hooks/useMovimientos';
 import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
 import { formatCurrency } from '@/lib/format';
+import { TIPO } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
 import { Card } from '@/components/ui/card';
@@ -34,8 +35,15 @@ export default function AhorrosPage() {
     return tipo ? tipo.nombre : 'Sin categoría';
   };
 
+  const getTipoCategoria = (id) => {
+    const tipo = tiposMovimiento.find((t) => t.id === id);
+    return tipo ? tipo.tipo : null;
+  };
+
+  // Keyed on the semantic type, not the category name -- renaming "Ahorro"
+  // no longer empties this page.
   const ahorrosMovimientos = movimientos.filter(
-    (mov) => getTipoNombre(mov.id_tipo_movimiento) === 'Ahorro'
+    (mov) => getTipoCategoria(mov.id_tipo_movimiento) === TIPO.AHORRO
   );
 
   const getChartData = () => {

@@ -30,10 +30,21 @@ psql "$LOCAL_DB" -tAc 'select 1' >/dev/null 2>&1 \
 echo "==> Restoring from: $DUMP_DIR"
 echo "==> Target: LOCAL only ($LOCAL_DB)"
 
-echo "==> Resetting local schema (migrations + seed)"
-supabase db reset
+# Order matters, and getting it wrong silently invalidates the rehearsal.
+#
+# Data must land at the PRE-migration schema and then be migrated forward, so
+# backfills actually process the real rows. Resetting to HEAD first and loading
+# afterwards means new columns take their DEFAULT instead -- which looks like a
+# clean run while proving nothing. That mistake made an M2 rehearsal report
+# every category as 'gasto', including Ingresos.
+#
+# BASELINE_VERSION is the last migration that predates the dump.
+BASELINE_VERSION="${BASELINE_VERSION:-0000}"
 
-echo "==> Clearing seed data"
+echo "==> Resetting to baseline schema (migration $BASELINE_VERSION, no seed)"
+supabase db reset --version "$BASELINE_VERSION" --no-seed
+
+echo "==> Clearing any residual data"
 psql "$LOCAL_DB" -q -v ON_ERROR_STOP=1 <<'SQL'
 set session_replication_role = replica;
 truncate public.movimiento_tags, public.movimientos, public.tags, public.metas,
@@ -45,6 +56,9 @@ echo "==> Loading production data"
 # The dump sets session_replication_role = replica itself, so FKs and triggers
 # stay out of the way while rows land in dump order.
 psql "$LOCAL_DB" -q -v ON_ERROR_STOP=1 -f "$DATA"
+
+echo "==> Applying migrations on top of real data (this is what exercises backfills)"
+supabase migration up --local --include-all
 
 echo "==> Row counts"
 psql "$LOCAL_DB" -X -P pager=off -c "

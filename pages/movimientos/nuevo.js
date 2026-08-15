@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronDown } from 'lucide-react';
 import { useTiposMovimiento } from '../../hooks/useTiposMovimiento';
 import { useMovimientos } from '../../hooks/useMovimientos';
 import { useTags } from '../../hooks/useTags';
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/field';
+import { Badge } from '@/components/ui/badge';
 
 export default function NuevoMovimientoPage() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function NuevoMovimientoPage() {
     tagIds: [],
   });
   const [errors, setErrors] = useState({});
+  const [tagsOpen, setTagsOpen] = useState(() => formData.tagIds.length > 0);
 
   const { tiposMovimiento, loading: tiposLoading, error: tiposError } = useTiposMovimiento();
   const { createMovimiento } = useMovimientos();
@@ -87,6 +89,7 @@ export default function NuevoMovimientoPage() {
   const resetForm = () => {
     setFormData({ fecha: today, nombre: '', importe: '', id_tipo_movimiento: '', tagIds: [] });
     setErrors({});
+    setTagsOpen(false);
   };
 
   if (tiposLoading) {
@@ -190,8 +193,25 @@ export default function NuevoMovimientoPage() {
 
               {tags?.length > 0 && (
                 <div className="space-y-2 md:col-span-2">
-                  <p className="text-sm font-medium">Etiquetas (opcional)</p>
-                  <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTagsOpen((prev) => !prev)}
+                    aria-expanded={tagsOpen}
+                    aria-controls="etiquetas-panel"
+                    className="flex w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm font-medium hover:bg-secondary"
+                  >
+                    <span className="flex items-center gap-2">
+                      Etiquetas (opcional)
+                      {formData.tagIds?.length > 0 && (
+                        <Badge variant="secondary">{formData.tagIds.length} seleccionada{formData.tagIds.length > 1 ? 's' : ''}</Badge>
+                      )}
+                    </span>
+                    <ChevronDown className={`size-4 shrink-0 transition-transform ${tagsOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  <div
+                    id="etiquetas-panel"
+                    className={tagsOpen ? 'flex flex-wrap gap-2 pt-1' : 'hidden'}
+                  >
                     {tags.map((t) => (
                       <label
                         key={t.id}

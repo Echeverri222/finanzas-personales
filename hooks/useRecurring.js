@@ -91,62 +91,49 @@ export function useRecurring() {
   };
 
   /**
-   * Create movimientos in the DB for recurring rules whose scheduled day has arrived.
-   * For each active recurring: scheduled day = min(dia_mes, last day of month).
-   * If we're on or after that day this month and no movimiento exists yet for this month,
-   * insert one with fecha = that scheduled day. Runs on app load; one movimiento per recurring per month.
+   * Generate this month's movimientos for the user's active recurring rules.
+   *
+   * Delegates to the generar_recurrentes_del_mes RPC (see the M9 migration).
+   * The previous version looped in the browser doing a SELECT + INSERT per
+   * rule, and its existence check only matched on recurring_id -- so a
+   * movimiento the user had typed in by hand was invisible to it and got
+   * duplicated. The RPC matches on name within the month regardless of origin,
+   * runs as one atomic statement, and is backed by a unique index so
+   * concurrent tabs cannot both insert.
+   *
+   * p_hoy is the CLIENT's local date on purpose: the database runs in UTC, and
+   * after 19:00 in Bogota (UTC-5) the server's current_date is already
+   * tomorrow, which would fire a rule a day early.
    */
   const processRecurringForToday = useCallback(async () => {
-    if (!userProfile?.id) return;
+    if (!userProfile?.id) return { data: null, error: null };
+
     const now = new Date();
-    const today = now.getDate();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const hoyLocal = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
 
-    try {
-      const { data: allActive, error: fetchErr } = await supabase
-        .from('pagos_recurrentes')
-        .select('*')
-        .eq('usuario_id', userProfile.id)
-        .eq('activo', true);
-      if (fetchErr) throw fetchErr;
-      if (!allActive?.length) return;
+    const { data, error: rpcError } = await supabase.rpc(
+      'generar_recurrentes_del_mes',
+      { p_hoy: hoyLocal }
+    );
 
-      const startOfMonth = new Date(year, month, 1).toISOString();
-      const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
-
-      for (const rec of allActive) {
-        const scheduledDay = Math.min(rec.dia_mes, lastDayOfMonth);
-        if (scheduledDay > today) continue;
-
-        const { data: existing } = await supabase
-          .from('movimientos')
-          .select('id')
-          .eq('usuario_id', userProfile.id)
-          .eq('recurring_id', rec.id)
-          .gte('fecha', startOfMonth)
-          .lte('fecha', endOfMonth)
-          .limit(1);
-
-        if (existing?.length > 0) continue;
-
-        const fecha = new Date(year, month, scheduledDay);
-        await supabase.from('movimientos').insert([
-          {
-            usuario_id: userProfile.id,
-            nombre: rec.nombre,
-            importe: Number(rec.importe),
-            id_tipo_movimiento: rec.id_tipo_movimiento,
-            fecha: fecha.toISOString(),
-            recurring_id: rec.id,
-          },
-        ]);
-      }
-    } catch (err) {
-      console.error('Process recurring:', err);
+    // The old code discarded this error entirely, which is why six months of
+    // the feature never running produced no signal at all.
+    if (rpcError) {
+      console.error('processRecurringForToday:', rpcError.message);
+      return { data: null, error: rpcError.message };
     }
-  }, [userProfile?.id]);
+
+    // Only refetch when something actually changed.
+    if (data?.some((r) => r.accion === 'genera')) {
+      await fetchRecurring();
+    }
+
+    return { data, error: null };
+  }, [userProfile?.id, fetchRecurring]);
 
   return {
     list,

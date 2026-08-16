@@ -8,9 +8,9 @@ import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { NativeSelect as Select } from '@/components/ui/native-select';
 import { Field } from '@/components/ui/field';
-import { Dialog } from '@/components/ui/dialog';
+import { Modal as Dialog } from '@/components/ui/modal';
 
 const DAYS_OF_MONTH = Array.from({ length: 31 }, (_, i) => i + 1);
 // A function, not a constant: evaluated once at module load, the default day

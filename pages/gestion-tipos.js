@@ -5,7 +5,7 @@ import { useUser } from '../contexts/UserContext';
 import { formatCurrency } from '@/lib/format';
 import { TIPO } from '@/lib/constants';
 import { PageHeader } from '@/components/PageHeader';
-import { Select } from '@/components/ui/select';
+import { NativeSelect as Select } from '@/components/ui/native-select';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

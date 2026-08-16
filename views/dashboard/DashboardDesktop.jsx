@@ -5,7 +5,7 @@ import { Plus, ArrowDownLeft, ArrowUpRight, TrendingUp } from 'lucide-react';
 import { createSafeDate } from '../../lib/dateUtils';
 import { PageHeader } from '@/components/PageHeader';
 import { buttonVariants } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
+import { NativeSelect as Select } from '@/components/ui/native-select';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { TIPO } from '@/lib/constants';

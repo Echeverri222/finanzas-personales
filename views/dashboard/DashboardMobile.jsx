@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { TrendingUp, ArrowDownLeft, ArrowUpRight, ReceiptText, Wallet, PiggyBank, ShoppingBag } from 'lucide-react';
 import { createSafeDate } from '../../lib/dateUtils';
-import { Select } from '@/components/ui/select';
+import { NativeSelect as Select } from '@/components/ui/native-select';
 import { Card, CardContent } from '@/components/ui/card';
 import { TIPO } from '@/lib/constants';
 

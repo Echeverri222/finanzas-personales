@@ -4,10 +4,10 @@ import { groupMovimientosByDate } from '../../lib/api/movimientosView';
 import { createSafeDate } from '../../lib/dateUtils';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { NativeSelect as Select } from '@/components/ui/native-select';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
-import { Dialog } from '@/components/ui/dialog';
+import { Modal as Dialog } from '@/components/ui/modal';
 import { TIPO } from '@/lib/constants';
 
 const CATEGORY_ICONS = {

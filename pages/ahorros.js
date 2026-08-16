@@ -9,7 +9,7 @@ import { TIPO } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
 import { Card } from '@/components/ui/card';
-import { Select } from '@/components/ui/select';
+import { NativeSelect as Select } from '@/components/ui/native-select';
 import { buttonVariants } from '@/components/ui/button';
 
 const createSafeDate = (dateString) => {

@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field } from '@/components/ui/field';
-import { Dialog } from '@/components/ui/dialog';
+import { Modal as Dialog } from '@/components/ui/modal';
 
 export default function MetasPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);

@@ -44,3 +44,8 @@ backups/
 *.sql.gz
 !supabase/migrations/*.sql
 !supabase/seed.sql
+# Added by the Vercel CLI on `vercel link`. Broader than the rules above --
+# it also covers .env.vercel and anything future tooling drops here.
+.env*
+# ...but the checked-in template is not a secret and must stay shareable.
+!.env.development.local.example

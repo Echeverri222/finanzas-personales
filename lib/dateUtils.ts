@@ -3,10 +3,17 @@
  * Use this so any UI (mobile/desktop) gets the same date behavior.
  */
 
-export function createSafeDate(dateString) {
+/**
+ * Parse a date-only value into a **local** Date.
+ *
+ * `new Date('2026-08-16')` is parsed as UTC midnight, which renders as the 15th
+ * anywhere west of UTC (Bogotá included). Splitting the string and going through
+ * the numeric Date constructor keeps the calendar day the user typed.
+ */
+export function createSafeDate(dateString?: string | Date | null): Date {
   if (!dateString) return new Date();
-  if (typeof dateString === 'string' && dateString.includes('-')) {
-    const [year, month, day] = dateString.split('T')[0].split('-');
+  if (typeof dateString === "string" && dateString.includes("-")) {
+    const [year, month, day] = dateString.split("T")[0].split("-");
     return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
   }
   if (dateString instanceof Date) return dateString;
@@ -16,9 +23,11 @@ export function createSafeDate(dateString) {
 export const MONTH_NAMES = [
   'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
   'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
-];
+] as const;
 
-export const MONTHS_FULL = [
+/** Month options for filter selects. `value` is a string because it comes back
+ *  from a <select> that way; 'all' is the no-filter sentinel. */
+export const MONTHS_FULL: readonly { value: string; label: string }[] = [
   { value: 'all', label: 'Todos' },
   { value: '0', label: 'Enero' }, { value: '1', label: 'Febrero' },
   { value: '2', label: 'Marzo' }, { value: '3', label: 'Abril' },
@@ -28,4 +37,4 @@ export const MONTHS_FULL = [
   { value: '10', label: 'Noviembre' }, { value: '11', label: 'Diciembre' }
 ];
 
-export const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+export const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] as const;

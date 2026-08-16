@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["dom", "dom.iterable", "esnext"],
+
+    // Legacy .js/.jsx keeps compiling and stays importable from .ts files, but
+    // is not type-checked. Files are converted incrementally; see the plan.
+    "allowJs": true,
+    "checkJs": false,
+
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Mirrors the alias that jsconfig.json used to provide. 18 files import
+    // via `@/`, so a typo here breaks all of them at once -- and jsconfig.json
+    // will NOT cover for it: Next reads that file only when TypeScript is
+    // absent (next/dist/build/load-jsconfig.js), and warns about neither.
+    "baseUrl": ".",
+    "paths": { "@/*": ["./*"] }
+  },
+  // Deliberately omits **/*.js: including it would pull the CommonJS
+  // next.config.js / tailwind.config.js / postcss.config.js into an
+  // "esnext" + isolatedModules program. Consequence to be aware of --
+  // `tsc --noEmit` does not verify that the remaining .js pages call the
+  // newly-typed hooks correctly. That gap closes as pages become .tsx.
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", ".next", "out"]
+}

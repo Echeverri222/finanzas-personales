@@ -49,3 +49,8 @@ backups/
 .env*
 # ...but the checked-in template is not a secret and must stay shareable.
 !.env.development.local.example
+
+# TypeScript -- both are generated. next-env.d.ts is rewritten by `next dev`/
+# `next build` on every run, so committing it only creates conflicts.
+next-env.d.ts
+*.tsbuildinfo

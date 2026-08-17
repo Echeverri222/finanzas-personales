@@ -49,15 +49,20 @@ insert into public.usuarios (id, user_id, email, nombre) values (
   'Usuario Demo'
 );
 
--- ── Categories (tipo_movimiento). 'Ingresos' and 'Ahorro' names carry app logic. ──
-insert into public.tipo_movimiento (id, usuario_id, nombre, meta) values
-  ('c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'Ingresos',     0),
-  ('c0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', 'Ahorro',       0),
-  ('c0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 'Alimentacion', 600),
-  ('c0000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000001', 'Transporte',   200),
-  ('c0000000-0000-0000-0000-000000000005', 'b0000000-0000-0000-0000-000000000001', 'Gastos fijos', 1500),
-  ('c0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000001', 'Compras',      300),
-  ('c0000000-0000-0000-0000-000000000007', 'b0000000-0000-0000-0000-000000000001', 'Salidas',      250);
+-- ── Categories (tipo_movimiento) ─────────────────────────────────────────────
+--    `tipo` is the semantic classification and MUST be set explicitly here.
+--    Names are user-editable free text and carry no logic (M2); the app reads
+--    `tipo` only. The column defaults to 'gasto', and the backfill in
+--    20260815140220_add_tipo_to_tipo_movimiento.sql runs BEFORE this seed, so
+--    omitting `tipo` silently files 'Ingresos' under spending.
+insert into public.tipo_movimiento (id, usuario_id, nombre, meta, tipo) values
+  ('c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'Ingresos',     0,    'ingreso'),
+  ('c0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', 'Ahorro',       0,    'ahorro'),
+  ('c0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 'Alimentacion', 600,  'gasto'),
+  ('c0000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000001', 'Transporte',   200,  'gasto'),
+  ('c0000000-0000-0000-0000-000000000005', 'b0000000-0000-0000-0000-000000000001', 'Gastos fijos', 1500, 'gasto'),
+  ('c0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000001', 'Compras',      300,  'gasto'),
+  ('c0000000-0000-0000-0000-000000000007', 'b0000000-0000-0000-0000-000000000001', 'Salidas',      250,  'gasto');
 
 -- ── Tags ─────────────────────────────────────────────────────────────────────
 insert into public.tags (id, usuario_id, nombre) values
@@ -66,8 +71,8 @@ insert into public.tags (id, usuario_id, nombre) values
   ('d0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 'Vacaciones');
 
 -- ── Movimientos: 5 months (Mar–Jul 2026). Importe is always positive; income vs
---    expense is decided by category name in the app. A few rows get fixed ids so
---    they can be tagged below. ────────────────────────────────────────────────
+--    expense is decided by the category's `tipo` above, never by its name.
+--    A few rows get fixed ids so they can be tagged below. ───────────────────
 insert into public.movimientos (id, usuario_id, id_tipo_movimiento, nombre, importe, fecha) values
   -- March
   ('e0000000-0000-0000-0000-000000000301', 'b0000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', 'Salario marzo',        3800, '2026-03-01'),

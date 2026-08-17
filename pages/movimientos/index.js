@@ -1,13 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useMovimientos } from '../../hooks/useMovimientos';
 import { useTiposMovimiento } from '../../hooks/useTiposMovimiento';
 import { useTags } from '../../hooks/useTags';
 import { useMovimientoTags } from '../../hooks/useMovimientoTags';
-import { useIsMobile } from '../../hooks/useIsMobile';
-import MovimientosMobile from '../../views/movimientos/MovimientosMobile';
-import MovimientosDesktop from '../../views/movimientos/MovimientosDesktop';
-import { formatCurrency, formatDate } from '@/lib/format';
+import MovimientosView from '../../views/movimientos/MovimientosView';
+import { MovimientosSkeleton } from '@/components/feedback/skeletons';
+import { ErrorAlert } from '@/components/feedback/ErrorAlert';
 
 export default function MovimientosPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -18,7 +17,6 @@ export default function MovimientosPage() {
   const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
 
   const router = useRouter();
-  const isMobile = useIsMobile();
   const { movimientos, loading, error, updateMovimiento, deleteMovimiento } = useMovimientos();
   const { tiposMovimiento } = useTiposMovimiento();
   const { tags } = useTags();
@@ -31,6 +29,51 @@ export default function MovimientosPage() {
       if (category) setTypeFilter(category);
     }
   }, [router.isReady, router.query]);
+
+  const handleEdit = (movimiento) => {
+    setEditingId(movimiento.id);
+    let fechaString = '';
+    try {
+      if (movimiento.fecha instanceof Date) {
+        fechaString = movimiento.fecha.toISOString().split('T')[0];
+      } else if (typeof movimiento.fecha === 'string') {
+        fechaString = movimiento.fecha.split('T')[0];
+      } else {
+        fechaString = new Date().toISOString().split('T')[0];
+      }
+    } catch {
+      fechaString = new Date().toISOString().split('T')[0];
+    }
+    setEditFormData({
+      fecha: fechaString,
+      nombre: movimiento.nombre || '',
+      importe: Math.abs(movimiento.importe).toString(),
+      id_tipo_movimiento: movimiento.id_tipo_movimiento || '',
+      tagIds: movimientoTagIds[movimiento.id] || [],
+    });
+  };
+
+  // Open the editor straight from `?edit=<id>`, which is what the dashboard's
+  // recent-movements rows link to. Without this those links landed here and did
+  // nothing at all.
+  //
+  // The ref is what stops it re-opening: the dialog is closed by clearing
+  // `editingId`, but the query param stays in the URL, so a plain guard on
+  // `editingId` would immediately re-open the dialog on the next render.
+  const handledEditParam = useRef(null);
+  useEffect(() => {
+    if (!router.isReady || loading) return;
+    const requested = router.query.edit;
+    if (!requested || handledEditParam.current === requested) return;
+    const found = movimientos.find((m) => String(m.id) === String(requested));
+    if (found) {
+      handledEditParam.current = requested;
+      handleEdit(found);
+    }
+    // handleEdit is stable enough in practice (it only calls setState); adding it
+    // would mean memoising it and every value it closes over.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.edit, loading, movimientos]);
 
   const filteredMovimientos = movimientos.filter((mov) => {
     const matchesSearch =
@@ -71,29 +114,6 @@ export default function MovimientosPage() {
     }));
   };
 
-  const handleEdit = (movimiento) => {
-    setEditingId(movimiento.id);
-    let fechaString = '';
-    try {
-      if (movimiento.fecha instanceof Date) {
-        fechaString = movimiento.fecha.toISOString().split('T')[0];
-      } else if (typeof movimiento.fecha === 'string') {
-        fechaString = movimiento.fecha.split('T')[0];
-      } else {
-        fechaString = new Date().toISOString().split('T')[0];
-      }
-    } catch {
-      fechaString = new Date().toISOString().split('T')[0];
-    }
-    setEditFormData({
-      fecha: fechaString,
-      nombre: movimiento.nombre || '',
-      importe: Math.abs(movimiento.importe).toString(),
-      id_tipo_movimiento: movimiento.id_tipo_movimiento || '',
-      tagIds: movimientoTagIds[movimiento.id] || [],
-    });
-  };
-
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditFormData({});
@@ -109,8 +129,8 @@ export default function MovimientosPage() {
         importe: Number(editFormData.importe),
         id_tipo_movimiento: editFormData.id_tipo_movimiento,
       };
-      const { error } = await updateMovimiento(editingId, updatedData);
-      if (error) throw new Error(error);
+      const { error: updateError } = await updateMovimiento(editingId, updatedData);
+      if (updateError) throw new Error(updateError);
       const tagIds = editFormData.tagIds || [];
       await setMovimientoTags(editingId, tagIds);
       setEditingId(null);
@@ -121,71 +141,39 @@ export default function MovimientosPage() {
     }
   };
 
+  // Confirmation lives HERE and nowhere else. Both views used to confirm as
+  // well, so deleting a movimiento asked twice; the rule is that the owner of
+  // the mutation owns the confirmation and presentational components never
+  // confirm.
   const handleDelete = async (id) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este movimiento?')) {
-      const { error } = await deleteMovimiento(id);
-      if (error) alert('Error al eliminar: ' + error);
-    }
+    if (!confirm('¿Estás seguro de que quieres eliminar este movimiento?')) return;
+    const { error: deleteError } = await deleteMovimiento(id);
+    if (deleteError) alert('Error al eliminar: ' + deleteError);
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="text-muted-foreground">Cargando movimientos...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-lg border-l-4 border-destructive bg-destructive/10 p-4 text-destructive">
-        Error: {error}
-      </div>
-    );
-  }
-
-  const commonProps = {
-    sortedMovimientos,
-    tiposMovimiento,
-    searchTerm,
-    setSearchTerm,
-    typeFilter,
-    setTypeFilter,
-    monthFilter,
-    setMonthFilter,
-    formatCurrency,
-    formatDate,
-  };
-
-  if (isMobile) {
-    return (
-      <MovimientosMobile
-        {...commonProps}
-        tags={tags}
-        editingId={editingId}
-        editFormData={editFormData}
-        setEditFormData={setEditFormData}
-        onEdit={handleEdit}
-        onCancelEdit={handleCancelEdit}
-        onSaveEdit={handleSaveEdit}
-        onDelete={handleDelete}
-      />
-    );
-  }
+  if (loading) return <MovimientosSkeleton />;
+  if (error) return <ErrorAlert error={error} title="No se pudieron cargar los movimientos" />;
 
   return (
-    <MovimientosDesktop
-      {...commonProps}
+    <MovimientosView
+      sortedMovimientos={sortedMovimientos}
+      tiposMovimiento={tiposMovimiento}
       tags={tags}
+      searchTerm={searchTerm}
+      setSearchTerm={setSearchTerm}
+      typeFilter={typeFilter}
+      setTypeFilter={setTypeFilter}
+      monthFilter={monthFilter}
+      setMonthFilter={setMonthFilter}
       sortConfig={sortConfig}
-      handleSort={handleSort}
+      onSort={handleSort}
       editingId={editingId}
       editFormData={editFormData}
       setEditFormData={setEditFormData}
-      handleEdit={handleEdit}
-      handleCancelEdit={handleCancelEdit}
-      handleSaveEdit={handleSaveEdit}
-      handleDelete={handleDelete}
+      onEdit={handleEdit}
+      onCancelEdit={handleCancelEdit}
+      onSaveEdit={handleSaveEdit}
+      onDelete={handleDelete}
     />
   );
 }

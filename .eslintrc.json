@@ -1,4 +1,11 @@
 {
   "extends": ["next/core-web-vitals"],
-  "ignorePatterns": ["node_modules/", ".next/", "out/", "types/supabase.ts"]
+  "ignorePatterns": [
+    "node_modules/",
+    ".next/",
+    "out/",
+    "types/supabase.ts",
+    "Enhance Finance UI Design/",
+    "stitch_shadcn_ui_design_enhancement/"
+  ]
 }

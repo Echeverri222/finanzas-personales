@@ -54,3 +54,10 @@ backups/
 # `next build` on every run, so committing it only creates conflicts.
 next-env.d.ts
 *.tsbuildinfo
+
+# UI design references (Figma Make + Stitch exports), kept on disk for
+# comparison but not part of the app. They are self-contained Vite / React 19 /
+# Tailwind v4 projects, so committing them would add a second lockfile and a
+# second tsconfig to this repo. Drop these two lines if you'd rather track them.
+Enhance Finance UI Design/
+stitch_shadcn_ui_design_enhancement/

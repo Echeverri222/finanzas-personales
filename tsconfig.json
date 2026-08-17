@@ -33,5 +33,17 @@
   // `tsc --noEmit` does not verify that the remaining .js pages call the
   // newly-typed hooks correctly. That gap closes as pages become .tsx.
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", ".next", "out"]
+  // The two *design reference* folders are self-contained Vite/React-19/
+  // Tailwind-v4 projects dropped in the repo root for comparison. They have
+  // their own tsconfig and no installed deps, so the `**/*.ts` glob above was
+  // dragging their vite.config.ts into this program and reporting 20 errors
+  // that have nothing to do with the app -- which makes `npm run typecheck`
+  // useless as a signal. They are reference material, not built code.
+  "exclude": [
+    "node_modules",
+    ".next",
+    "out",
+    "Enhance Finance UI Design",
+    "stitch_shadcn_ui_design_enhancement"
+  ]
 }

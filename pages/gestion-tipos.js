@@ -1,15 +1,21 @@
 import { useState } from 'react';
-import { Pencil, Trash2, Check, X, FolderOpen } from 'lucide-react';
+import { Pencil, Trash2, Check, X, FolderOpen, Plus } from 'lucide-react';
 import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
 import { useUser } from '../contexts/UserContext';
 import { formatCurrency } from '@/lib/format';
 import { TIPO } from '@/lib/constants';
-import { PageHeader } from '@/components/PageHeader';
+import { tipoVisual } from '@/lib/tipoVisuals';
+import { PageHeader, SectionLabel } from '@/components/PageHeader';
 import { NativeSelect as Select } from '@/components/ui/native-select';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Field } from '@/components/ui/field';
+import { ErrorAlert } from '@/components/feedback/ErrorAlert';
+import { EmptyState } from '@/components/feedback/EmptyState';
+import { ListSkeleton } from '@/components/feedback/skeletons';
+import { TypeIcon } from '@/components/money/TypeIcon';
 import {
   Table,
   TableHeader,
@@ -144,8 +150,12 @@ export default function GestionTiposPage() {
 
   if (loading || userLoading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="text-muted-foreground">Cargando categorías...</div>
+      <div className="space-y-5">
+        <PageHeader
+          title="Categorías"
+          description="Gestiona tus categorías de ingresos, gastos y ahorros."
+        />
+        <ListSkeleton rows={6} />
       </div>
     );
   }
@@ -157,11 +167,7 @@ export default function GestionTiposPage() {
         description="Gestiona tus categorías de ingresos, gastos y ahorros."
       />
 
-      {(error || hookError) && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          {error || hookError}
-        </div>
-      )}
+      <ErrorAlert error={error || hookError} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
@@ -228,19 +234,36 @@ export default function GestionTiposPage() {
           <CardHeader>
             <CardTitle>Categorías recomendadas</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {recomendados.map((r) => (
-                <button
-                  key={r.nombre}
-                  type="button"
-                  onClick={() => addRecommended(r)}
-                  className="rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground transition-colors hover:bg-secondary/70"
-                >
-                  + {r.nombre}
-                </button>
-              ))}
-            </div>
+          <CardContent className="space-y-4">
+            {/* Grouped by tipo, as in the Stitch design. Twelve chips in one
+                undifferentiated wrap gave no clue that picking "Ahorro" and
+                picking "Transporte" produce categories that behave completely
+                differently in every total. */}
+            {TIPO_OPCIONES.map((opcion) => {
+              const items = recomendados.filter((r) => r.tipo === opcion.value);
+              if (items.length === 0) return null;
+              return (
+                <div key={opcion.value}>
+                  <SectionLabel className="mb-2">{opcion.label}</SectionLabel>
+                  <div className="flex flex-wrap gap-2">
+                    {items.map((r) => (
+                      // A Button, not a chip: these are actions that fill the
+                      // form, not a filter state you can be "in".
+                      <Button
+                        key={r.nombre}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addRecommended(r)}
+                      >
+                        <Plus className="size-3.5" />
+                        {r.nombre}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       </div>
@@ -251,16 +274,17 @@ export default function GestionTiposPage() {
         </CardHeader>
         <CardContent className="px-0">
           {tiposMovimiento.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground">
-              <FolderOpen className="mx-auto mb-3 size-10" />
-              <p className="font-medium text-foreground">No hay categorías creadas</p>
-              <p className="mt-1 text-sm">Crea tu primera categoría para organizar tus movimientos.</p>
-            </div>
+            <EmptyState
+              icon={FolderOpen}
+              title="No hay categorías creadas"
+              description="Crea tu primera categoría para organizar tus movimientos."
+            />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="pl-6">Nombre</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead className="text-right">Meta mensual</TableHead>
                   <TableHead className="pr-6 text-right">Acciones</TableHead>
                 </TableRow>
@@ -275,7 +299,24 @@ export default function GestionTiposPage() {
                             value={editFormData.nombre}
                             onChange={(e) => setEditFormData((prev) => ({ ...prev, nombre: e.target.value }))}
                             className="h-8"
+                            aria-label="Nombre de la categoría"
                           />
+                        </TableCell>
+                        {/* `tipo` was already in editFormData and already sent
+                            on save, but nothing rendered a control for it -- so
+                            a category created with the wrong type could never be
+                            corrected, only deleted and recreated. */}
+                        <TableCell>
+                          <Select
+                            value={editFormData.tipo}
+                            onChange={(e) => setEditFormData((prev) => ({ ...prev, tipo: e.target.value }))}
+                            className="h-8"
+                            aria-label="Tipo de la categoría"
+                          >
+                            {TIPO_OPCIONES.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </Select>
                         </TableCell>
                         <TableCell>
                           <Input
@@ -285,14 +326,26 @@ export default function GestionTiposPage() {
                             className="h-8 text-right"
                             step="0.01"
                             min="0"
+                            aria-label="Meta mensual"
                           />
                         </TableCell>
                         <TableCell className="pr-6">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={handleSaveEdit} disabled={saving}>
-                              <Check className="size-4 text-emerald-600" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={handleSaveEdit}
+                              disabled={saving}
+                              aria-label="Guardar cambios"
+                            >
+                              <Check className="size-4 text-success" />
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={handleCancelEdit}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={handleCancelEdit}
+                              aria-label="Cancelar edición"
+                            >
                               <X className="size-4" />
                             </Button>
                           </div>
@@ -300,19 +353,41 @@ export default function GestionTiposPage() {
                       </>
                     ) : (
                       <>
-                        <TableCell className="pl-6 font-medium">{tipo.nombre}</TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                        <TableCell className="pl-6">
+                          <div className="flex items-center gap-3">
+                            <TypeIcon tipo={tipo.tipo} nombre={tipo.nombre} size="sm" />
+                            <span className="font-medium">{tipo.nombre}</span>
+                          </div>
+                        </TableCell>
+                        {/* Surfacing `tipo` is the point: it is what decides
+                            whether this category counts as money in, money out
+                            or money set aside, and the name -- free text the
+                            user can change at will -- decides nothing. The table
+                            showed only the name, so the field that actually
+                            drives every total was invisible. */}
+                        <TableCell>
+                          <Badge variant="secondary" className="font-normal">
+                            {tipoVisual(tipo.tipo).label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm tabular-nums text-muted-foreground">
                           {tipo.meta ? formatCurrency(tipo.meta) : '—'}
                         </TableCell>
                         <TableCell className="pr-6">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleEdit(tipo)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(tipo)}
+                              aria-label={`Editar ${tipo.nombre}`}
+                            >
                               <Pencil className="size-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDelete(tipo.id, tipo.nombre)}
+                              aria-label={`Eliminar ${tipo.nombre}`}
                             >
                               <Trash2 className="size-4 text-destructive" />
                             </Button>

@@ -24,8 +24,8 @@ export default function MetasPage() {
 
   const getProgressBarColor = (actual, objetivo) => {
     const progress = getProgressPercentage(actual, objetivo);
-    if (progress >= 100) return 'bg-emerald-500';
-    if (progress >= 70) return 'bg-amber-500';
+    if (progress >= 100) return 'bg-success';
+    if (progress >= 70) return 'bg-warning';
     return 'bg-primary';
   };
 
@@ -125,7 +125,7 @@ export default function MetasPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs font-medium text-muted-foreground">Completadas</p>
-            <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+            <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-income">
               {stats.metasCompletadas}
             </p>
           </CardContent>

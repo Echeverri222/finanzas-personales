@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Tag as TagIcon } from 'lucide-react';
 import { useTags } from '../hooks/useTags';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+// No ErrorAlert here on purpose: the only failure this page surfaces is an
+// empty-name validation error, which belongs beside the field it refers to.
+import { EmptyState } from '@/components/feedback/EmptyState';
+import { ListSkeleton } from '@/components/feedback/skeletons';
 
 export default function EtiquetasPage() {
   const [nombre, setNombre] = useState('');
@@ -34,8 +38,12 @@ export default function EtiquetasPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="text-muted-foreground">Cargando etiquetas...</div>
+      <div className="space-y-5">
+        <PageHeader
+          title="Etiquetas"
+          description="Crea etiquetas para describir tus movimientos (ej. trabajo, vacaciones, reembolso)."
+        />
+        <ListSkeleton rows={3} />
       </div>
     );
   }
@@ -62,12 +70,19 @@ export default function EtiquetasPage() {
               }}
               placeholder="Nombre de la etiqueta"
               className="flex-1"
+              aria-label="Nombre de la etiqueta"
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? 'etiqueta-error' : undefined}
             />
             <Button type="submit" disabled={saving}>
               {saving ? 'Guardando...' : 'Crear'}
             </Button>
           </form>
-          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+          {error ? (
+            <p id="etiqueta-error" role="alert" className="mt-2 text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -77,9 +92,11 @@ export default function EtiquetasPage() {
         </CardHeader>
         <CardContent>
           {tags.length === 0 ? (
-            <p className="text-muted-foreground">
-              No hay etiquetas. Crea una para usarla en tus movimientos y filtrar en el dashboard.
-            </p>
+            <EmptyState
+              icon={TagIcon}
+              title="No hay etiquetas"
+              description="Crea una para usarla en tus movimientos y filtrar en el dashboard."
+            />
           ) : (
             <div className="flex flex-wrap gap-2">
               {tags.map((t) => (
@@ -91,8 +108,8 @@ export default function EtiquetasPage() {
                   <button
                     type="button"
                     onClick={() => handleDelete(t.id, t.nombre)}
-                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-background hover:text-destructive"
-                    title="Eliminar"
+                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-background hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={`Eliminar etiqueta ${t.nombre}`}
                   >
                     <X className="size-3.5" />
                   </button>

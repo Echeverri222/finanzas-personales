@@ -177,7 +177,7 @@ export default function PagosRecurrentesPage() {
                     title={r.activo ? 'Pausar' : 'Activar'}
                   >
                     {r.activo ? (
-                      <Power className="size-4 text-emerald-600" />
+                      <Power className="size-4 text-success" />
                     ) : (
                       <PowerOff className="size-4 text-muted-foreground" />
                     )}

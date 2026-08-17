@@ -9,8 +9,11 @@ import { TIPO } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
 import { Card } from '@/components/ui/card';
-import { NativeSelect as Select } from '@/components/ui/native-select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { buttonVariants } from '@/components/ui/button';
+import { HeroCard } from '@/components/layout/HeroCard';
+import { Amount } from '@/components/money/Amount';
+import { ErrorAlert } from '@/components/feedback/ErrorAlert';
 
 const createSafeDate = (dateString) => {
   if (!dateString) return new Date();
@@ -23,11 +26,12 @@ const createSafeDate = (dateString) => {
 };
 
 export default function AhorrosPage() {
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  // The month/year selects that used to live in the header are gone: nothing
+  // ever read their state, so they were two controls that looked like filters
+  // and silently did nothing. The period toggle below is the real filter.
   const [timePeriod, setTimePeriod] = useState('1year');
 
-  const { movimientos, loading } = useMovimientos();
+  const { movimientos, loading, error } = useMovimientos();
   const { tiposMovimiento } = useTiposMovimiento();
 
   const getTipoNombre = (id) => {
@@ -100,8 +104,8 @@ export default function AhorrosPage() {
   const chartData = getChartData();
   const totalSavings = ahorrosMovimientos.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
 
-  const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  const years = [2022, 2023, 2024, 2025, 2026];
+  // The local `months`/`years` arrays that fed those selects are gone with them.
+  // (lib/dateUtils already exports MONTHS_FULL if a real month filter lands here.)
 
   const PERIODS = [
     { key: '3months', label: '3M' },
@@ -111,40 +115,28 @@ export default function AhorrosPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="text-muted-foreground">Cargando datos de ahorros...</div>
+      <div className="space-y-5">
+        <PageHeader title="Ahorros" description="Sigue el crecimiento de tus ahorros." />
+        <Skeleton className="h-40 w-full rounded-lg" />
+        <Skeleton className="h-72 w-full rounded-lg" />
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <PageHeader title="Ahorros" description="Sigue el crecimiento de tus ahorros.">
-        <Select
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
-          className="w-auto"
-        >
-          {months.map((month, index) => (
-            <option key={index} value={index}>{month}</option>
-          ))}
-        </Select>
-        <Select
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
-          className="w-auto"
-        >
-          {years.map((year) => (
-            <option key={year} value={year}>{year}</option>
-          ))}
-        </Select>
-      </PageHeader>
+      <PageHeader title="Ahorros" description="Sigue el crecimiento de tus ahorros." />
+
+      {/* A failed fetch used to fall straight through to the hero, which
+          rendered $0 -- indistinguishable from "you have no savings". The app
+          confidently misreported money. */}
+      <ErrorAlert error={error} title="No se pudieron cargar tus ahorros" />
 
       {/* Hero */}
-      <div className="rounded-lg bg-primary p-6 text-primary-foreground shadow-sm">
-        <p className="mb-1 text-sm font-medium text-primary-foreground/70">Saldo total ahorrado</p>
-        <p className="text-3xl font-semibold tracking-tight tabular-nums">{formatCurrency(totalSavings)}</p>
-        <div className="mt-6 flex flex-wrap gap-3">
+      <HeroCard
+        label="Saldo total ahorrado"
+        value={<Amount value={totalSavings} size="hero" className="text-primary-foreground" />}
+      >
           <Link
             href="/movimientos/nuevo?tipo=ahorros"
             className={cn(buttonVariants({ variant: 'secondary' }))}
@@ -162,8 +154,7 @@ export default function AhorrosPage() {
             <Target className="size-4" />
             Metas
           </Link>
-        </div>
-      </div>
+      </HeroCard>
 
       {/* Growth chart */}
       <Card className="p-4 md:p-6">

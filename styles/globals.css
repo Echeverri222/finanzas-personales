@@ -5,24 +5,36 @@
 /* ── shadcn design tokens (HSL) ─────────────────────────────────────────── */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    /* --background is a TINT, not white, and --card is white on top of it.
+       That difference is the whole elevation system: both reference designs
+       build hierarchy from tonal layers plus a 1px border rather than from
+       shadows, and when these two were both `0 0% 100%` every card, table and
+       panel dissolved into the page. The hue is shared with --secondary and
+       --border below so the neutrals read as one family rather than as a grey
+       card sitting on a blue page. */
+    --background: 220 23% 97%;
+    --foreground: 222 27% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 222 27% 11%;
     --primary: 221 83% 53%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    /* Nudged down from 95.9% and re-hued: against a 97% page it had barely
+       1 percentage point of lightness to work with, so secondary chips and
+       table-header fills were invisible. */
+    --secondary: 220 16% 93.5%;
+    --secondary-foreground: 222 24% 14%;
+    --muted: 220 16% 93.5%;
+    --muted-foreground: 220 9% 43%;
+    --accent: 220 16% 93.5%;
+    --accent-foreground: 222 24% 14%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
     --ring: 221 83% 53%;
-    --radius: 0.6rem;
+    /* 0.6rem -> 0.75rem. Both designs are rounder than this was; "friendly"
+       tracks corner radius more directly than it tracks anything else. */
+    --radius: 0.75rem;
 
     /* ── Semantic status ──────────────────────────────────────────────────
        Two tiers, and they are not interchangeable:

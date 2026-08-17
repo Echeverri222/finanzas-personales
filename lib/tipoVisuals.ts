@@ -31,6 +31,17 @@ export interface TipoVisual {
   /** Tinted surface + matching ink, for a chip or badge. */
   surface: string;
   /**
+   * Tinted surface + matching ink for the small rounded icon square that
+   * fronts a row (see components/money/TypeIcon.tsx).
+   *
+   * Separate from `surface` because they answer to different constraints: a
+   * badge carries text and so has to clear AA, while this only ever holds a
+   * decorative, aria-hidden glyph. That lets it use a low-alpha wash of the
+   * *ink* colour, which is what both reference designs do and what keeps a row
+   * of icons feeling like a set rather than a row of flat blocks.
+   */
+  iconSurface: string;
+  /**
    * Sign shown in front of an amount. `importe` is always stored positive, so
    * direction is presentation, not data.
    */
@@ -43,6 +54,7 @@ export const TIPO_VISUALS = {
     labelPlural: "Ingresos",
     icon: Wallet,
     tone: "text-income",
+    iconSurface: "bg-income/10 text-income",
     surface: "bg-success-muted text-success-muted-foreground",
     sign: "+",
   },
@@ -51,6 +63,7 @@ export const TIPO_VISUALS = {
     labelPlural: "Gastos",
     icon: ReceiptText,
     tone: "text-expense",
+    iconSurface: "bg-expense/10 text-expense",
     surface: "bg-secondary text-secondary-foreground",
     sign: "-",
   },
@@ -59,6 +72,7 @@ export const TIPO_VISUALS = {
     labelPlural: "Ahorros",
     icon: PiggyBank,
     tone: "text-chart-3",
+    iconSurface: "bg-chart-3/15 text-chart-3",
     surface: "bg-secondary text-secondary-foreground",
     sign: "",
   },
@@ -67,6 +81,7 @@ export const TIPO_VISUALS = {
     labelPlural: "Inversiones",
     icon: TrendingUp,
     tone: "text-chart-7",
+    iconSurface: "bg-chart-7/15 text-chart-7",
     surface: "bg-secondary text-secondary-foreground",
     sign: "",
   },
@@ -75,6 +90,7 @@ export const TIPO_VISUALS = {
     labelPlural: "Préstamos",
     icon: HandCoins,
     tone: "text-chart-4",
+    iconSurface: "bg-chart-4/15 text-chart-4",
     surface: "bg-secondary text-secondary-foreground",
     sign: "",
   },
@@ -85,8 +101,18 @@ export const TIPO_VISUALS = {
   // a new category rendering as an untinted, unlabelled mystery row.
 } as const satisfies Record<TipoCategoria, TipoVisual>;
 
-export function tipoVisual(tipo: TipoCategoria): TipoVisual {
-  return TIPO_VISUALS[tipo];
+/**
+ * Look up the visuals for a tipo.
+ *
+ * Tolerates a missing or unknown value even though the column is NOT NULL and
+ * the embeds are `!inner`, because the callers are now shared across every
+ * screen and several of them are plain `.jsx` that TypeScript does not check.
+ * A bare `TIPO_VISUALS[tipo]` there would return undefined and blow up on
+ * `.iconSurface` -- i.e. one malformed row would take out the whole page
+ * instead of rendering as an ordinary expense.
+ */
+export function tipoVisual(tipo: TipoCategoria | null | undefined): TipoVisual {
+  return (tipo && TIPO_VISUALS[tipo]) || TIPO_VISUALS.gasto;
 }
 
 /**
@@ -124,9 +150,9 @@ const foldName = (s: string) =>
 
 export function iconForCategory(
   nombre: string | null | undefined,
-  tipo: TipoCategoria,
+  tipo: TipoCategoria | null | undefined,
 ): LucideIcon {
   return (
-    DECORATIVE_ICON_BY_NAME[foldName(nombre ?? "")] ?? TIPO_VISUALS[tipo].icon
+    DECORATIVE_ICON_BY_NAME[foldName(nombre ?? "")] ?? tipoVisual(tipo).icon
   );
 }

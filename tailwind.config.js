@@ -63,36 +63,44 @@ module.exports = {
         // Semantic status. `success`/`warning` are solid ink (AA for small
         // text); the `muted` pair is the tinted-surface + ink combination the
         // Badge uses. See styles/globals.css for which to reach for.
+        //
+        // These carry `/ <alpha-value>` while the shadcn block above does not,
+        // and the difference is load-bearing: it is what makes `bg-income/10`
+        // (a tinted icon surface derived from the ink colour) compile. Without
+        // the placeholder Tailwind cannot inject an alpha channel, and the
+        // opacity modifier is dropped SILENTLY -- you get a fully opaque
+        // block of colour instead of a tint. Tailwind substitutes 1 when no
+        // modifier is used, so unmodified `bg-success` is unchanged.
         success: {
-          DEFAULT: "hsl(var(--success))",
-          foreground: "hsl(var(--success-foreground))",
-          muted: "hsl(var(--success-muted))",
-          "muted-foreground": "hsl(var(--success-muted-foreground))",
+          DEFAULT: "hsl(var(--success) / <alpha-value>)",
+          foreground: "hsl(var(--success-foreground) / <alpha-value>)",
+          muted: "hsl(var(--success-muted) / <alpha-value>)",
+          "muted-foreground": "hsl(var(--success-muted-foreground) / <alpha-value>)",
         },
         warning: {
-          DEFAULT: "hsl(var(--warning))",
-          foreground: "hsl(var(--warning-foreground))",
-          muted: "hsl(var(--warning-muted))",
-          "muted-foreground": "hsl(var(--warning-muted-foreground))",
+          DEFAULT: "hsl(var(--warning) / <alpha-value>)",
+          foreground: "hsl(var(--warning-foreground) / <alpha-value>)",
+          muted: "hsl(var(--warning-muted) / <alpha-value>)",
+          "muted-foreground": "hsl(var(--warning-muted-foreground) / <alpha-value>)",
         },
 
         // Money direction, deliberately named apart from status.
-        income: "hsl(var(--income))",
-        expense: "hsl(var(--expense))",
+        income: "hsl(var(--income) / <alpha-value>)",
+        expense: "hsl(var(--expense) / <alpha-value>)",
 
         // Chart palette. chart-1..8 slot order is the colour-blindness
         // contract -- do not reorder.
         chart: {
-          grid: "hsl(var(--chart-grid))",
-          axis: "hsl(var(--chart-axis))",
-          1: "hsl(var(--chart-1))",
-          2: "hsl(var(--chart-2))",
-          3: "hsl(var(--chart-3))",
-          4: "hsl(var(--chart-4))",
-          5: "hsl(var(--chart-5))",
-          6: "hsl(var(--chart-6))",
-          7: "hsl(var(--chart-7))",
-          8: "hsl(var(--chart-8))",
+          grid: "hsl(var(--chart-grid) / <alpha-value>)",
+          axis: "hsl(var(--chart-axis) / <alpha-value>)",
+          1: "hsl(var(--chart-1) / <alpha-value>)",
+          2: "hsl(var(--chart-2) / <alpha-value>)",
+          3: "hsl(var(--chart-3) / <alpha-value>)",
+          4: "hsl(var(--chart-4) / <alpha-value>)",
+          5: "hsl(var(--chart-5) / <alpha-value>)",
+          6: "hsl(var(--chart-6) / <alpha-value>)",
+          7: "hsl(var(--chart-7) / <alpha-value>)",
+          8: "hsl(var(--chart-8) / <alpha-value>)",
         },
       },
       // --font-inter is provided by next/font/google in pages/_app.js, which
@@ -101,17 +109,29 @@ module.exports = {
       fontFamily: {
         display: ["var(--font-inter)", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
         sans: ["var(--font-inter)", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+        // For money and dates only -- see components/money/Amount.tsx. Supplied
+        // by next/font/google as --font-mono in pages/_app.js, same wiring as
+        // --font-inter. The fallback chain is what renders during `swap`, and
+        // every entry in it is metrically monospaced, so amounts never reflow
+        // out of column alignment while the webfont loads.
+        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 3px)",
+        sm: "calc(var(--radius) - 6px)",
         xl: "1.5rem",
         full: "9999px",
       },
       boxShadow: {
         "primary": "0 25px 50px -12px rgba(29, 59, 139, 0.25)",
         "primary-lg": "0 20px 25px -5px rgba(29, 59, 139, 0.2), 0 8px 10px -6px rgba(29, 59, 139, 0.15)",
+        // The "subtle ambient shadow" from the Stitch spec. Cards are defined
+        // by their border and their tonal step off --background; this only
+        // separates a card from the page at the edges, and `card-hover` is for
+        // interactive surfaces (a clickable row or tile), never static ones.
+        "card": "0 1px 2px 0 rgb(16 24 40 / 0.04)",
+        "card-hover": "0 4px 6px -1px rgb(16 24 40 / 0.05), 0 2px 4px -2px rgb(16 24 40 / 0.05)",
       },
     },
   },

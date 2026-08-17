@@ -1,5 +1,5 @@
 import '../styles/globals.css';
-import { Inter } from 'next/font/google';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { UserProvider } from '../contexts/UserContext';
@@ -16,6 +16,21 @@ import ErrorBoundary from '../components/ErrorBoundary';
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
+  display: 'swap',
+});
+
+// Money only, never body copy. Both reference designs reach for the same idea
+// from opposite directions -- Stitch mandates `tabular-nums` on every numeric
+// cell, Figma Make sets amounts in JetBrains Mono -- because a column of pesos
+// that does not align vertically is genuinely harder to scan. A true monospace
+// gets that plus a deliberate "this is a figure, not prose" signal.
+//
+// Only the weights Amount.tsx actually uses are requested; asking for the full
+// range would pull four more font files for nothing.
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  variable: '--font-mono',
   display: 'swap',
 });
 
@@ -64,7 +79,7 @@ export default function MyApp({ Component, pageProps }) {
         enableSystem
         disableTransitionOnChange
       >
-        <div className={`${inter.variable} font-sans`}>
+        <div className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
           <AuthProvider>
             <AppContent Component={Component} pageProps={pageProps} />
           </AuthProvider>

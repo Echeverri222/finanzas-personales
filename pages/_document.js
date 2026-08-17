@@ -16,11 +16,11 @@ export default function Document() {
         {/* Mobile browser chrome. These must be literal colours -- a meta tag
             cannot read a CSS variable -- so they are hand-kept in step with
             --background in styles/globals.css. Update both together.
-              light: hsl(0 0% 100%)      -> #ffffff
+              light: hsl(220 23% 97%)    -> #f6f7f9
               dark:  hsl(240 10% 3.9%)   -> #09090b */}
         <meta
           name="theme-color"
-          content="#ffffff"
+          content="#f6f7f9"
           media="(prefers-color-scheme: light)"
         />
         <meta

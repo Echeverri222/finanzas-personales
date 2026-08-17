@@ -146,7 +146,13 @@ html,
 body {
   padding: 0;
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+  /* Deliberately does NOT name Inter. Inter arrives via next/font/google as
+     --font-inter, applied through Tailwind's font-sans on the app wrapper in
+     _app.js. This rule is only the pre-hydration / outside-the-wrapper
+     fallback, so naming 'Inter' here would request a web font nothing loads
+     any more -- and, being more specific than a utility class, would have
+     quietly overridden the real one. */
+  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 

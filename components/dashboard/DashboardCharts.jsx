@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
+import { useTheme } from 'next-themes';
 import {
   AreaChart,
   Area,
@@ -25,7 +27,55 @@ import { CURRENCY } from '@/lib/constants';
 // magenta (ΔE 12.9 normal vision, below the 15 floor) and orange next to green
 // (ΔE 3.2 under protanopia — effectively identical). This order passes every
 // check. Do not reorder without re-validating.
+//
+// These values now live as --chart-1..8 in styles/globals.css, converted
+// losslessly from the hexes below (each round-trips byte-for-byte), with a
+// separately validated dark set. The array is kept as the literal fallback for
+// the first paint, before the effect below can read the real tokens.
 const CATEGORICAL = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+
+const FALLBACK = {
+  grid: '#e1e0d9',
+  axis: '#898781',
+  income: '#1baf7a',
+  expense: '#e34948',
+  categorical: CATEGORICAL,
+};
+
+/**
+ * Resolve the chart tokens to concrete colours.
+ *
+ * Why this is not just `stroke="hsl(var(--chart-grid))"`: `var()` is invalid in
+ * an SVG *presentation attribute*, which is what Recharts renders these as. The
+ * browser drops it silently -- the grid simply disappears rather than erroring.
+ * Tailwind classes are no help either, since Recharts wants a colour value for
+ * `stroke`, `tick.fill`, gradient `stopColor` and the tooltip's `entry.color`.
+ *
+ * So read the computed values off <html> instead, and re-read them whenever the
+ * resolved theme changes -- that dependency is the whole point, otherwise the
+ * charts keep the previous theme's colours until the next remount.
+ */
+function useChartColors() {
+  const { resolvedTheme } = useTheme();
+  const [colors, setColors] = useState(FALLBACK);
+
+  useEffect(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const read = (name, fallback) => {
+      const raw = cs.getPropertyValue(name).trim();
+      return raw ? `hsl(${raw})` : fallback;
+    };
+    setColors({
+      grid: read('--chart-grid', FALLBACK.grid),
+      axis: read('--chart-axis', FALLBACK.axis),
+      income: read('--income', FALLBACK.income),
+      expense: read('--expense', FALLBACK.expense),
+      categorical: CATEGORICAL.map((hex, i) => read(`--chart-${i + 1}`, hex)),
+    });
+  }, [resolvedTheme]);
+
+  return colors;
+}
 
 /**
  * Pick a colour slot from the category NAME, never from its position in the
@@ -39,12 +89,12 @@ const CATEGORICAL = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#00
  * Beyond 8 categories two can share a slot; the legend labels every slice, so
  * identity never rests on colour alone.
  */
-function colorForCategory(name) {
+function slotForCategory(name) {
   let hash = 0;
   for (let i = 0; i < name.length; i += 1) {
     hash = (hash * 31 + name.charCodeAt(i)) | 0;
   }
-  return CATEGORICAL[Math.abs(hash) % CATEGORICAL.length];
+  return Math.abs(hash) % CATEGORICAL.length;
 }
 
 const CustomTooltip = ({ active, payload, label, formatCurrency }) => {
@@ -69,7 +119,15 @@ export default function DashboardCharts({
   formatCurrency,
   onCategoryClick,
 }) {
+  const colors = useChartColors();
   const totalGastos = categoryData.reduce((sum, c) => sum + Number(c.value), 0);
+
+  // Hoisted out of the tickFormatter, which built a fresh Intl.NumberFormat on
+  // every tick of every render.
+  const compact = useMemo(
+    () => new Intl.NumberFormat(CURRENCY.LOCALE, { notation: 'compact' }),
+    [],
+  );
 
   return (
     <>
@@ -80,27 +138,27 @@ export default function DashboardCharts({
             <AreaChart data={monthlyData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
               <defs>
                 <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#1baf7a" stopOpacity={0.5} />
-                  <stop offset="95%" stopColor="#1baf7a" stopOpacity={0} />
+                  <stop offset="5%" stopColor={colors.income} stopOpacity={0.5} />
+                  <stop offset="95%" stopColor={colors.income} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="colorGastos" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#e34948" stopOpacity={0.5} />
-                  <stop offset="95%" stopColor="#e34948" stopOpacity={0} />
+                  <stop offset="5%" stopColor={colors.expense} stopOpacity={0.5} />
+                  <stop offset="95%" stopColor={colors.expense} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e1e0d9" vertical={false} />
-              <XAxis dataKey="month" tick={{ fill: '#898781', fontSize: 12 }} tickLine={false} axisLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} vertical={false} />
+              <XAxis dataKey="month" tick={{ fill: colors.axis, fontSize: 12 }} tickLine={false} axisLine={false} />
               <YAxis
-                tickFormatter={(v) => new Intl.NumberFormat(CURRENCY.LOCALE, { notation: 'compact' }).format(v)}
-                tick={{ fill: '#898781', fontSize: 12 }}
+                tickFormatter={(v) => compact.format(v)}
+                tick={{ fill: colors.axis, fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
                 width={44}
               />
               <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
               <Legend iconType="plainline" wrapperStyle={{ fontSize: 13, paddingTop: 8 }} />
-              <Area type="monotone" dataKey="ingresos" stroke="#1baf7a" strokeWidth={2} fill="url(#colorIngresos)" name="Ingresos" />
-              <Area type="monotone" dataKey="gastos" stroke="#e34948" strokeWidth={2} fill="url(#colorGastos)" name="Gastos" />
+              <Area type="monotone" dataKey="ingresos" stroke={colors.income} strokeWidth={2} fill="url(#colorIngresos)" name="Ingresos" />
+              <Area type="monotone" dataKey="gastos" stroke={colors.expense} strokeWidth={2} fill="url(#colorGastos)" name="Gastos" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -126,7 +184,7 @@ export default function DashboardCharts({
                     style={{ cursor: 'pointer', outline: 'none' }}
                   >
                     {categoryData.map((entry) => (
-                      <Cell key={entry.name} fill={colorForCategory(entry.name)} />
+                      <Cell key={entry.name} fill={colors.categorical[slotForCategory(entry.name)]} />
                     ))}
                   </Pie>
                   <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
@@ -152,7 +210,7 @@ export default function DashboardCharts({
                       <span className="flex min-w-0 items-center gap-2">
                         <span
                           className="size-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: colorForCategory(entry.name) }}
+                          style={{ backgroundColor: colors.categorical[slotForCategory(entry.name)] }}
                         />
                         <span className="truncate">{entry.name}</span>
                       </span>

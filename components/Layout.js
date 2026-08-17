@@ -19,6 +19,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useUser } from '../contexts/UserContext';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const NAV_ITEMS = [
   { name: 'Inicio', href: '/dashboard', icon: Home },
@@ -100,6 +101,7 @@ export default function Layout({ children }) {
               <p className="truncate text-sm font-medium">{displayName}</p>
               <p className="truncate text-xs text-muted-foreground">Cuenta</p>
             </div>
+            <ThemeToggle className="size-8" />
             <button
               onClick={handleSignOut}
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -137,8 +139,11 @@ export default function Layout({ children }) {
             </div>
             <span className="text-sm font-semibold">Finanzas</span>
           </div>
-          <div className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-            {displayName.charAt(0).toUpperCase()}
+          <div className="flex items-center gap-1">
+            <ThemeToggle className="size-8" />
+            <div className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
           </div>
         </header>
 

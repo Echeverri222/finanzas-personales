@@ -95,9 +95,12 @@ module.exports = {
           8: "hsl(var(--chart-8))",
         },
       },
+      // --font-inter is provided by next/font/google in pages/_app.js, which
+      // also puts the class that defines it on the app wrapper. The fallback
+      // chain matters: it is what renders during `display: swap`.
       fontFamily: {
-        display: ["Inter", "sans-serif"],
-        sans: ["Inter", "sans-serif"],
+        display: ["var(--font-inter)", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+        sans: ["var(--font-inter)", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",

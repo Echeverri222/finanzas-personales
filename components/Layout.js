@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import {
@@ -15,6 +15,8 @@ import {
   Menu,
   X,
   Plus,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useUser } from '../contexts/UserContext';
@@ -60,20 +62,25 @@ const MOBILE_NAV = [
   { name: 'Ahorros', href: '/ahorros', icon: PiggyBank },
 ];
 
-function Logo({ size = 'base' }) {
+// Remembers the collapsed sidebar across navigations and reloads. Read in an
+// effect rather than during render: reading localStorage while rendering would
+// make the server and client markup disagree.
+const SIDEBAR_STORAGE_KEY = 'finanzas:sidebar-collapsed';
+
+function Logo({ size = 'base', showWordmark = true }) {
   const box = size === 'sm' ? 'size-8' : 'size-9';
   const glyph = size === 'sm' ? 'size-4' : 'size-[18px]';
   return (
     <div className="flex items-center gap-2.5">
       <div
         className={cn(
-          'flex items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-card',
+          'flex shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-card',
           box
         )}
       >
         <Wallet className={glyph} strokeWidth={2.2} />
       </div>
-      <span className="text-base font-bold tracking-tight">Finanzas</span>
+      {showWordmark ? <span className="text-base font-bold tracking-tight">Finanzas</span> : null}
     </div>
   );
 }
@@ -83,6 +90,27 @@ export default function Layout({ children }) {
   const { signOut } = useAuth();
   const { userProfile } = useUser();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setIsCollapsed(window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1');
+    } catch {
+      // Private mode / storage disabled — the sidebar just starts expanded.
+    }
+  }, []);
+
+  const toggleCollapsed = () => {
+    // `next` is computed outside the updater on purpose: writing to
+    // localStorage inside it would run twice under StrictMode's double-invoke.
+    const next = !isCollapsed;
+    setIsCollapsed(next);
+    try {
+      window.localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? '1' : '0');
+    } catch {
+      // Ignore — the toggle still works for this session.
+    }
+  };
 
   const isActive = (href) => {
     if (href === '/movimientos') return router.pathname.startsWith('/movimientos');
@@ -103,9 +131,10 @@ export default function Layout({ children }) {
   // The 4px left accent bar on the active item is the shared signature of both
   // designs. It is a `before:` pseudo-element rather than a border so the item's
   // text never shifts by 4px when it becomes active.
-  const navLinkClass = (active) =>
+  const navLinkClass = (active, collapsed) =>
     cn(
-      'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
+      'relative flex items-center gap-3 rounded-lg py-2.5 text-sm transition-colors',
+      collapsed ? 'justify-center px-0' : 'px-3',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card',
       'before:absolute before:left-0 before:top-1/2 before:h-5 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:transition-colors',
       active
@@ -113,10 +142,14 @@ export default function Layout({ children }) {
         : 'font-medium text-muted-foreground before:bg-transparent hover:bg-secondary hover:text-foreground'
     );
 
-  const renderNav = (onNavigate) =>
+  const renderNav = (onNavigate, collapsed = false) =>
     NAV_GROUPS.map((group, i) => (
       <div key={group.label || 'main'} className={i > 0 ? 'mt-6' : undefined}>
-        {group.label ? (
+        {/* Collapsed, a group's name has nowhere to go without reintroducing
+            the width it was collapsed to avoid — so the grouping survives as a
+            rule instead of a caption. */}
+        {group.label && collapsed ? <div className="mx-2 mb-2 border-t" /> : null}
+        {group.label && !collapsed ? (
           <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">
             {group.label}
           </p>
@@ -131,10 +164,13 @@ export default function Layout({ children }) {
                 href={item.href}
                 onClick={onNavigate}
                 aria-current={active ? 'page' : undefined}
-                className={navLinkClass(active)}
+                // `title` is the hover tooltip; the label stays in the DOM as
+                // sr-only text so the link keeps its accessible name either way.
+                title={collapsed ? item.name : undefined}
+                className={navLinkClass(active, collapsed)}
               >
-                <Icon className="size-[18px]" strokeWidth={active ? 2.4 : 2} />
-                {item.name}
+                <Icon className="size-[18px] shrink-0" strokeWidth={active ? 2.4 : 2} />
+                <span className={collapsed ? 'sr-only' : undefined}>{item.name}</span>
               </Link>
             );
           })}
@@ -153,28 +189,69 @@ export default function Layout({ children }) {
         Saltar al contenido
       </a>
 
-      {/* Desktop sidebar */}
-      <aside className="hidden w-[280px] flex-shrink-0 flex-col border-r bg-card md:flex">
-        <div className="px-5 py-5">
-          <Logo />
+      {/* Desktop sidebar. Collapses to an icon rail; the width is animated but
+          nothing inside it is, so labels appear and vanish cleanly instead of
+          squeezing. */}
+      <aside
+        id="barra-lateral"
+        className={cn(
+          'hidden flex-shrink-0 flex-col border-r bg-card transition-[width] duration-200 ease-out md:flex',
+          isCollapsed ? 'w-[76px]' : 'w-[280px]'
+        )}
+      >
+        <div
+          className={cn(
+            'flex items-center gap-2 py-5',
+            isCollapsed ? 'flex-col px-3' : 'justify-between px-5'
+          )}
+        >
+          <Logo showWordmark={!isCollapsed} />
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-expanded={!isCollapsed}
+            aria-controls="barra-lateral"
+            aria-label={isCollapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
+            title={isCollapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {isCollapsed ? (
+              <PanelLeftOpen className="size-[18px]" />
+            ) : (
+              <PanelLeftClose className="size-[18px]" />
+            )}
+          </button>
         </div>
         <nav aria-label="Navegación principal" className="flex-1 overflow-y-auto px-3 pb-4">
-          {renderNav(undefined)}
+          {renderNav(undefined, isCollapsed)}
         </nav>
         <div className="border-t p-3">
-          <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+          <div
+            className={cn(
+              'rounded-lg',
+              isCollapsed
+                ? 'flex flex-col items-center gap-2'
+                : 'flex items-center gap-2.5 px-2 py-2'
+            )}
+          >
+            <div
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+              title={isCollapsed ? displayName : undefined}
+            >
               {displayName.charAt(0).toUpperCase()}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{displayName}</p>
-              <p className="truncate text-xs text-muted-foreground">Cuenta</p>
-            </div>
+            {isCollapsed ? null : (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{displayName}</p>
+                <p className="truncate text-xs text-muted-foreground">Cuenta</p>
+              </div>
+            )}
             <ThemeToggle className="size-8" />
             <button
               onClick={handleSignOut}
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Cerrar sesión"
+              title={isCollapsed ? 'Cerrar sesión' : undefined}
             >
               <LogOut className="size-4" />
             </button>

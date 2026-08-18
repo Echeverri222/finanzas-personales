@@ -1,12 +1,14 @@
 import '../styles/globals.css';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
+import { SWRConfig } from 'swr';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { UserProvider } from '../contexts/UserContext';
 import Layout from '../components/Layout';
 import Auth from '../components/Auth';
 import RecurringProcessor from '../components/RecurringProcessor';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { SWR_CONFIG } from '../lib/swr';
 
 // Self-hosted at build time, replacing the render-blocking Google Fonts <link>
 // that used to sit in _document. `variable` exposes it as --font-inter, which
@@ -67,24 +69,30 @@ function AppContent({ Component, pageProps }) {
 export default function MyApp({ Component, pageProps }) {
   return (
     <ErrorBoundary>
-      {/* ThemeProvider sits above AuthProvider on purpose: the "Cargando..."
-          state and the whole Auth screen render before any user exists, and
-          they need the theme too. attribute="class" matches
-          darkMode: "class" in tailwind.config.js. disableTransitionOnChange
-          stops every `transition-colors` in the app animating at once on
-          toggle, which reads as a lag spike rather than a theme change. */}
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
-        <div className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
-          <AuthProvider>
-            <AppContent Component={Component} pageProps={pageProps} />
-          </AuthProvider>
-        </div>
-      </ThemeProvider>
+      {/* SWRConfig sits OUTSIDE both providers so any hook can reach the cache,
+          and inside the outer ErrorBoundary so a throw during render is still
+          caught. It holds no state of its own -- the cache is SWR's module-level
+          default provider, which is also what lib/swr.js clears on sign-out. */}
+      <SWRConfig value={SWR_CONFIG}>
+        {/* ThemeProvider sits above AuthProvider on purpose: the "Cargando..."
+            state and the whole Auth screen render before any user exists, and
+            they need the theme too. attribute="class" matches
+            darkMode: "class" in tailwind.config.js. disableTransitionOnChange
+            stops every `transition-colors` in the app animating at once on
+            toggle, which reads as a lag spike rather than a theme change. */}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <div className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
+            <AuthProvider>
+              <AppContent Component={Component} pageProps={pageProps} />
+            </AuthProvider>
+          </div>
+        </ThemeProvider>
+      </SWRConfig>
     </ErrorBoundary>
   );
 }

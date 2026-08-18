@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { clearSwrCache } from '../lib/swr';
 
 const AuthContext = createContext({});
 
@@ -86,6 +87,10 @@ export const AuthProvider = ({ children }) => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setUser(null);
+      // Every cached key is dropped here. The SWR cache is module-level and
+      // outlives the provider tree, so without this the previous account's
+      // financial rows stay resident in the tab after sign-out.
+      await clearSwrCache();
     } catch (error) {
       console.error('Error signing out:', error);
     }

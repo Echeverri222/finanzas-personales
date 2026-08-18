@@ -195,7 +195,18 @@ export default function Layout({ children }) {
       <aside
         id="barra-lateral"
         className={cn(
-          'hidden flex-shrink-0 flex-col border-r bg-card transition-[width] duration-200 ease-out md:flex',
+          // `sticky top-0 h-screen self-start` is what keeps the footer -- name,
+          // theme, sign out -- at the bottom of the SCREEN rather than the
+          // bottom of the page. Without it the aside stretched to the height of
+          // the content (flex `align-items: stretch`), so on a long dashboard
+          // you had to scroll past every chart to reach the sign-out button and
+          // the nav links had scrolled away above.
+          //
+          // `self-start` is load-bearing, not tidying: a stretched flex item is
+          // already as tall as its container, leaving sticky nothing to travel
+          // within, so `top-0` alone would do nothing.
+          'hidden self-start border-r bg-card transition-[width] duration-200 ease-out md:flex',
+          'sticky top-0 h-screen flex-shrink-0 flex-col overflow-hidden',
           isCollapsed ? 'w-[76px]' : 'w-[280px]'
         )}
       >

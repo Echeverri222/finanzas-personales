@@ -3,68 +3,60 @@ import { Search, Plus, Pencil, Trash2, ReceiptText, ArrowUp, ArrowDown } from 'l
 
 import { groupMovimientosByDate } from '../../lib/api/movimientosView';
 import { cn } from '@/lib/utils';
-import { formatDate } from '@/lib/format';
 import { PageHeader } from '@/components/PageHeader';
 import { Card } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect as Select } from '@/components/ui/native-select';
-import { Badge } from '@/components/ui/badge';
 import { Field } from '@/components/ui/field';
 import { Modal as Dialog } from '@/components/ui/modal';
 import { FilterChips } from '@/components/filters/FilterChips';
 import { Amount } from '@/components/money/Amount';
 import { TypeIcon } from '@/components/money/TypeIcon';
-import { EmptyState, TableEmptyState } from '@/components/feedback/EmptyState';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table';
+import { EmptyState } from '@/components/feedback/EmptyState';
+
+const SORT_OPTIONS = [
+  { value: 'fecha', label: 'Fecha' },
+  { value: 'nombre', label: 'Descripción' },
+  { value: 'importe', label: 'Monto' },
+];
 
 /**
- * Sortable column header.
+ * Net total for one day.
  *
- * `handleSort`/`sortConfig` existed on the page and were wired through to the
- * old desktop view, which rendered plain text -- so sorting was implemented,
- * passed down, and completely unreachable. A real <button> plus `aria-sort` is
- * what connects them.
+ * A day that nets exactly zero renders untoned and unsigned: "+$0" in green
+ * would read as income when nothing was earned.
  */
-function SortHeader({ label, sortKey, sortConfig, onSort, className }) {
-  const active = sortConfig?.key === sortKey;
-  const direction = active ? sortConfig.direction : null;
-  const Icon = direction === 'asc' ? ArrowUp : ArrowDown;
+function DayTotal({ total }) {
+  if (total === 0) {
+    return <Amount value={0} size="sm" className="text-muted-foreground" />;
+  }
+  return <Amount value={total} tipo={total > 0 ? 'ingreso' : 'gasto'} signed toned size="sm" />;
+}
+
+/** Day label on the left, the day's net on the right — the timeline signature. */
+function DayHeading({ group }) {
   return (
-    <TableHead
-      className={className}
-      aria-sort={active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-    >
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className="-mx-1 inline-flex items-center gap-1 rounded px-1 uppercase transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {label}
-        <Icon
-          className={cn('size-3 transition-opacity', active ? 'opacity-100' : 'opacity-0')}
-          aria-hidden="true"
-        />
-      </button>
-    </TableHead>
+    <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
+      <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        {group.heading}
+      </h2>
+      <DayTotal total={group.total} />
+    </div>
   );
 }
 
 /**
  * One movimientos screen for every breakpoint.
  *
- * Replaces MovimientosDesktop.jsx + MovimientosMobile.jsx (514 lines). The
- * table and the date-grouped list both render and CSS chooses, because those
- * are two different ways of organising the same rows rather than one layout at
- * two widths. Everything else -- header, filters, and crucially the edit form --
- * is now single-source.
+ * Replaces MovimientosDesktop.jsx + MovimientosMobile.jsx (514 lines), and then
+ * the table that stood in for the desktop half of it: each day is now its own
+ * card with the day and its net above it, at every width. A single table with
+ * day-subheader rows read as one continuous block, which is exactly what
+ * grouping was supposed to break up.
+ *
+ * The cost of dropping the table is the sortable column headers, so sorting
+ * moved to an explicit control in the filter bar rather than disappearing.
  *
  * Editing is one dialog at both sizes: desktop lost its in-row editing, which
  * was a third copy of the same form and the reason the two views had drifted.
@@ -113,17 +105,18 @@ export default function MovimientosView({
     ...(tiposMovimiento || []).map((t) => ({ value: String(t.id), label: t.nombre })),
   ];
 
-  const grouped = groupMovimientosByDate(sortedMovimientos);
+  const ascending = sortConfig?.direction === 'asc';
+  const DirectionIcon = ascending ? ArrowUp : ArrowDown;
+
+  // Days run newest-first unless the sort is *on* the date, in which case the
+  // direction has to reach the group order or picking "Fecha ascendente" would
+  // visibly do nothing. Sorting by monto or descripción instead orders rows
+  // inside each day.
+  const grouped = groupMovimientosByDate(sortedMovimientos, {
+    dateDirection: sortConfig?.key === 'fecha' ? sortConfig.direction : 'desc',
+  });
   const showEditModal = Boolean(editingId && editFormData?.nombre !== undefined);
   const isEmpty = sortedMovimientos.length === 0;
-
-  const emptyProps = {
-    icon: ReceiptText,
-    title: 'No hay movimientos',
-    description: searchTerm || typeFilter !== 'all' || monthFilter
-      ? 'Ningún movimiento coincide con estos filtros.'
-      : 'Registra tu primer movimiento para empezar.',
-  };
 
   return (
     <div className="space-y-5">
@@ -162,75 +155,104 @@ export default function MovimientosView({
             ))}
           </Select>
         </div>
-        <div className="border-t pt-3">
-          <FilterChips
-            label="Filtrar por categoría"
-            options={chipOptions}
-            value={String(typeFilter)}
-            onValueChange={setTypeFilter}
-          />
+        <div className="flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <FilterChips
+              label="Filtrar por categoría"
+              options={chipOptions}
+              value={String(typeFilter)}
+              onValueChange={setTypeFilter}
+            />
+          </div>
+          {/* Sorting used to live on the table headers. It still drives the same
+              handleSort/sortConfig on the page -- only the control changed. */}
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Ordenar</span>
+            <Select
+              value={sortConfig?.key || 'fecha'}
+              onChange={(e) => onSort(e.target.value)}
+              aria-label="Ordenar por"
+              className="w-auto"
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </Select>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onSort(sortConfig?.key || 'fecha')}
+              aria-label={
+                ascending ? 'Orden ascendente, cambiar a descendente' : 'Orden descendente, cambiar a ascendente'
+              }
+              title={ascending ? 'Ascendente' : 'Descendente'}
+            >
+              <DirectionIcon className="size-4" />
+            </Button>
+          </div>
         </div>
       </Card>
 
-      {/* Desktop: table */}
-      <Card className="hidden overflow-hidden shadow-card md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <SortHeader
-                label="Fecha"
-                sortKey="fecha"
-                sortConfig={sortConfig}
-                onSort={onSort}
-                className="w-36 pl-5"
-              />
-              <SortHeader
-                label="Descripción"
-                sortKey="nombre"
-                sortConfig={sortConfig}
-                onSort={onSort}
-              />
-              <TableHead>Categoría</TableHead>
-              <SortHeader
-                label="Monto"
-                sortKey="importe"
-                sortConfig={sortConfig}
-                onSort={onSort}
-                className="text-right [&>button]:flex-row-reverse"
-              />
-              <TableHead className="w-24 pr-5 text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isEmpty ? (
-              <TableEmptyState colSpan={5} {...emptyProps} />
-            ) : (
-              sortedMovimientos.map((mov) => (
-                <TableRow key={mov.id}>
-                  <TableCell className="pl-5 text-muted-foreground">
-                    {formatDate(mov.fecha)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <TypeIcon tipo={mov.tipo_categoria} nombre={mov.tipo_nombre} size="sm" />
-                      <span className="font-medium">{mov.nombre}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="font-normal">
-                      {mov.tipo_nombre}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Amount value={mov.importe} tipo={mov.tipo_categoria} signed toned size="sm" />
-                  </TableCell>
-                  <TableCell className="pr-5">
-                    <div className="flex justify-end gap-1">
+      {isEmpty ? (
+        <Card>
+          <EmptyState
+            icon={ReceiptText}
+            title="No hay movimientos"
+            description={
+              searchTerm || typeFilter !== 'all' || monthFilter
+                ? 'Ningún movimiento coincide con estos filtros.'
+                : 'Registra tu primer movimiento para empezar.'
+            }
+            action={
+              <Link href="/movimientos/nuevo" className={cn(buttonVariants())}>
+                <Plus className="size-4" />
+                Nuevo movimiento
+              </Link>
+            }
+          />
+        </Card>
+      ) : (
+        <div className="space-y-5">
+          {grouped.map((group) => (
+            <section key={group.date.getTime()}>
+              <DayHeading group={group} />
+              <Card className="overflow-hidden shadow-card">
+                {group.items.map((mov) => (
+                  // The action buttons are SIBLINGS of the row button, not
+                  // nested inside a clickable wrapper. The old markup put an
+                  // interactive element inside another one, which is invalid and
+                  // leaves assistive tech unable to reach the inner control.
+                  <div
+                    key={mov.id}
+                    className="flex items-center gap-2 border-b px-2 transition-colors last:border-0 hover:bg-secondary/40 sm:px-3"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onEdit(mov)}
+                      className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-1 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <TypeIcon tipo={mov.tipo_categoria} nombre={mov.tipo_nombre} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{mov.nombre}</span>
+                        {/* No time here: `fecha` is a date-only column, so the
+                            old toLocaleTimeString rendered "00:00" on every
+                            single row. No date either -- the group heading
+                            above already carries it. */}
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {mov.tipo_nombre}
+                        </span>
+                      </span>
+                      <Amount value={mov.importe} tipo={mov.tipo_categoria} signed toned size="sm" />
+                    </button>
+                    <div className="flex shrink-0 items-center">
+                      {/* Redundant with clicking the row, but a desktop user
+                          shouldn't have to discover that the row is clickable. */}
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => onEdit(mov)}
                         aria-label={`Editar ${mov.nombre}`}
+                        className="hidden md:inline-flex"
                       >
                         <Pencil className="size-4" />
                       </Button>
@@ -243,76 +265,13 @@ export default function MovimientosView({
                         <Trash2 className="size-4 text-destructive" />
                       </Button>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
-
-      {/* Mobile: grouped by date */}
-      <div className="space-y-5 md:hidden">
-        {isEmpty ? (
-          <Card>
-            <EmptyState
-              {...emptyProps}
-              action={
-                <Link href="/movimientos/nuevo" className={cn(buttonVariants())}>
-                  <Plus className="size-4" />
-                  Nuevo movimiento
-                </Link>
-              }
-            />
-          </Card>
-        ) : (
-          grouped.map((group) => (
-            <section key={group.label}>
-              <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                {group.label}
-              </h2>
-              <Card className="overflow-hidden shadow-card">
-                {group.items.map((mov) => (
-                  // The delete button is a SIBLING of the edit button, not
-                  // nested inside a clickable row wrapper. The old markup put an
-                  // interactive element inside another one, which is invalid and
-                  // leaves assistive tech unable to reach the inner control.
-                  <div
-                    key={mov.id}
-                    className="flex items-center gap-3 border-b px-3 py-2.5 last:border-0"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => onEdit(mov)}
-                      className="flex min-w-0 flex-1 items-center gap-3 rounded-md py-1 text-left transition-colors active:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <TypeIcon tipo={mov.tipo_categoria} nombre={mov.tipo_nombre} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{mov.nombre}</span>
-                        {/* No time here: `fecha` is a date-only column, so the
-                            old toLocaleTimeString rendered "00:00" on every
-                            single row. */}
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {mov.tipo_nombre}
-                        </span>
-                      </span>
-                      <Amount value={mov.importe} tipo={mov.tipo_categoria} signed toned size="sm" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(mov.id)}
-                      className="shrink-0 rounded-md p-2 text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label={`Eliminar ${mov.nombre}`}
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
                   </div>
                 ))}
               </Card>
             </section>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* One edit dialog, both breakpoints. */}
       <Dialog open={showEditModal} onClose={onCancelEdit} title="Editar movimiento">

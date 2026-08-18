@@ -1,89 +1,92 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import useSWR, { mutate as globalMutate } from 'swr';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
+import { userKey } from '../lib/swr';
+
+// Note the absence of `!inner`: unlike the movimientos embed this one is
+// NULLABLE, so every `r.tipo_movimiento.nombre` has to be guarded.
+//
+// It is a shared constant because create/update used to call a bare `.select()`
+// without it: the inserted row then landed in a list where every other item had
+// a category, and its category column rendered blank until the next reload.
+const RECURRENTE_SELECT = `
+  *,
+  tipo_movimiento ( id, nombre )
+`;
+
+async function fetchRecurring([, usuarioId]) {
+  const { data, error } = await supabase
+    .from('pagos_recurrentes')
+    .select(RECURRENTE_SELECT)
+    .eq('usuario_id', usuarioId)
+    .order('dia_mes', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return data || [];
+}
 
 /**
  * Recurring payments: templates that generate one movimiento per month on a fixed day.
  * Use processRecurringForToday() on app load to create this month's movimientos.
  */
 export function useRecurring() {
-  const { userProfile } = useUser();
-  const [list, setList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { userProfile, loading: userLoading } = useUser();
+  const usuarioId = userProfile?.id ?? null;
 
-  const fetchRecurring = useCallback(async () => {
-    if (!userProfile?.id) {
-      setLoading(false);
-      return;
-    }
-    try {
-      setLoading(true);
-      setError(null);
-      const { data, error: e } = await supabase
-        .from('pagos_recurrentes')
-        .select(`
-          *,
-          tipo_movimiento ( id, nombre )
-        `)
-        .eq('usuario_id', userProfile.id)
-        .order('dia_mes', { ascending: true });
-      if (e) throw e;
-      setList(data || []);
-    } catch (err) {
-      setError(err.message);
-      setList([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userProfile?.id]);
+  const { data, error, isLoading, mutate } = useSWR(
+    userKey('pagos-recurrentes', usuarioId),
+    fetchRecurring
+  );
 
-  useEffect(() => {
-    fetchRecurring();
-  }, [fetchRecurring]);
+  const list = data ?? [];
 
   const createRecurring = async (payload) => {
-    if (!userProfile?.id) return { error: 'No user' };
+    if (!usuarioId) return { error: 'No user' };
     try {
-      const { data, error: e } = await supabase
+      const { data: row, error: e } = await supabase
         .from('pagos_recurrentes')
-        .insert([{ ...payload, usuario_id: userProfile.id }])
-        .select()
+        .insert([{ ...payload, usuario_id: usuarioId }])
+        .select(RECURRENTE_SELECT)
         .single();
       if (e) throw e;
-      setList((prev) => [data, ...prev]);
-      return { data, error: null };
+      await mutate((prev = []) => [row, ...prev], { revalidate: false });
+      return { data: row, error: null };
     } catch (err) {
       return { error: err.message };
     }
   };
 
   const updateRecurring = async (id, updates) => {
+    if (!usuarioId) return { error: 'No user' };
     try {
-      const { data, error: e } = await supabase
+      const { data: row, error: e } = await supabase
         .from('pagos_recurrentes')
         .update(updates)
         .eq('id', id)
-        .eq('usuario_id', userProfile.id)
-        .select()
+        .eq('usuario_id', usuarioId)
+        .select(RECURRENTE_SELECT)
         .single();
       if (e) throw e;
-      setList((prev) => prev.map((r) => (r.id === id ? data : r)));
-      return { data, error: null };
+      await mutate((prev = []) => prev.map((r) => (r.id === id ? row : r)), {
+        revalidate: false,
+      });
+      return { data: row, error: null };
     } catch (err) {
       return { error: err.message };
     }
   };
 
   const deleteRecurring = async (id) => {
+    if (!usuarioId) return { error: 'No user' };
     try {
       const { error: e } = await supabase
         .from('pagos_recurrentes')
         .delete()
         .eq('id', id)
-        .eq('usuario_id', userProfile.id);
+        .eq('usuario_id', usuarioId);
       if (e) throw e;
-      setList((prev) => prev.filter((r) => r.id !== id));
+      await mutate((prev = []) => prev.filter((r) => r.id !== id), { revalidate: false });
       return { error: null };
     } catch (err) {
       return { error: err.message };
@@ -106,7 +109,7 @@ export function useRecurring() {
    * tomorrow, which would fire a rule a day early.
    */
   const processRecurringForToday = useCallback(async () => {
-    if (!userProfile?.id) return { data: null, error: null };
+    if (!usuarioId) return { data: null, error: null };
 
     const now = new Date();
     const hoyLocal = [
@@ -115,7 +118,7 @@ export function useRecurring() {
       String(now.getDate()).padStart(2, '0'),
     ].join('-');
 
-    const { data, error: rpcError } = await supabase.rpc(
+    const { data: result, error: rpcError } = await supabase.rpc(
       'generar_recurrentes_del_mes',
       { p_hoy: hoyLocal }
     );
@@ -128,18 +131,21 @@ export function useRecurring() {
     }
 
     // Only refetch when something actually changed.
-    if (data?.some((r) => r.accion === 'genera')) {
-      await fetchRecurring();
+    if (result?.some((r) => r.accion === 'genera')) {
+      // The RPC writes MOVIMIENTOS, and this hook's own key is the recurring
+      // list -- so invalidating only that key is why generated rows never
+      // appeared on /dashboard or /movimientos until a manual reload.
+      await Promise.all([mutate(), globalMutate(['movimientos', usuarioId])]);
     }
 
-    return { data, error: null };
-  }, [userProfile?.id, fetchRecurring]);
+    return { data: result, error: null };
+  }, [usuarioId, mutate]);
 
   return {
     list,
-    loading,
-    error,
-    refetch: fetchRecurring,
+    loading: userLoading || isLoading,
+    error: error ? error.message : null,
+    refetch: () => mutate(),
     createRecurring,
     updateRecurring,
     deleteRecurring,

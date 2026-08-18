@@ -1,58 +1,51 @@
-import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
+import { userKey } from '../lib/swr';
+
+/**
+ * Row -> what the UI sees. The database spells three of these differently
+ * (`nombre_objetivo`, `meta_total`, `monto_actual`) and this mapping was
+ * duplicated verbatim in four places, so a fix to one copy silently left the
+ * other three wrong. One function now, called from every path.
+ */
+function toMeta(row) {
+  return {
+    ...row,
+    nombre: row.nombre_objetivo,
+    objetivo: Number(row.meta_total),
+    actual: Number(row.monto_actual || 0),
+    created_at: new Date(row.created_at),
+    fechaCreacion: row.created_at
+      ? new Date(row.created_at).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0],
+  };
+}
+
+async function fetchMetas([, usuarioId]) {
+  const { data, error } = await supabase
+    .from('metas')
+    .select('*')
+    .eq('usuario_id', usuarioId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data || []).map(toMeta);
+}
 
 export function useMetas() {
-  const [metas, setMetas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const { userProfile } = useUser();
+  const { userProfile, loading: userLoading } = useUser();
+  const usuarioId = userProfile?.id ?? null;
 
-  const fetchMetas = async () => {
-    if (!userProfile?.id) {
-      setLoading(false);
-      return;
-    }
+  const { data, error, isLoading, mutate } = useSWR(userKey('metas', usuarioId), fetchMetas);
 
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const { data, error: supabaseError } = await supabase
-        .from('metas')
-        .select('*')
-        .eq('usuario_id', userProfile.id)
-        .order('created_at', { ascending: false });
-
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
-      }
-
-      // Process dates and ensure numbers are properly formatted
-      const processedMetas = (data || []).map(meta => ({
-        ...meta,
-        // Map database columns to expected frontend names
-        nombre: meta.nombre_objetivo,
-        objetivo: Number(meta.meta_total),
-        actual: Number(meta.monto_actual || 0),
-        created_at: new Date(meta.created_at),
-        fechaCreacion: meta.created_at ? new Date(meta.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-      }));
-
-      setMetas(processedMetas);
-    } catch (err) {
-      setError(err.message);
-      console.error('Error fetching metas:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const metas = data ?? [];
 
   const createMeta = async (metaData) => {
-    if (!userProfile?.id) return { error: 'No user profile' };
+    if (!usuarioId) return { error: 'No user profile' };
 
     try {
-      const { data, error } = await supabase
+      const { data: row, error: e } = await supabase
         .from('metas')
         .insert([
           {
@@ -60,35 +53,27 @@ export function useMetas() {
             meta_total: metaData.objetivo,
             descripcion: metaData.descripcion || '',
             fecha_meta: metaData.fecha_meta || null,
-            usuario_id: userProfile.id,
+            usuario_id: usuarioId,
             monto_actual: 0, // Always start with 0
-            created_at: new Date().toISOString()
-          }
+            created_at: new Date().toISOString(),
+          },
         ])
         .select()
         .single();
 
-      if (error) throw error;
-      
-      // Process the returned data
-      const processedMeta = {
-        ...data,
-        // Map database columns to expected frontend names
-        nombre: data.nombre_objetivo,
-        objetivo: Number(data.meta_total),
-        actual: Number(data.monto_actual || 0),
-        created_at: new Date(data.created_at),
-        fechaCreacion: data.created_at ? new Date(data.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-      };
-      
-      setMetas(prev => [processedMeta, ...prev]);
-      return { data: processedMeta, error: null };
+      if (e) throw e;
+
+      const created = toMeta(row);
+      await mutate((prev = []) => [created, ...prev], { revalidate: false });
+      return { data: created, error: null };
     } catch (err) {
       return { error: err.message };
     }
   };
 
   const updateMeta = async (id, updates) => {
+    if (!usuarioId) return { error: 'No user profile' };
+
     try {
       // Map frontend field names to database column names
       const dbUpdates = {};
@@ -97,106 +82,89 @@ export function useMetas() {
       if (updates.actual !== undefined) dbUpdates.monto_actual = updates.actual;
       if (updates.descripcion !== undefined) dbUpdates.descripcion = updates.descripcion;
       if (updates.fecha_meta) dbUpdates.fecha_meta = updates.fecha_meta;
-      
-      const { data, error } = await supabase
+
+      const { data: row, error: e } = await supabase
         .from('metas')
         .update(dbUpdates)
         .eq('id', id)
-        .eq('usuario_id', userProfile.id)
+        .eq('usuario_id', usuarioId)
         .select()
         .single();
 
-      if (error) throw error;
+      if (e) throw e;
 
-      // Process the returned data
-      const processedMeta = {
-        ...data,
-        // Map database columns to expected frontend names
-        nombre: data.nombre_objetivo,
-        objetivo: Number(data.meta_total),
-        actual: Number(data.monto_actual || 0),
-        created_at: new Date(data.created_at),
-        fechaCreacion: data.created_at ? new Date(data.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-      };
-
-      setMetas(prev =>
-        prev.map(meta => (meta.id === id ? processedMeta : meta))
-      );
-      return { data: processedMeta, error: null };
+      const updated = toMeta(row);
+      await mutate((prev = []) => prev.map((meta) => (meta.id === id ? updated : meta)), {
+        revalidate: false,
+      });
+      return { data: updated, error: null };
     } catch (err) {
       return { error: err.message };
     }
   };
 
   const deleteMeta = async (id) => {
+    if (!usuarioId) return { error: 'No user profile' };
+
     try {
-      const { error } = await supabase
+      const { error: e } = await supabase
         .from('metas')
         .delete()
         .eq('id', id)
-        .eq('usuario_id', userProfile.id);
+        .eq('usuario_id', usuarioId);
 
-      if (error) throw error;
+      if (e) throw e;
 
-      setMetas(prev => prev.filter(meta => meta.id !== id));
+      await mutate((prev = []) => prev.filter((meta) => meta.id !== id), { revalidate: false });
       return { error: null };
     } catch (err) {
       return { error: err.message };
     }
   };
 
+  /**
+   * Read-modify-write with no optimistic locking: two tabs adding money at the
+   * same time will lose one of the contributions. Deliberately NOT given
+   * `optimisticData` -- an optimistic update would render the lost amount as if
+   * it had been saved, turning a visible race into an invisible one.
+   */
   const addMoneyToMeta = async (id, amount) => {
+    if (!usuarioId) return { error: 'No user profile' };
+
     try {
-      // First get the current meta
-      const currentMeta = metas.find(meta => meta.id === id);
+      const currentMeta = metas.find((meta) => meta.id === id);
       if (!currentMeta) throw new Error('Meta no encontrada');
 
       const newAmount = currentMeta.actual + Number(amount);
-      
-      const { data, error } = await supabase
+
+      const { data: row, error: e } = await supabase
         .from('metas')
         .update({ monto_actual: newAmount })
         .eq('id', id)
-        .eq('usuario_id', userProfile.id)
+        .eq('usuario_id', usuarioId)
         .select()
         .single();
 
-      if (error) throw error;
+      if (e) throw e;
 
-      // Process the returned data
-      const processedMeta = {
-        ...data,
-        // Map database columns to expected frontend names
-        nombre: data.nombre_objetivo,
-        objetivo: Number(data.meta_total),
-        actual: Number(data.monto_actual || 0),
-        created_at: new Date(data.created_at),
-        fechaCreacion: data.created_at ? new Date(data.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-      };
-
-      setMetas(prev =>
-        prev.map(meta => (meta.id === id ? processedMeta : meta))
-      );
-      return { data: processedMeta, error: null };
+      const updated = toMeta(row);
+      await mutate((prev = []) => prev.map((meta) => (meta.id === id ? updated : meta)), {
+        revalidate: false,
+      });
+      return { data: updated, error: null };
     } catch (err) {
       return { error: err.message };
     }
   };
 
-  useEffect(() => {
-    if (userProfile) {
-      fetchMetas();
-    }
-  }, [userProfile]);
-
   return {
     metas,
-    loading,
-    error,
+    loading: userLoading || isLoading,
+    error: error ? error.message : null,
     createMeta,
     updateMeta,
     deleteMeta,
     addMoneyToMeta,
-    refetch: fetchMetas
+    refetch: () => mutate(),
   };
 }

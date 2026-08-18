@@ -15,31 +15,43 @@ const DEFAULT_YEAR = new Date().getFullYear();
 const DEFAULT_MONTH = new Date().getMonth().toString();
 
 export function useDashboardData() {
-  const { movimientos, loading, error } = useMovimientos();
-  const { tiposMovimiento } = useTiposMovimiento();
-  const { tags } = useTags();
-  const { movimientoTagIds } = useMovimientoTags();
+  const { movimientos, loading: movimientosLoading, error } = useMovimientos();
+  const { tiposMovimiento, loading: tiposLoading } = useTiposMovimiento();
+  const { tags, loading: tagsLoading } = useTags();
+  const { movimientoTagIds, loading: movimientoTagsLoading } = useMovimientoTags();
+
+  // Gated on ALL FOUR, not just movimientos. Forwarding one flag meant the
+  // dashboard declared itself ready while three of its inputs were still empty,
+  // which is what let the charts render a frame built from missing categories.
+  const loading =
+    movimientosLoading || tiposLoading || tagsLoading || movimientoTagsLoading;
 
   const [yearFilter, setYearFilter] = useState(DEFAULT_YEAR);
   const [monthFilter, setMonthFilter] = useState(DEFAULT_MONTH);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
 
+  /**
+   * Decorates each movimiento with the two fields the dashboard needs and
+   * `useMovimientos` does not provide.
+   *
+   * It used to re-join against `tiposMovimiento` and rebuild `tipo_nombre` /
+   * `tipo_categoria` from the result -- overwriting the values the SQL `!inner`
+   * embed had already supplied correctly. While the categories list was still
+   * loading, every `.find()` missed, so every row became a blank-named expense.
+   * `colorForCategory` hashes the NAME, so all of them hashed to the same slot
+   * and the donut rendered as a single solid colour for a frame.
+   *
+   * `tipo_meta` comes from the same embed. Only `tagIds` genuinely needs a
+   * second source.
+   */
   const movimientosConTipo = useMemo(() => {
-    return movimientos.map((mov) => {
-      const tipo = tiposMovimiento.find((t) => t.id === mov.id_tipo_movimiento);
-      const tagIds = movimientoTagIds[mov.id] || [];
-      return {
-        ...mov,
-        tipo_nombre: tipo ? tipo.nombre : '',
-        // Semantic classification. tipo_nombre stays for display and for the
-        // category filter; all income/expense/savings logic reads this instead.
-        tipo_categoria: tipo ? tipo.tipo : TIPO.GASTO,
-        tipo_meta: tipo ? tipo.meta : 0,
-        tagIds,
-      };
-    });
-  }, [movimientos, tiposMovimiento, movimientoTagIds]);
+    return movimientos.map((mov) => ({
+      ...mov,
+      tipo_meta: mov.tipo_movimiento?.meta ?? 0,
+      tagIds: movimientoTagIds[mov.id] || [],
+    }));
+  }, [movimientos, movimientoTagIds]);
 
   const categories = useMemo(() => tiposMovimiento.map((t) => t.nombre), [tiposMovimiento]);
 

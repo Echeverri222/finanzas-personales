@@ -5,7 +5,6 @@ import {
   Plus,
   ArrowDownLeft,
   ArrowUpRight,
-  PiggyBank,
   TrendingUp,
   ReceiptText,
 } from 'lucide-react';
@@ -59,7 +58,6 @@ export default function DashboardView({ data }) {
     totalIngresos,
     totalGastos,
     balance,
-    ahorrosMes,
     recentMovimientos,
     monthlyData,
     categoryData,
@@ -173,7 +171,7 @@ export default function DashboardView({ data }) {
           </Link>
         </HeroCard>
 
-        <div className="grid gap-4 sm:grid-cols-3 lg:col-span-7">
+        <div className="grid gap-4 sm:grid-cols-2 lg:col-span-7">
           <StatCard
             label="Ingresos"
             icon={ArrowDownLeft}
@@ -185,13 +183,6 @@ export default function DashboardView({ data }) {
             icon={ArrowUpRight}
             tone="expense"
             value={<Amount value={totalGastos} size="xl" tipo="gasto" toned />}
-          />
-          <StatCard
-            label="Ahorro"
-            icon={PiggyBank}
-            tone="savings"
-            value={<Amount value={ahorrosMes} size="xl" tipo="ahorro" toned />}
-            hint="Incluido en gastos"
           />
         </div>
       </div>

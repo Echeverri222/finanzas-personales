@@ -12,7 +12,10 @@ const SIZES = {
 } as const;
 
 export interface AmountProps {
-  /** Always the stored, positive magnitude. Direction comes from `tipo`. */
+  /**
+   * With a `tipo`, the stored positive magnitude -- direction comes from the
+   * tipo. Without one, a signed net figure (a balance) rendered as given.
+   */
   value: number | null | undefined;
   /**
    * Semantic category, from `tipo_movimiento.tipo`. Drives both the sign and
@@ -50,10 +53,16 @@ export function Amount({
 }: AmountProps) {
   const visual = tipo ? tipoVisual(tipo) : null;
   const sign = signed && visual ? visual.sign : "";
-  // Math.abs, because the sign above is the only thing allowed to express
-  // direction -- a negative `importe` slipping through would render "--1.000".
+  // With a `tipo`, direction is the tipo's business: Math.abs, so a negative
+  // `importe` slipping through cannot render "--1.000". Without one the figure
+  // is a net total (a balance), and its own sign is the only thing that can say
+  // it is negative -- stripping it there showed an overdrawn month as a win.
   const magnitude =
-    value === null || value === undefined ? value : Math.abs(Number(value));
+    value === null || value === undefined
+      ? value
+      : visual
+        ? Math.abs(Number(value))
+        : Number(value);
 
   return (
     <span

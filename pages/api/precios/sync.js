@@ -32,6 +32,11 @@ import {
   ultimosCierres,
   dormir,
 } from '../../../lib/massive';
+import {
+  ESPACIADO_MS as ESPACIADO_YAHOO,
+  candidatoYahoo,
+  cierresYahoo,
+} from '../../../lib/yahoo';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -180,6 +185,54 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── respaldo: lo que Massive no cubre ───────────────────────────────────
+    // Massive solo tiene mercados de EE. UU., así que una acción de la BVC
+    // como `PFGRUPOARG.CL` nunca aparece en el *grouped* y la posición se
+    // quedaría sin valorar en silencio. Se le pregunta a Yahoo, pero solo por
+    // lo que ya faltaba: es un proveedor sin contrato y no se le da el trabajo
+    // que Massive hace bien.
+    const cubiertos = new Set(filas.map((f) => f.ticker));
+    const pendientes = Array.from(necesarios).filter(
+      (t) => !cubiertos.has(t) && candidatoYahoo(t)
+    );
+
+    let respaldados = 0;
+    for (const ticker of pendientes) {
+      try {
+        const resultado = await cierresYahoo(ticker);
+        if (!resultado) continue;
+
+        for (const { fecha, cierre } of resultado.cierres) {
+          filas.push({
+            ticker,
+            fecha,
+            cierre,
+            // A diferencia de Massive, aquí la moneda no se puede dar por
+            // supuesta: esta acción cotiza en pesos, no en dólares.
+            moneda: resultado.moneda,
+            clase: claseDeTicker(ticker),
+            fuente: 'yahoo',
+            actualizado_at: new Date().toISOString(),
+          });
+        }
+        respaldados += 1;
+      } catch (err) {
+        // Mismo criterio que con las clases de Massive: un ticker que falla no
+        // invalida los precios que ya se obtuvieron.
+        errores.push(`yahoo ${ticker}: ${err.message}`);
+      }
+
+      // Entre tickers, no después del último: el cron no tiene por qué esperar
+      // 1,2 s extra cuando ya terminó.
+      if (ticker !== pendientes[pendientes.length - 1]) {
+        await dormir(ESPACIADO_YAHOO);
+      }
+    }
+
+    if (pendientes.length > 0) {
+      detalle.yahoo = { intentados: pendientes.length, encontrados: respaldados };
+    }
+
     if (filas.length > 0) {
       const { error: upsertError } = await admin
         .from('precios_mercado')
@@ -187,12 +240,14 @@ export default async function handler(req, res) {
       if (upsertError) throw new Error(upsertError.message);
     }
 
-    const noEncontrados = Array.from(necesarios).filter(
-      (t) => !filas.some((f) => f.ticker === t)
-    );
+    const resueltos = new Set(filas.map((f) => f.ticker));
+    const noEncontrados = Array.from(necesarios).filter((t) => !resueltos.has(t));
 
     return res.status(200).json({
-      actualizados: filas.length,
+      // Tickers, no filas: el respaldo de Yahoo guarda varios días de una vez y
+      // contar filas produciría un "7 de 3 precios actualizados" en la UI.
+      actualizados: resueltos.size,
+      filasEscritas: filas.length,
       solicitados: necesarios.size,
       detalle,
       noEncontrados,

@@ -101,7 +101,8 @@ export function PosicionForm({ cuentas, onSubmit, onCancel }) {
           <p className="mt-1 text-xs text-muted-foreground">
             {form.clase === 'crypto'
               ? 'Incluye la moneda: BTCUSD, ETHUSD.'
-              : 'El símbolo tal como cotiza: VOO, AAPL.'}
+              : 'El símbolo tal como cotiza: VOO, AAPL. Fuera de EE. UU., con ' +
+                'el sufijo de la bolsa: PFGRUPOARG.CL.'}
           </p>
         </Field>
 

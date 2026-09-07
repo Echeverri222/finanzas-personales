@@ -9,6 +9,65 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      cuentas: {
+        Row: {
+          activa: boolean
+          banco: string | null
+          created_at: string
+          id: string
+          moneda: string
+          nombre: string
+          notas: string | null
+          saldo: number
+          tiene_deuda: boolean
+          tipo: Database["public"]["Enums"]["tipo_cuenta"]
+          updated_at: string
+          usuario_id: string
+          valor_deuda: number | null
+          valor_total: number | null
+        }
+        Insert: {
+          activa?: boolean
+          banco?: string | null
+          created_at?: string
+          id?: string
+          moneda?: string
+          nombre: string
+          notas?: string | null
+          saldo?: number
+          tiene_deuda?: boolean
+          tipo: Database["public"]["Enums"]["tipo_cuenta"]
+          updated_at?: string
+          usuario_id: string
+          valor_deuda?: number | null
+          valor_total?: number | null
+        }
+        Update: {
+          activa?: boolean
+          banco?: string | null
+          created_at?: string
+          id?: string
+          moneda?: string
+          nombre?: string
+          notas?: string | null
+          saldo?: number
+          tiene_deuda?: boolean
+          tipo?: Database["public"]["Enums"]["tipo_cuenta"]
+          updated_at?: string
+          usuario_id?: string
+          valor_deuda?: number | null
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuentas_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       metas: {
         Row: {
           created_at: string | null
@@ -92,6 +151,7 @@ export type Database = {
       movimientos: {
         Row: {
           created_at: string | null
+          cuenta_id: string | null
           fecha: string
           id: string
           id_tipo_movimiento: string
@@ -103,6 +163,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          cuenta_id?: string | null
           fecha: string
           id?: string
           id_tipo_movimiento: string
@@ -114,6 +175,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          cuenta_id?: string | null
           fecha?: string
           id?: string
           id_tipo_movimiento?: string
@@ -129,6 +191,13 @@ export type Database = {
             columns: ["id_tipo_movimiento"]
             isOneToOne: false
             referencedRelation: "tipo_movimiento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimientos_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas"
             referencedColumns: ["id"]
           },
           {
@@ -194,6 +263,41 @@ export type Database = {
           },
           {
             foreignKeyName: "pagos_recurrentes_usuario_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patrimonio_snapshots: {
+        Row: {
+          created_at: string
+          desglose: Json
+          fecha: string
+          id: string
+          total: number
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          desglose?: Json
+          fecha: string
+          id?: string
+          total: number
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          desglose?: Json
+          fecha?: string
+          id?: string
+          total?: number
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patrimonio_snapshots_usuario_id_fkey"
             columns: ["usuario_id"]
             isOneToOne: false
             referencedRelation: "usuarios"
@@ -275,6 +379,7 @@ export type Database = {
           email: string
           id: string
           nombre: string | null
+          patrimonio_habilitado: boolean
           updated_at: string
           user_id: string
         }
@@ -284,6 +389,7 @@ export type Database = {
           email: string
           id?: string
           nombre?: string | null
+          patrimonio_habilitado?: boolean
           updated_at?: string
           user_id: string
         }
@@ -293,6 +399,7 @@ export type Database = {
           email?: string
           id?: string
           nombre?: string | null
+          patrimonio_habilitado?: boolean
           updated_at?: string
           user_id?: string
         }
@@ -314,6 +421,7 @@ export type Database = {
     }
     Enums: {
       tipo_categoria: "ingreso" | "gasto" | "ahorro" | "inversion" | "prestamo"
+      tipo_cuenta: "ahorros" | "efectivo" | "activo" | "inversion"
       tipo_entrenamiento:
         | "Recovery"
         | "Tempo"
@@ -448,6 +556,7 @@ export const Constants = {
   public: {
     Enums: {
       tipo_categoria: ["ingreso", "gasto", "ahorro", "inversion", "prestamo"],
+      tipo_cuenta: ["ahorros", "efectivo", "activo", "inversion"],
       tipo_entrenamiento: ["Recovery", "Tempo", "Intervals", "Long Run", "Gym"],
     },
   },

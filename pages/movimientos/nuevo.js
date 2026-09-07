@@ -6,6 +6,9 @@ import { useTiposMovimiento } from '../../hooks/useTiposMovimiento';
 import { useMovimientos } from '../../hooks/useMovimientos';
 import { useTags } from '../../hooks/useTags';
 import { useMovimientoTags } from '../../hooks/useMovimientoTags';
+import { useCuentas } from '../../hooks/useCuentas';
+import { usePatrimonioFlag } from '../../hooks/usePatrimonioFlag';
+import { esLiquida } from '@/types/domain';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +27,7 @@ export default function NuevoMovimientoPage() {
     nombre: '',
     importe: '',
     id_tipo_movimiento: '',
+    cuenta_id: '',
     tagIds: [],
   });
   const [errors, setErrors] = useState({});
@@ -33,6 +37,11 @@ export default function NuevoMovimientoPage() {
   const { createMovimiento } = useMovimientos();
   const { tags } = useTags();
   const { setMovimientoTags } = useMovimientoTags();
+  const { habilitado: patrimonioHabilitado } = usePatrimonioFlag();
+  const { cuentas } = useCuentas();
+
+  // Un activo no tiene efectivo del que descontar; ver el comentario del campo.
+  const cuentasLiquidas = cuentas.filter((c) => esLiquida(c) && c.activa !== false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -71,6 +80,9 @@ export default function NuevoMovimientoPage() {
         nombre: formData.nombre.trim(),
         importe: Number(formData.importe),
         id_tipo_movimiento: formData.id_tipo_movimiento,
+        // Solo se incluye si tiene valor. Un movimiento SIN cuenta es válido y
+        // no mueve ningún saldo -- todo el histórico está en ese estado.
+        ...(formData.cuenta_id ? { cuenta_id: formData.cuenta_id } : {}),
       };
       const { data: created, error } = await createMovimiento(movimientoData);
       if (error) throw new Error(error);
@@ -190,6 +202,33 @@ export default function NuevoMovimientoPage() {
                   <p className="mt-1 text-sm text-destructive">{errors.id_tipo_movimiento}</p>
                 )}
               </Field>
+
+              {/* Opcional siempre, y ausente por completo si Patrimonio está
+                  apagado. Se ofrecen solo las cuentas líquidas: un activo (un
+                  carro, una casa) no tiene efectivo del que descontar, y el
+                  trigger de M21 rechazaría la asociación -- ofrecerla sería
+                  prometer algo que la base de datos va a negar. */}
+              {patrimonioHabilitado && cuentasLiquidas.length > 0 && (
+                <Field label="Cuenta (opcional)" htmlFor="cuenta_id">
+                  <Select
+                    id="cuenta_id"
+                    name="cuenta_id"
+                    value={formData.cuenta_id}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">Sin cuenta</option>
+                    {cuentasLiquidas.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                        {c.banco ? ` · ${c.banco}` : ''}
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Si eliges una, el saldo de esa cuenta se ajusta solo.
+                  </p>
+                </Field>
+              )}
 
               {tags?.length > 0 && (
                 <div className="space-y-2 md:col-span-2">

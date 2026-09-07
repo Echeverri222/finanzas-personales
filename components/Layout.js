@@ -11,6 +11,9 @@ import {
   Shapes,
   Tag,
   Wallet,
+  Landmark,
+  TrendingUp,
+  Settings,
   LogOut,
   Menu,
   X,
@@ -44,11 +47,23 @@ const NAV_GROUPS = [
       { name: 'Análisis', href: '/stock-analysis', icon: LineChart },
     ],
   },
+  // `flag` gatea el grupo entero. Patrimonio es opcional: con el interruptor
+  // apagado estas rutas no deben ni insinuarse, o el menú prometería pantallas
+  // que no existen para ese usuario.
+  {
+    label: 'Patrimonio',
+    flag: 'patrimonio',
+    items: [
+      { name: 'Resumen', href: '/patrimonio', icon: Landmark },
+      { name: 'Inversiones', href: '/inversiones', icon: TrendingUp },
+    ],
+  },
   {
     label: 'Configuración',
     items: [
       { name: 'Categorías', href: '/gestion-tipos', icon: Shapes },
       { name: 'Etiquetas', href: '/etiquetas', icon: Tag },
+      { name: 'Ajustes', href: '/configuracion', icon: Settings },
     ],
   },
 ];
@@ -89,6 +104,7 @@ export default function Layout({ children }) {
   const router = useRouter();
   const { signOut } = useAuth();
   const { userProfile } = useUser();
+  const patrimonioHabilitado = Boolean(userProfile?.patrimonio_habilitado);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -114,6 +130,9 @@ export default function Layout({ children }) {
 
   const isActive = (href) => {
     if (href === '/movimientos') return router.pathname.startsWith('/movimientos');
+    // Igual que arriba: /patrimonio tiene sub-rutas (el detalle de una cuenta),
+    // y sin esto el item se apaga al entrar en una de ellas.
+    if (href === '/patrimonio') return router.pathname.startsWith('/patrimonio');
     return router.pathname === href;
   };
 
@@ -142,8 +161,14 @@ export default function Layout({ children }) {
         : 'font-medium text-muted-foreground before:bg-transparent hover:bg-secondary hover:text-foreground'
     );
 
+  // Se filtra antes de mapear, no dentro: el índice `i` decide el margen
+  // superior del grupo, así que ocultar uno a media lista dejaría un hueco.
+  const gruposVisibles = NAV_GROUPS.filter(
+    (group) => !group.flag || (group.flag === 'patrimonio' && patrimonioHabilitado)
+  );
+
   const renderNav = (onNavigate, collapsed = false) =>
-    NAV_GROUPS.map((group, i) => (
+    gruposVisibles.map((group, i) => (
       <div key={group.label || 'main'} className={i > 0 ? 'mt-6' : undefined}>
         {/* Collapsed, a group's name has nowhere to go without reintroducing
             the width it was collapsed to avoid — so the grouping survives as a

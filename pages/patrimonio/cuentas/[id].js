@@ -16,7 +16,7 @@ import { useCuentas } from '../../../hooks/useCuentas';
 import { usePatrimonio } from '../../../hooks/usePatrimonio';
 import { useMovimientos } from '../../../hooks/useMovimientos';
 import { useOperaciones } from '../../../hooks/useOperaciones';
-import { valorCuenta, rentabilidadNoRealizada } from '../../../lib/patrimonio';
+import { valorCuenta, desgloseInversion, rentabilidadNoRealizada } from '../../../lib/patrimonio';
 import { formatDate, formatNumber } from '@/lib/format';
 
 const ETIQUETA_TIPO = {
@@ -68,6 +68,7 @@ export default function CuentaDetallePage() {
   const esInversion = cuenta.tipo === 'inversion';
   const movimientosDeCuenta = movimientos.filter((m) => m.cuenta_id === cuenta.id);
   const posicionesDeCuenta = posiciones.filter((p) => p.cuenta_id === cuenta.id);
+  const desglose = desgloseInversion(cuenta, posiciones, precios, tasas);
 
   const handleGuardar = async (form) => {
     setGuardando(true);
@@ -128,6 +129,42 @@ export default function CuentaDetallePage() {
         label={esActivo ? 'Valor neto' : 'Valor total'}
         value={<Amount value={valorCuenta(cuenta, posiciones, precios, tasas)} size="hero" />}
       />
+
+      {/* De qué se compone el total. Sin esto el número es imposible de
+          cuadrar: comprar descuenta el costo del efectivo, así que un aporte
+          al broker sin registrar deja el saldo en negativo y restándose del
+          valor de las acciones. El total es correcto y aun así parece un
+          error. */}
+      {esInversion && (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">Efectivo sin invertir</p>
+                <Amount value={desglose.efectivo} size="lg" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">Valor de las posiciones</p>
+                <Amount value={desglose.invertido} size="lg" />
+              </CardContent>
+            </Card>
+          </div>
+
+          {desglose.efectivo < 0 && (
+            <ErrorAlert
+              title="El efectivo de esta cuenta está en negativo"
+              error={
+                `Las compras descontaron más de lo que hay registrado como saldo, así que ese ` +
+                `saldo se está restando del valor de tus posiciones. Suele significar que falta ` +
+                `registrar lo que depositaste en el broker: ajusta el efectivo abajo al valor que ` +
+                `realmente tienes sin invertir.`
+              }
+            />
+          )}
+        </>
+      )}
 
       {esActivo && cuenta.tiene_deuda && (
         <div className="grid grid-cols-2 gap-4">

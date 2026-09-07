@@ -8,7 +8,7 @@
  *
  *   npm run test:patrimonio
  */
-import { patrimonioNeto, resumenPorTicker, rentabilidadRealizada, valorCuenta, convertir } from '../lib/patrimonio.js';
+import { patrimonioNeto, resumenPorTicker, rentabilidadRealizada, valorCuenta, convertir, desgloseInversion } from '../lib/patrimonio.js';
 let fallos = 0;
 const eq = (label, a, b) => {
   const ok = Math.abs(a - b) < 1e-6;
@@ -76,6 +76,21 @@ eq('la suma de las filas es el total', sumaFilas, total);
 
 // Y la cuenta en USD debe salir YA convertida a pesos, no en dolares.
 eq('cuenta USD convertida a COP', valorCuenta(cuentas[2], pos, precios, { USDCOP: 4000 }), (500 + 1420) * 4000);
+
+// Desglose de una cuenta de inversion con el efectivo en NEGATIVO. Caso real:
+// se compraron 411 PFGRUPOARG.CL a 13.777,23 sin haber registrado el aporte al
+// broker, asi que el saldo quedo en -5.350.261 y el total (1.431.239) parecia
+// un error. No lo era: el desglose es lo que faltaba enseniar.
+const trii = { id:'t', tipo:'inversion', saldo:-5_350_261, moneda:'COP', activa:true };
+const posTrii = [{ cuenta_id:'t', ticker:'PFGRUPOARG.CL', estado:'abierta', cantidad:411, precio_compra:13777.23, moneda:'COP' }];
+const preciosTrii = { 'PFGRUPOARG.CL': { cierre:16500, moneda:'COP', fecha:'2026-09-07' } };
+const d = desgloseInversion(trii, posTrii, preciosTrii);
+eq('efectivo negativo se respeta', d.efectivo, -5_350_261);
+eq('posiciones a precio de mercado', d.invertido, 411 * 16500);
+eq('total = efectivo + posiciones', d.total, -5_350_261 + 411 * 16500);
+// La razon de ser de desgloseInversion: que las dos partes y el total no
+// puedan divergir, que es como nacio el bug de la moneda.
+eq('valorCuenta coincide con el desglose', valorCuenta(trii, posTrii, preciosTrii), d.total);
 
 console.log(fallos === 0 ? '\nTODO OK' : `\n${fallos} FALLOS`);
 process.exit(fallos ? 1 : 0);

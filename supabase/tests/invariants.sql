@@ -23,6 +23,13 @@ union all select 'tags',               count(*) from public.tags
 union all select 'tipo_movimiento',    count(*) from public.tipo_movimiento
 union all select 'usuarios',           count(*) from public.usuarios
 union all select 'auth.users',         count(*) from auth.users
+-- Patrimonio (M20-M22). Opcional por usuario, asi que en una instalacion sin
+-- la feature activada estas filas son 0 y eso es correcto.
+union all select 'cuentas',            count(*) from public.cuentas
+union all select 'posiciones',         count(*) from public.posiciones
+union all select 'operaciones_cuenta', count(*) from public.operaciones_cuenta
+union all select 'precios_mercado',    count(*) from public.precios_mercado
+union all select 'patrimonio_snapshots', count(*) from public.patrimonio_snapshots
 order by 1;
 
 \echo ''
@@ -107,4 +114,25 @@ union all
 select 'categoria de otro usuario', count(*) from public.movimientos m
   join public.tipo_movimiento t on t.id = m.id_tipo_movimiento
   where t.usuario_id is distinct from m.usuario_id
+-- Patrimonio: la FK garantiza que la cuenta existe, no que sea del mismo dueno.
+-- El trigger de M21 lo impide en escritura; esto lo verifica en reposo.
+union all
+select 'movimiento con cuenta de otro usuario', count(*) from public.movimientos m
+  join public.cuentas c on c.id = m.cuenta_id
+  where c.usuario_id is distinct from m.usuario_id
+union all
+select 'movimiento asociado a un activo', count(*) from public.movimientos m
+  join public.cuentas c on c.id = m.cuenta_id
+  where c.tipo = 'activo'
+union all
+select 'posicion en cuenta que no es de inversion', count(*) from public.posiciones p
+  join public.cuentas c on c.id = p.cuenta_id
+  where c.tipo <> 'inversion'
+union all
+select 'posicion con cuenta de otro usuario', count(*) from public.posiciones p
+  join public.cuentas c on c.id = p.cuenta_id
+  where c.usuario_id is distinct from p.usuario_id
+union all
+select 'operacion colgante', count(*) from public.operaciones_cuenta o
+  where not exists (select 1 from public.cuentas c where c.id = o.cuenta_id)
 order by 1;

@@ -137,11 +137,22 @@ export default function InversionesPage() {
       {errorSync && <ErrorAlert title="No se pudieron actualizar los precios" error={errorSync} />}
 
       {resultado && (
-        <p className="text-sm text-muted-foreground">
-          {resultado.actualizados} de {resultado.solicitados} precios actualizados
-          {resultado.noEncontrados?.length > 0 &&
-            ` · sin datos para ${resultado.noEncontrados.join(', ')}`}
-        </p>
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <p>
+            {resultado.actualizados} de {resultado.solicitados} precios actualizados
+            {resultado.noEncontrados?.length > 0 &&
+              ` · sin datos para ${resultado.noEncontrados.join(', ')}`}
+          </p>
+          {/* Sin esto, "sin datos para X" no distingue entre un ticker que no
+              existe y un proveedor que respondió 429, y son dos problemas con
+              soluciones opuestas: corregir el símbolo o volver a intentarlo. */}
+          {resultado.errores?.length > 0 &&
+            resultado.errores.map((e) => (
+              <p key={e} className="text-xs">
+                {e}
+              </p>
+            ))}
+        </div>
       )}
 
       {/* Nunca se oculta la antigüedad del precio. Un número de patrimonio sin

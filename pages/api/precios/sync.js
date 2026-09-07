@@ -197,7 +197,9 @@ export default async function handler(req, res) {
     );
 
     let respaldados = 0;
+    let intentados = 0;
     for (const ticker of pendientes) {
+      intentados += 1;
       try {
         const resultado = await cierresYahoo(ticker);
         if (!resultado) continue;
@@ -220,6 +222,15 @@ export default async function handler(req, res) {
         // Mismo criterio que con las clases de Massive: un ticker que falla no
         // invalida los precios que ya se obtuvieron.
         errores.push(`yahoo ${ticker}: ${err.message}`);
+
+        // Un 429 no es problema de ESTE ticker: Yahoo está rechazando a este
+        // servidor entero, y ya se reintentó dentro del cliente. Seguir con la
+        // lista solo gasta el tiempo de la función para recoger el mismo error
+        // tantas veces como tickers falten.
+        if (err.message.includes('429')) {
+          errores.push('yahoo: bloqueado desde este servidor, se omite el resto');
+          break;
+        }
       }
 
       // Entre tickers, no después del último: el cron no tiene por qué esperar
@@ -230,7 +241,7 @@ export default async function handler(req, res) {
     }
 
     if (pendientes.length > 0) {
-      detalle.yahoo = { intentados: pendientes.length, encontrados: respaldados };
+      detalle.yahoo = { pendientes: pendientes.length, intentados, encontrados: respaldados };
     }
 
     if (filas.length > 0) {

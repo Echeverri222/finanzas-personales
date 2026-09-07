@@ -11,9 +11,18 @@
  * los cerrados hacen falta para que el historial de rentabilidades siga siendo
  * reconstruible. Más `C:USDCOP`, que es la tasa para pasar dólares a pesos.
  *
- * Se invoca desde el botón "Actualizar precios" de /inversiones y, en
- * producción, desde un cron diario con `x-cron-secret`.
+ * Se invoca desde el botón "Actualizar precios" de /inversiones (POST con el
+ * token del usuario) y, en producción, desde el cron de Vercel.
+ *
+ * El cron llega con la forma que Vercel impone, no con la que uno elegiría:
+ * **GET**, y con el secreto en `Authorization: Bearer` porque Vercel Cron no
+ * permite cabeceras propias. De ahí que se acepten los dos métodos y que el
+ * secreto se busque en dos sitios: la primera versión pedía POST con
+ * `x-cron-secret` y el cron habría respondido 405 todas las noches sin que
+ * nadie lo notara -- un fallo silencioso, que es el peor tipo para una tarea
+ * programada.
  */
+import { timingSafeEqual } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import {
   CLASES,
@@ -29,8 +38,35 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY;
 const CRON_SECRET = process.env.CRON_SECRET;
 
+/**
+ * `true` si quien llama es el cron.
+ *
+ * Se comprueba ANTES de tratar el `Authorization` como token de usuario: si no,
+ * el secreto del cron llegaría a `auth.getUser()` como si fuera un JWT y la
+ * respuesta sería un 401 desconcertante en vez de una sincronización.
+ *
+ * La comparación es de longitud constante para no filtrar el secreto por el
+ * tiempo que tarda en fallar.
+ */
+function esLlamadaDeCron(req) {
+  if (!CRON_SECRET) return false;
+  const candidatos = [
+    req.headers['x-cron-secret'],
+    (req.headers.authorization || '').replace(/^Bearer /, ''),
+  ];
+  return candidatos.some((c) => {
+    if (typeof c !== 'string' || c.length !== CRON_SECRET.length) return false;
+    return timingSafeEqual(Buffer.from(c), Buffer.from(CRON_SECRET));
+  });
+}
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
+  const esCron = esLlamadaDeCron(req);
+
+  // El cron de Vercel invoca con GET y eso no se puede configurar; el botón de
+  // la UI usa POST, que es lo correcto para algo que escribe.
+  const metodoValido = req.method === 'POST' || (esCron && req.method === 'GET');
+  if (!metodoValido) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Método no permitido' });
   }
@@ -53,9 +89,9 @@ export default async function handler(req, res) {
   });
 
   // ── quién llama ───────────────────────────────────────────────────────────
-  // Dos caminos: un usuario con sesión (el botón), o el cron con su secreto.
-  // El cron no tiene usuario, así que sincroniza los tickers de todos.
-  const esCron = Boolean(CRON_SECRET) && req.headers['x-cron-secret'] === CRON_SECRET;
+  // Dos caminos: un usuario con sesión (el botón), o el cron con su secreto
+  // (ya resuelto arriba). El cron no tiene usuario, así que sincroniza los
+  // tickers de todos.
   let usuarioId = null;
 
   if (!esCron) {

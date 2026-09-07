@@ -110,6 +110,33 @@ neto al tick.
 - Si la API falla, la app funciona con el último cierre en base de datos y avisa
   de su antigüedad. Nunca queda en blanco.
 
+### Respaldo para lo que Massive no cubre
+
+Massive **solo tiene mercados de EE. UU.** Una acción de la Bolsa de Valores de
+Colombia como `PFGRUPOARG.CL` responde `Ticker not found`, y sin respaldo la
+posición se quedaría valorada al precio de compra en silencio. Después del
+*grouped*, los tickers que sigan sin precio pasan por dos proveedores:
+
+1. **TradingView** (`scanner.tradingview.com`, sin llave). Pide todos los que
+   falten en una sola llamada. Es el primero porque responde desde IPs de
+   datacenter, que es donde Yahoo no.
+2. **Yahoo** (`query1.finance.yahoo.com`, sin llave), un símbolo por llamada,
+   para lo que TradingView no tenga. Devuelve además histórico de 5 días.
+
+Ninguno de los dos es una API con contrato: pueden cambiar o bloquear sin
+aviso. Por eso son respaldo y no proveedor, y por eso un fallo suyo nunca tumba
+la sincronización — los cierres de Massive que ya se obtuvieron se guardan
+igual, y el motivo del fallo se muestra en `/inversiones`.
+
+La moneda **sale de la respuesta**, no se asume `USD` como con Massive:
+`PFGRUPOARG.CL` cotiza en pesos, y etiquetarlo mal lo multiplicaría por la tasa
+del dólar. Si un proveedor no la informa, el ticker se descarta.
+
+El ticker se escribe con el sufijo de la bolsa al estilo Yahoo
+(`PFGRUPOARG.CL`). Solo están mapeadas las bolsas verificadas contra la API
+real —hoy `.CL` → `BVC`—: un sufijo adivinado no daría error, daría el precio de
+otra empresa.
+
 ### Variables de entorno
 
 | Variable | Dónde | Para qué |

@@ -37,6 +37,7 @@ import {
   candidatoYahoo,
   cierresYahoo,
 } from '../../../lib/yahoo';
+import { cierresTradingView } from '../../../lib/tradingview';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -188,13 +189,37 @@ export default async function handler(req, res) {
     // ── respaldo: lo que Massive no cubre ───────────────────────────────────
     // Massive solo tiene mercados de EE. UU., así que una acción de la BVC
     // como `PFGRUPOARG.CL` nunca aparece en el *grouped* y la posición se
-    // quedaría sin valorar en silencio. Se le pregunta a Yahoo, pero solo por
-    // lo que ya faltaba: es un proveedor sin contrato y no se le da el trabajo
-    // que Massive hace bien.
-    const cubiertos = new Set(filas.map((f) => f.ticker));
-    const pendientes = Array.from(necesarios).filter(
-      (t) => !cubiertos.has(t) && candidatoYahoo(t)
-    );
+    // quedaría sin valorar en silencio. Dos respaldos, en este orden:
+    // TradingView resuelve todos los que falten de una vez y sin llave, y
+    // Yahoo recoge lo que quede, un símbolo por llamada.
+    const faltantes = () => {
+      const cubiertos = new Set(filas.map((f) => f.ticker));
+      return Array.from(necesarios).filter((t) => !cubiertos.has(t));
+    };
+
+    try {
+      const encontrados = await cierresTradingView(faltantes());
+      for (const [ticker, { cierre, moneda, fecha }] of encontrados) {
+        filas.push({
+          ticker,
+          fecha,
+          cierre,
+          // A diferencia de Massive, aquí la moneda no se puede dar por
+          // supuesta: esta acción cotiza en pesos, no en dólares.
+          moneda,
+          clase: claseDeTicker(ticker),
+          fuente: 'tradingview',
+          actualizado_at: new Date().toISOString(),
+        });
+      }
+      if (encontrados.size > 0) {
+        detalle.tradingview = { encontrados: encontrados.size };
+      }
+    } catch (err) {
+      errores.push(`tradingview: ${err.message}`);
+    }
+
+    const pendientes = faltantes().filter(candidatoYahoo);
 
     let respaldados = 0;
     let intentados = 0;
@@ -209,8 +234,6 @@ export default async function handler(req, res) {
             ticker,
             fecha,
             cierre,
-            // A diferencia de Massive, aquí la moneda no se puede dar por
-            // supuesta: esta acción cotiza en pesos, no en dólares.
             moneda: resultado.moneda,
             clase: claseDeTicker(ticker),
             fuente: 'yahoo',

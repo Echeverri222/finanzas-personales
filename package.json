@@ -41,7 +41,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:patrimonio": "node scripts/test-patrimonio.mjs",
-    "test:yahoo": "node scripts/test-yahoo.mjs",
+    "test:precios": "node scripts/test-precios.mjs",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",

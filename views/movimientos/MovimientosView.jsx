@@ -124,15 +124,12 @@ export default function MovimientosView({
   const showEditModal = Boolean(editingId && editFormData?.nombre !== undefined);
   const isEmpty = sortedMovimientos.length === 0;
   const cuentasLiquidas = (cuentas || []).filter((c) => esLiquida(c) && c.activa !== false);
-  const cuentaEditada = cuentasLiquidas.find((c) => c.id === editFormData?.cuenta_id);
   const categoriaEditada = (tiposMovimiento || []).find(
     (tipo) => String(tipo.id) === String(editFormData?.id_tipo_movimiento)
   );
   const categoriaEditadaEsSalida = [TIPO.GASTO, TIPO.INVERSION, TIPO.PRESTAMO].includes(
     categoriaEditada?.tipo
   );
-  const puedeSalirDeAhorros =
-    cuentaEditada?.tipo === 'ahorros' && categoriaEditadaEsSalida;
 
   return (
     <div className="space-y-5">
@@ -355,15 +352,9 @@ export default function MovimientosView({
               <Select
                 id="mov-cuenta"
                 value={editFormData.cuenta_id || ''}
-                onChange={(e) => {
-                  const cuenta = cuentasLiquidas.find((c) => c.id === e.target.value);
-                  setEditFormData((p) => ({
-                    ...p,
-                    cuenta_id: e.target.value,
-                    sale_de_ahorros:
-                      cuenta?.tipo === 'ahorros' ? p.sale_de_ahorros : false,
-                  }));
-                }}
+                onChange={(e) =>
+                  setEditFormData((p) => ({ ...p, cuenta_id: e.target.value }))
+                }
               >
                 <option value="">Sin cuenta</option>
                 {cuentasLiquidas.map((c) => (
@@ -374,27 +365,25 @@ export default function MovimientosView({
               </Select>
             </Field>
           )}
-          {patrimonioHabilitado && cuentasLiquidas.some((c) => c.tipo === 'ahorros') && (
-            <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
-              <div>
-                <label htmlFor="mov-sale-de-ahorros" className="text-sm font-medium">
-                  Sale de ahorros
-                </label>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Reduce la cuenta sin afectar los gastos ni el balance del mes.
-                </p>
-              </div>
-              <Switch
-                id="mov-sale-de-ahorros"
-                checked={Boolean(editFormData.sale_de_ahorros)}
-                disabled={!puedeSalirDeAhorros}
-                onCheckedChange={(checked) =>
-                  setEditFormData((p) => ({ ...p, sale_de_ahorros: checked }))
-                }
-                aria-label="Marcar como consumo de ahorros"
-              />
+          <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
+            <div>
+              <label htmlFor="mov-sale-de-ahorros" className="text-sm font-medium">
+                Sale de ahorros
+              </label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Resta del ahorro acumulado sin afectar los gastos ni el balance del mes.
+              </p>
             </div>
-          )}
+            <Switch
+              id="mov-sale-de-ahorros"
+              checked={Boolean(editFormData.sale_de_ahorros)}
+              disabled={!categoriaEditadaEsSalida}
+              onCheckedChange={(checked) =>
+                setEditFormData((p) => ({ ...p, sale_de_ahorros: checked }))
+              }
+              aria-label="Marcar como consumo de ahorros"
+            />
+          </div>
           <div>
             <p className="mb-2 text-sm font-medium">Etiquetas</p>
             {(tags || []).length > 0 ? (

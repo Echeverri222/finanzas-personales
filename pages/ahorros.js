@@ -3,9 +3,8 @@ import Link from 'next/link';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Plus, Target, PiggyBank } from 'lucide-react';
 import { useMovimientos } from '../hooks/useMovimientos';
-import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
 import { formatCurrency } from '@/lib/format';
-import { TIPO } from '@/lib/constants';
+import { afectaAhorro, ahorroAcumulado, cambioEnAhorro } from '@/lib/ahorros';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
 import { Card } from '@/components/ui/card';
@@ -32,23 +31,11 @@ export default function AhorrosPage() {
   const [timePeriod, setTimePeriod] = useState('1year');
 
   const { movimientos, loading, error } = useMovimientos();
-  const { tiposMovimiento } = useTiposMovimiento();
-
-  const getTipoNombre = (id) => {
-    const tipo = tiposMovimiento.find((t) => t.id === id);
-    return tipo ? tipo.nombre : 'Sin categoría';
-  };
-
-  const getTipoCategoria = (id) => {
-    const tipo = tiposMovimiento.find((t) => t.id === id);
-    return tipo ? tipo.tipo : null;
-  };
 
   // Keyed on the semantic type, not the category name -- renaming "Ahorro"
-  // no longer empties this page.
-  const ahorrosMovimientos = movimientos.filter(
-    (mov) => getTipoCategoria(mov.id_tipo_movimiento) === TIPO.AHORRO
-  );
+  // no longer empties this page. Los consumos marcados restan del mismo
+  // acumulado aunque Patrimonio esté apagado o no tengan cuenta asociada.
+  const movimientosDeAhorro = movimientos.filter(afectaAhorro);
 
   const getChartData = () => {
     const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -74,8 +61,10 @@ export default function AhorrosPage() {
       periodStartDate.setMonth(periodStartDate.getMonth() - startMonthsAgo);
     }
 
-    const previousSavings = ahorrosMovimientos.filter((mov) => createSafeDate(mov.fecha) < periodStartDate);
-    let cumulativeTotal = previousSavings.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
+    const previousSavings = movimientosDeAhorro.filter(
+      (mov) => createSafeDate(mov.fecha) < periodStartDate
+    );
+    let cumulativeTotal = ahorroAcumulado(previousSavings);
 
     for (let i = startMonthsAgo; i >= 0; i--) {
       const date = new Date();
@@ -86,11 +75,14 @@ export default function AhorrosPage() {
       }
       const month = date.getMonth();
       const year = date.getFullYear();
-      const monthAhorros = ahorrosMovimientos.filter((mov) => {
+      const monthAhorros = movimientosDeAhorro.filter((mov) => {
         const movDate = createSafeDate(mov.fecha);
         return movDate.getFullYear() === year && movDate.getMonth() === month;
       });
-      const monthTotal = monthAhorros.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
+      const monthTotal = monthAhorros.reduce(
+        (sum, mov) => sum + cambioEnAhorro(mov),
+        0
+      );
       cumulativeTotal += monthTotal;
       chartData.push({
         mes: `${monthNames[month]} ${year.toString().slice(-2)}`,
@@ -102,7 +94,7 @@ export default function AhorrosPage() {
   };
 
   const chartData = getChartData();
-  const totalSavings = ahorrosMovimientos.reduce((sum, mov) => sum + Math.abs(mov.importe), 0);
+  const totalSavings = ahorroAcumulado(movimientosDeAhorro);
 
   // The local `months`/`years` arrays that fed those selects are gone with them.
   // (lib/dateUtils already exports MONTHS_FULL if a real month filter lands here.)
@@ -198,7 +190,7 @@ export default function AhorrosPage() {
                   contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
                   formatter={(value, name) => [
                     formatCurrency(value),
-                    name === 'acumulado' ? 'Acumulado' : 'Ahorro del mes',
+                    name === 'acumulado' ? 'Acumulado' : 'Ahorro neto del mes',
                   ]}
                 />
                 <Line

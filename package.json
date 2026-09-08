@@ -40,6 +40,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:ahorros": "node scripts/test-ahorros.mjs",
     "test:patrimonio": "node scripts/test-patrimonio.mjs",
     "test:precios": "node scripts/test-precios.mjs",
     "db:start": "supabase start",

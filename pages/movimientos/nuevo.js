@@ -45,24 +45,17 @@ export default function NuevoMovimientoPage() {
 
   // Un activo no tiene efectivo del que descontar; ver el comentario del campo.
   const cuentasLiquidas = cuentas.filter((c) => esLiquida(c) && c.activa !== false);
-  const cuentaSeleccionada = cuentasLiquidas.find((c) => c.id === formData.cuenta_id);
   const categoriaSeleccionada = tiposMovimiento.find(
     (tipo) => String(tipo.id) === String(formData.id_tipo_movimiento)
   );
   const categoriaEsSalida = [TIPO.GASTO, TIPO.INVERSION, TIPO.PRESTAMO].includes(
     categoriaSeleccionada?.tipo
   );
-  const puedeSalirDeAhorros =
-    cuentaSeleccionada?.tipo === 'ahorros' && categoriaEsSalida;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => {
       const next = { ...prev, [name]: value };
-      if (name === 'cuenta_id') {
-        const cuenta = cuentasLiquidas.find((c) => c.id === value);
-        if (cuenta?.tipo !== 'ahorros') next.sale_de_ahorros = false;
-      }
       if (name === 'id_tipo_movimiento') {
         const categoria = tiposMovimiento.find((tipo) => String(tipo.id) === String(value));
         if (![TIPO.GASTO, TIPO.INVERSION, TIPO.PRESTAMO].includes(categoria?.tipo)) {
@@ -264,33 +257,31 @@ export default function NuevoMovimientoPage() {
                 </Field>
               )}
 
-              {patrimonioHabilitado && cuentasLiquidas.some((c) => c.tipo === 'ahorros') && (
-                <div className="flex items-start justify-between gap-4 rounded-lg border p-4 md:col-span-2">
-                  <div>
-                    <label htmlFor="sale_de_ahorros" className="text-sm font-medium">
-                      Sale de ahorros
-                    </label>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Reduce la cuenta y conserva el movimiento, pero no cuenta como gasto
-                      ni afecta el balance del mes.
+              <div className="flex items-start justify-between gap-4 rounded-lg border p-4 md:col-span-2">
+                <div>
+                  <label htmlFor="sale_de_ahorros" className="text-sm font-medium">
+                    Sale de ahorros
+                  </label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Resta del ahorro acumulado y conserva el movimiento, pero no cuenta
+                    como gasto ni afecta el balance del mes.
+                  </p>
+                  {!categoriaEsSalida && (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                      Selecciona una categoría de salida para usar esta opción.
                     </p>
-                    {!puedeSalirDeAhorros && (
-                      <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                        Selecciona una cuenta de ahorros y una categoría de salida.
-                      </p>
-                    )}
-                  </div>
-                  <Switch
-                    id="sale_de_ahorros"
-                    checked={formData.sale_de_ahorros}
-                    disabled={!puedeSalirDeAhorros}
-                    onCheckedChange={(checked) =>
-                      setFormData((prev) => ({ ...prev, sale_de_ahorros: checked }))
-                    }
-                    aria-label="Marcar como consumo de ahorros"
-                  />
+                  )}
                 </div>
-              )}
+                <Switch
+                  id="sale_de_ahorros"
+                  checked={formData.sale_de_ahorros}
+                  disabled={!categoriaEsSalida}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, sale_de_ahorros: checked }))
+                  }
+                  aria-label="Marcar como consumo de ahorros"
+                />
+              </div>
 
               {tags?.length > 0 && (
                 <div className="space-y-2 md:col-span-2">

@@ -508,7 +508,6 @@ do $$
 declare
   v_usuario uuid;
   v_ahorros uuid;
-  v_efectivo uuid;
   v_tipo_gasto uuid;
   v_tipo_ingreso uuid;
   v_mov uuid;
@@ -520,10 +519,6 @@ begin
   values (v_usuario, 'ahorros', 'probe M23 ahorros', 'Banco prueba', 1000)
   returning id into v_ahorros;
 
-  insert into public.cuentas (usuario_id, tipo, nombre, saldo)
-  values (v_usuario, 'efectivo', 'probe M23 efectivo', 1000)
-  returning id into v_efectivo;
-
   insert into public.tipo_movimiento (usuario_id, nombre, meta, tipo)
   values (v_usuario, 'probe M23 gasto', 0, 'gasto')
   returning id into v_tipo_gasto;
@@ -533,33 +528,27 @@ begin
   returning id into v_tipo_ingreso;
 
   insert into public.movimientos (
-    usuario_id, id_tipo_movimiento, nombre, importe, fecha,
-    cuenta_id, sale_de_ahorros
+    usuario_id, id_tipo_movimiento, nombre, importe, fecha, sale_de_ahorros
   )
   values (
-    v_usuario, v_tipo_gasto, 'probe M23 valido', 100, current_date,
-    v_ahorros, true
+    v_usuario, v_tipo_gasto, 'probe M23 valido sin patrimonio', 100, current_date, true
   )
   returning id into v_mov;
 
-  if (select saldo from public.cuentas where id = v_ahorros) <> 900 then
-    raise exception 'M23: el consumo valido no redujo el ahorro a 900';
+  if (select cuenta_id from public.movimientos where id = v_mov) is not null then
+    raise exception 'M24: el consumo sin Patrimonio adquirio una cuenta';
   end if;
 
-  v_fallo := null;
-  begin
-    insert into public.movimientos (
-      usuario_id, id_tipo_movimiento, nombre, importe, fecha,
-      cuenta_id, sale_de_ahorros
-    )
-    values (
-      v_usuario, v_tipo_gasto, 'probe M23 cuenta invalida', 100, current_date,
-      v_efectivo, true
-    );
-    v_fallo := 'se acepto consumo de ahorro contra cuenta de efectivo';
-  exception when others then null;
-  end;
-  if v_fallo is not null then raise exception 'M23: %', v_fallo; end if;
+  if (select saldo from public.cuentas where id = v_ahorros) <> 1000 then
+    raise exception 'M24: el consumo sin cuenta movio un saldo de Patrimonio';
+  end if;
+
+  -- La asociación de Patrimonio es opcional e independiente. Si se añade, M21
+  -- conserva su comportamiento normal y descuenta el saldo de esa cuenta.
+  update public.movimientos set cuenta_id = v_ahorros where id = v_mov;
+  if (select saldo from public.cuentas where id = v_ahorros) <> 900 then
+    raise exception 'M24: asociar la cuenta no redujo su saldo a 900';
+  end if;
 
   v_fallo := null;
   begin
@@ -576,17 +565,17 @@ begin
   end;
   if v_fallo is not null then raise exception 'M23: %', v_fallo; end if;
 
-  -- El FK ON DELETE SET NULL sigue siendo válido: borrar la cuenta conserva el
-  -- movimiento y limpia el atributo que ya no puede respaldar.
+  -- Borrar la cuenta no borra ni desmarca el consumo: el ahorro acumulado no
+  -- depende de que Patrimonio esté habilitado ni de que esa cuenta siga viva.
   delete from public.cuentas where id = v_ahorros;
   if not exists (
     select 1 from public.movimientos
-     where id = v_mov and cuenta_id is null and sale_de_ahorros = false
+     where id = v_mov and cuenta_id is null and sale_de_ahorros = true
   ) then
-    raise exception 'M23: borrar la cuenta no conservo/normalizo el movimiento';
+    raise exception 'M24: borrar la cuenta altero el consumo de ahorro';
   end if;
 
-  raise notice 'M23: OK -- consumo de ahorro, guardas y borrado de cuenta.';
+  raise notice 'M24: OK -- ahorro acumulado independiente de Patrimonio.';
 end $$;
 
 -- Un unico rollback, al final. Estuvo a mitad de archivo y los bloques que

@@ -125,6 +125,11 @@ select 'movimiento asociado a un activo', count(*) from public.movimientos m
   join public.cuentas c on c.id = m.cuenta_id
   where c.tipo = 'activo'
 union all
+select 'consumo de ahorro sin cuenta de ahorros', count(*) from public.movimientos m
+  left join public.cuentas c on c.id = m.cuenta_id
+  where m.sale_de_ahorros
+    and (c.id is null or c.tipo <> 'ahorros' or c.usuario_id is distinct from m.usuario_id)
+union all
 select 'posicion en cuenta que no es de inversion', count(*) from public.posiciones p
   join public.cuentas c on c.id = p.cuenta_id
   where c.tipo <> 'inversion'

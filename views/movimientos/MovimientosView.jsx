@@ -10,10 +10,14 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect as Select } from '@/components/ui/native-select';
 import { Field } from '@/components/ui/field';
 import { Modal as Dialog } from '@/components/ui/modal';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { FilterChips } from '@/components/filters/FilterChips';
 import { Amount } from '@/components/money/Amount';
 import { TypeIcon } from '@/components/money/TypeIcon';
 import { EmptyState } from '@/components/feedback/EmptyState';
+import { esLiquida } from '@/types/domain';
+import { TIPO } from '@/lib/constants';
 
 const SORT_OPTIONS = [
   { value: 'fecha', label: 'Fecha' },
@@ -65,6 +69,8 @@ export default function MovimientosView({
   sortedMovimientos,
   tiposMovimiento,
   tags,
+  cuentas,
+  patrimonioHabilitado,
   searchTerm,
   setSearchTerm,
   typeFilter,
@@ -117,6 +123,16 @@ export default function MovimientosView({
   });
   const showEditModal = Boolean(editingId && editFormData?.nombre !== undefined);
   const isEmpty = sortedMovimientos.length === 0;
+  const cuentasLiquidas = (cuentas || []).filter((c) => esLiquida(c) && c.activa !== false);
+  const cuentaEditada = cuentasLiquidas.find((c) => c.id === editFormData?.cuenta_id);
+  const categoriaEditada = (tiposMovimiento || []).find(
+    (tipo) => String(tipo.id) === String(editFormData?.id_tipo_movimiento)
+  );
+  const categoriaEditadaEsSalida = [TIPO.GASTO, TIPO.INVERSION, TIPO.PRESTAMO].includes(
+    categoriaEditada?.tipo
+  );
+  const puedeSalirDeAhorros =
+    cuentaEditada?.tipo === 'ahorros' && categoriaEditadaEsSalida;
 
   return (
     <div className="space-y-5">
@@ -241,6 +257,11 @@ export default function MovimientosView({
                         <span className="block truncate text-xs text-muted-foreground">
                           {mov.tipo_nombre}
                         </span>
+                        {mov.sale_de_ahorros && (
+                          <Badge variant="secondary" className="mt-1">
+                            Uso de ahorro
+                          </Badge>
+                        )}
                       </span>
                       <Amount value={mov.importe} tipo={mov.tipo_categoria} signed toned size="sm" />
                     </button>
@@ -307,7 +328,20 @@ export default function MovimientosView({
               id="mov-tipo"
               value={editFormData.id_tipo_movimiento}
               onChange={(e) =>
-                setEditFormData((p) => ({ ...p, id_tipo_movimiento: e.target.value }))
+                setEditFormData((p) => {
+                  const categoria = (tiposMovimiento || []).find(
+                    (tipo) => String(tipo.id) === String(e.target.value)
+                  );
+                  return {
+                    ...p,
+                    id_tipo_movimiento: e.target.value,
+                    sale_de_ahorros: [TIPO.GASTO, TIPO.INVERSION, TIPO.PRESTAMO].includes(
+                      categoria?.tipo
+                    )
+                      ? p.sale_de_ahorros
+                      : false,
+                  };
+                })
               }
             >
               <option value="">Seleccionar</option>
@@ -316,6 +350,51 @@ export default function MovimientosView({
               ))}
             </Select>
           </Field>
+          {patrimonioHabilitado && cuentasLiquidas.length > 0 && (
+            <Field label="Cuenta (opcional)" htmlFor="mov-cuenta">
+              <Select
+                id="mov-cuenta"
+                value={editFormData.cuenta_id || ''}
+                onChange={(e) => {
+                  const cuenta = cuentasLiquidas.find((c) => c.id === e.target.value);
+                  setEditFormData((p) => ({
+                    ...p,
+                    cuenta_id: e.target.value,
+                    sale_de_ahorros:
+                      cuenta?.tipo === 'ahorros' ? p.sale_de_ahorros : false,
+                  }));
+                }}
+              >
+                <option value="">Sin cuenta</option>
+                {cuentasLiquidas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}{c.banco ? ` · ${c.banco}` : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          {patrimonioHabilitado && cuentasLiquidas.some((c) => c.tipo === 'ahorros') && (
+            <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
+              <div>
+                <label htmlFor="mov-sale-de-ahorros" className="text-sm font-medium">
+                  Sale de ahorros
+                </label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Reduce la cuenta sin afectar los gastos ni el balance del mes.
+                </p>
+              </div>
+              <Switch
+                id="mov-sale-de-ahorros"
+                checked={Boolean(editFormData.sale_de_ahorros)}
+                disabled={!puedeSalirDeAhorros}
+                onCheckedChange={(checked) =>
+                  setEditFormData((p) => ({ ...p, sale_de_ahorros: checked }))
+                }
+                aria-label="Marcar como consumo de ahorros"
+              />
+            </div>
+          )}
           <div>
             <p className="mb-2 text-sm font-medium">Etiquetas</p>
             {(tags || []).length > 0 ? (

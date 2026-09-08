@@ -158,6 +158,7 @@ export type Database = {
           importe: number
           nombre: string
           recurring_id: string | null
+          sale_de_ahorros: boolean
           updated_at: string | null
           usuario_id: string | null
         }
@@ -170,6 +171,7 @@ export type Database = {
           importe: number
           nombre: string
           recurring_id?: string | null
+          sale_de_ahorros?: boolean
           updated_at?: string | null
           usuario_id?: string | null
         }
@@ -182,6 +184,7 @@ export type Database = {
           importe?: number
           nombre?: string
           recurring_id?: string | null
+          sale_de_ahorros?: boolean
           updated_at?: string | null
           usuario_id?: string | null
         }
@@ -209,6 +212,64 @@ export type Database = {
           },
           {
             foreignKeyName: "movimientos_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operaciones_cuenta: {
+        Row: {
+          created_at: string
+          cuenta_id: string
+          fecha: string
+          id: string
+          monto: number
+          nota: string | null
+          posicion_id: string | null
+          tipo: string
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          cuenta_id: string
+          fecha?: string
+          id?: string
+          monto: number
+          nota?: string | null
+          posicion_id?: string | null
+          tipo: string
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          cuenta_id?: string
+          fecha?: string
+          id?: string
+          monto?: number
+          nota?: string | null
+          posicion_id?: string | null
+          tipo?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operaciones_cuenta_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operaciones_cuenta_posicion_id_fkey"
+            columns: ["posicion_id"]
+            isOneToOne: false
+            referencedRelation: "posiciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operaciones_cuenta_usuario_id_fkey"
             columns: ["usuario_id"]
             isOneToOne: false
             referencedRelation: "usuarios"
@@ -304,6 +365,118 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      posiciones: {
+        Row: {
+          cantidad: number
+          clase: string
+          created_at: string
+          cuenta_id: string
+          estado: Database["public"]["Enums"]["estado_posicion"]
+          fecha_compra: string
+          fecha_venta: string | null
+          id: string
+          lote_origen_id: string | null
+          moneda: string
+          nombre: string | null
+          notas: string | null
+          precio_compra: number
+          precio_venta: number | null
+          ticker: string
+          updated_at: string
+          usuario_id: string
+        }
+        Insert: {
+          cantidad: number
+          clase?: string
+          created_at?: string
+          cuenta_id: string
+          estado?: Database["public"]["Enums"]["estado_posicion"]
+          fecha_compra: string
+          fecha_venta?: string | null
+          id?: string
+          lote_origen_id?: string | null
+          moneda?: string
+          nombre?: string | null
+          notas?: string | null
+          precio_compra: number
+          precio_venta?: number | null
+          ticker: string
+          updated_at?: string
+          usuario_id: string
+        }
+        Update: {
+          cantidad?: number
+          clase?: string
+          created_at?: string
+          cuenta_id?: string
+          estado?: Database["public"]["Enums"]["estado_posicion"]
+          fecha_compra?: string
+          fecha_venta?: string | null
+          id?: string
+          lote_origen_id?: string | null
+          moneda?: string
+          nombre?: string | null
+          notas?: string | null
+          precio_compra?: number
+          precio_venta?: number | null
+          ticker?: string
+          updated_at?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posiciones_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posiciones_lote_origen_id_fkey"
+            columns: ["lote_origen_id"]
+            isOneToOne: false
+            referencedRelation: "posiciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posiciones_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      precios_mercado: {
+        Row: {
+          actualizado_at: string
+          cierre: number
+          clase: string | null
+          fecha: string
+          fuente: string
+          moneda: string
+          ticker: string
+        }
+        Insert: {
+          actualizado_at?: string
+          cierre: number
+          clase?: string | null
+          fecha: string
+          fuente?: string
+          moneda?: string
+          ticker: string
+        }
+        Update: {
+          actualizado_at?: string
+          cierre?: number
+          clase?: string | null
+          fecha?: string
+          fuente?: string
+          moneda?: string
+          ticker?: string
+        }
+        Relationships: []
       }
       tags: {
         Row: {
@@ -410,6 +583,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      ajustar_saldo_cuenta: {
+        Args: { p_cuenta_id: string; p_nota?: string; p_nuevo_saldo: number }
+        Returns: number
+      }
+      cerrar_posicion: {
+        Args: {
+          p_cantidad: number
+          p_fecha_venta?: string
+          p_posicion_id: string
+          p_precio_venta: number
+        }
+        Returns: string
+      }
+      eliminar_posicion: { Args: { p_posicion_id: string }; Returns: undefined }
       generar_recurrentes_del_mes: {
         Args: { p_hoy?: string }
         Returns: {
@@ -418,8 +605,22 @@ export type Database = {
           regla: string
         }[]
       }
+      registrar_compra_posicion: {
+        Args: {
+          p_cantidad: number
+          p_clase: string
+          p_cuenta_id: string
+          p_fecha: string
+          p_moneda?: string
+          p_nombre?: string
+          p_precio: number
+          p_ticker: string
+        }
+        Returns: string
+      }
     }
     Enums: {
+      estado_posicion: "abierta" | "cerrada"
       tipo_categoria: "ingreso" | "gasto" | "ahorro" | "inversion" | "prestamo"
       tipo_cuenta: "ahorros" | "efectivo" | "activo" | "inversion"
       tipo_entrenamiento:
@@ -555,6 +756,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      estado_posicion: ["abierta", "cerrada"],
       tipo_categoria: ["ingreso", "gasto", "ahorro", "inversion", "prestamo"],
       tipo_cuenta: ["ahorros", "efectivo", "activo", "inversion"],
       tipo_entrenamiento: ["Recovery", "Tempo", "Intervals", "Long Run", "Gym"],

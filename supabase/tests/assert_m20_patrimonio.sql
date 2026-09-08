@@ -386,9 +386,11 @@ declare
   v_cant numeric;
   v_saldo numeric;
   v_fallo text;
+  v_movimientos_antes bigint;
 begin
   select u.id, u.user_id into v_usuario, v_auth_uid
     from public.usuarios u order by u.created_at limit 1;
+  select count(*) into v_movimientos_antes from public.movimientos;
 
   perform set_config('request.jwt.claims',
                      json_build_object('sub', v_auth_uid)::text, true);
@@ -493,12 +495,98 @@ begin
   if v_fallo is not null then raise exception 'M22rpc: %', v_fallo; end if;
 
   -- Y nada de esto creo un movimiento de flujo.
-  if exists (select 1 from public.movimientos where nombre like 'probe%') then
+  if (select count(*) from public.movimientos) <> v_movimientos_antes then
     raise exception 'M22rpc: una operacion interna creo un movimiento';
   end if;
 
   perform set_config('request.jwt.claims', null, true);
   raise notice 'M22rpc: OK -- compra, cierre parcial y total, ajuste y guardas.';
+end $$;
+
+-- ── M23: consumo de ahorro trazable, pero separado del flujo ────────────────
+do $$
+declare
+  v_usuario uuid;
+  v_ahorros uuid;
+  v_efectivo uuid;
+  v_tipo_gasto uuid;
+  v_tipo_ingreso uuid;
+  v_mov uuid;
+  v_fallo text;
+begin
+  select id into v_usuario from public.usuarios order by created_at limit 1;
+
+  insert into public.cuentas (usuario_id, tipo, nombre, banco, saldo)
+  values (v_usuario, 'ahorros', 'probe M23 ahorros', 'Banco prueba', 1000)
+  returning id into v_ahorros;
+
+  insert into public.cuentas (usuario_id, tipo, nombre, saldo)
+  values (v_usuario, 'efectivo', 'probe M23 efectivo', 1000)
+  returning id into v_efectivo;
+
+  insert into public.tipo_movimiento (usuario_id, nombre, meta, tipo)
+  values (v_usuario, 'probe M23 gasto', 0, 'gasto')
+  returning id into v_tipo_gasto;
+
+  insert into public.tipo_movimiento (usuario_id, nombre, meta, tipo)
+  values (v_usuario, 'probe M23 ingreso', 0, 'ingreso')
+  returning id into v_tipo_ingreso;
+
+  insert into public.movimientos (
+    usuario_id, id_tipo_movimiento, nombre, importe, fecha,
+    cuenta_id, sale_de_ahorros
+  )
+  values (
+    v_usuario, v_tipo_gasto, 'probe M23 valido', 100, current_date,
+    v_ahorros, true
+  )
+  returning id into v_mov;
+
+  if (select saldo from public.cuentas where id = v_ahorros) <> 900 then
+    raise exception 'M23: el consumo valido no redujo el ahorro a 900';
+  end if;
+
+  v_fallo := null;
+  begin
+    insert into public.movimientos (
+      usuario_id, id_tipo_movimiento, nombre, importe, fecha,
+      cuenta_id, sale_de_ahorros
+    )
+    values (
+      v_usuario, v_tipo_gasto, 'probe M23 cuenta invalida', 100, current_date,
+      v_efectivo, true
+    );
+    v_fallo := 'se acepto consumo de ahorro contra cuenta de efectivo';
+  exception when others then null;
+  end;
+  if v_fallo is not null then raise exception 'M23: %', v_fallo; end if;
+
+  v_fallo := null;
+  begin
+    insert into public.movimientos (
+      usuario_id, id_tipo_movimiento, nombre, importe, fecha,
+      cuenta_id, sale_de_ahorros
+    )
+    values (
+      v_usuario, v_tipo_ingreso, 'probe M23 ingreso invalido', 100, current_date,
+      v_ahorros, true
+    );
+    v_fallo := 'se acepto un ingreso como consumo de ahorro';
+  exception when others then null;
+  end;
+  if v_fallo is not null then raise exception 'M23: %', v_fallo; end if;
+
+  -- El FK ON DELETE SET NULL sigue siendo válido: borrar la cuenta conserva el
+  -- movimiento y limpia el atributo que ya no puede respaldar.
+  delete from public.cuentas where id = v_ahorros;
+  if not exists (
+    select 1 from public.movimientos
+     where id = v_mov and cuenta_id is null and sale_de_ahorros = false
+  ) then
+    raise exception 'M23: borrar la cuenta no conservo/normalizo el movimiento';
+  end if;
+
+  raise notice 'M23: OK -- consumo de ahorro, guardas y borrado de cuenta.';
 end $$;
 
 -- Un unico rollback, al final. Estuvo a mitad de archivo y los bloques que

@@ -246,9 +246,16 @@ export default function DashboardView({ data }) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="font-normal">
-                        {mov.tipo_nombre}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="secondary" className="font-normal">
+                          {mov.tipo_nombre}
+                        </Badge>
+                        {mov.sale_de_ahorros && (
+                          <Badge variant="outline" className="font-normal">
+                            Uso de ahorro
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDate(mov.fecha)}
@@ -283,7 +290,10 @@ export default function DashboardView({ data }) {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{mov.nombre}</span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {mov.tipo_nombre} · {formatDate(mov.fecha)}
+                        {mov.tipo_nombre}
+                        {mov.sale_de_ahorros ? ' · Uso de ahorro' : ''}
+                        {' · '}
+                        {formatDate(mov.fecha)}
                       </span>
                     </span>
                     <Amount value={mov.importe} tipo={mov.tipo_categoria} signed toned size="sm" />

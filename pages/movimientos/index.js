@@ -4,6 +4,8 @@ import { useMovimientos } from '../../hooks/useMovimientos';
 import { useTiposMovimiento } from '../../hooks/useTiposMovimiento';
 import { useTags } from '../../hooks/useTags';
 import { useMovimientoTags } from '../../hooks/useMovimientoTags';
+import { useCuentas } from '../../hooks/useCuentas';
+import { usePatrimonioFlag } from '../../hooks/usePatrimonioFlag';
 import MovimientosView from '../../views/movimientos/MovimientosView';
 import { MovimientosSkeleton } from '@/components/feedback/skeletons';
 import { ErrorAlert } from '@/components/feedback/ErrorAlert';
@@ -21,6 +23,8 @@ export default function MovimientosPage() {
   const { tiposMovimiento } = useTiposMovimiento();
   const { tags } = useTags();
   const { movimientoTagIds, setMovimientoTags } = useMovimientoTags();
+  const { habilitado: patrimonioHabilitado } = usePatrimonioFlag();
+  const { cuentas } = useCuentas();
 
   useEffect(() => {
     if (router.isReady) {
@@ -49,6 +53,8 @@ export default function MovimientosPage() {
       nombre: movimiento.nombre || '',
       importe: Math.abs(movimiento.importe).toString(),
       id_tipo_movimiento: movimiento.id_tipo_movimiento || '',
+      cuenta_id: movimiento.cuenta_id || '',
+      sale_de_ahorros: Boolean(movimiento.sale_de_ahorros),
       tagIds: movimientoTagIds[movimiento.id] || [],
     });
   };
@@ -128,6 +134,8 @@ export default function MovimientosPage() {
         nombre: editFormData.nombre.trim(),
         importe: Number(editFormData.importe),
         id_tipo_movimiento: editFormData.id_tipo_movimiento,
+        cuenta_id: editFormData.cuenta_id || null,
+        sale_de_ahorros: Boolean(editFormData.sale_de_ahorros),
       };
       const { error: updateError } = await updateMovimiento(editingId, updatedData);
       if (updateError) throw new Error(updateError);
@@ -159,6 +167,8 @@ export default function MovimientosPage() {
       sortedMovimientos={sortedMovimientos}
       tiposMovimiento={tiposMovimiento}
       tags={tags}
+      cuentas={cuentas}
+      patrimonioHabilitado={patrimonioHabilitado}
       searchTerm={searchTerm}
       setSearchTerm={setSearchTerm}
       typeFilter={typeFilter}

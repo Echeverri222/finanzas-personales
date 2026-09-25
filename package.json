@@ -40,6 +40,9 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:ahorros": "node scripts/test-ahorros.mjs",
+    "test:patrimonio": "node scripts/test-patrimonio.mjs",
+    "test:precios": "node scripts/test-precios.mjs",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
@@ -48,6 +51,7 @@
     "db:backup-prod": "bash scripts/backup-prod.sh",
     "db:restore-prod": "bash scripts/restore-prod.sh",
     "db:invariants": "bash scripts/check-invariants.sh",
+    "db:sync-staging": "bash scripts/sync-staging-from-prod.sh",
     "db:types": "supabase gen types typescript --local --schema public > types/supabase.ts",
     "db:types:check": "supabase gen types typescript --local --schema public | diff -u types/supabase.ts - && echo 'types in sync'"
   },

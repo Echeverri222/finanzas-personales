@@ -76,12 +76,23 @@ export function useDashboardData() {
     });
   }, [movimientosConTipo, yearFilter, categoryFilter, tagFilter]);
 
+  // Un consumo de ahorro es stock, no flujo: sigue en recientes y conserva sus
+  // filtros/trazabilidad, pero no participa en ningún total o gráfico del mes.
+  const movimientosDeFlujo = useMemo(
+    () => filteredMovimientos.filter((mov) => !mov.sale_de_ahorros),
+    [filteredMovimientos]
+  );
+  const movimientosDeFlujoAnual = useMemo(
+    () => yearFilteredMovimientos.filter((mov) => !mov.sale_de_ahorros),
+    [yearFilteredMovimientos]
+  );
+
   const totalIngresos = useMemo(
     () =>
-      filteredMovimientos
+      movimientosDeFlujo
         .filter((m) => m.tipo_categoria === TIPO.INGRESO)
         .reduce((sum, m) => sum + Number(m.importe), 0),
-    [filteredMovimientos]
+    [movimientosDeFlujo]
   );
 
   // NOTE: this counts AHORRO as an expense, while monthlyData below excludes it.
@@ -89,24 +100,24 @@ export function useDashboardData() {
   // so this refactor changes no displayed number. Worth resolving separately.
   const totalGastos = useMemo(
     () =>
-      filteredMovimientos
+      movimientosDeFlujo
         .filter((m) => m.tipo_categoria !== TIPO.INGRESO)
         .reduce((sum, m) => sum + Number(m.importe), 0),
-    [filteredMovimientos]
+    [movimientosDeFlujo]
   );
 
   const balance = totalIngresos - totalGastos;
 
   const ahorrosMes = useMemo(
     () =>
-      filteredMovimientos
+      movimientosDeFlujo
         .filter((m) => m.tipo_categoria === TIPO.AHORRO)
         .reduce((sum, m) => sum + Number(m.importe), 0),
-    [filteredMovimientos]
+    [movimientosDeFlujo]
   );
 
   const monthlyData = useMemo(() => {
-    const acc = yearFilteredMovimientos.reduce((acc, mov) => {
+    const acc = movimientosDeFlujoAnual.reduce((acc, mov) => {
       const movDate = createSafeDate(mov.fecha);
       const year = movDate.getFullYear();
       const month = movDate.getMonth();
@@ -126,11 +137,11 @@ export function useDashboardData() {
       return acc;
     }, {});
     return Object.values(acc).sort((a, b) => a.timestamp - b.timestamp);
-  }, [yearFilteredMovimientos, categoryFilter]);
+  }, [movimientosDeFlujoAnual, categoryFilter]);
 
   const categoryData = useMemo(() => {
     const acc = {};
-    filteredMovimientos
+    movimientosDeFlujo
       .filter((m) => m.tipo_categoria !== TIPO.INGRESO)
       .forEach((mov) => {
         const cat = mov.tipo_nombre;
@@ -138,7 +149,7 @@ export function useDashboardData() {
         acc[cat].value += mov.importe;
       });
     return Object.values(acc).sort((a, b) => b.value - a.value);
-  }, [filteredMovimientos]);
+  }, [movimientosDeFlujo]);
 
   // Weekly bars for "Actividad de Gastos" (last 7 days)
   const weeklyChartData = useMemo(() => {
@@ -150,7 +161,7 @@ export function useDashboardData() {
       d.setHours(0, 0, 0, 0);
       const dayEnd = new Date(d);
       dayEnd.setHours(23, 59, 59, 999);
-      const total = filteredMovimientos
+      const total = movimientosDeFlujo
         .filter((m) => {
           const fd = createSafeDate(m.fecha);
           return fd >= d && fd <= dayEnd && m.tipo_categoria !== TIPO.INGRESO;
@@ -167,7 +178,7 @@ export function useDashboardData() {
       d.pct = (d.value / max) * 100;
     });
     return days;
-  }, [filteredMovimientos]);
+  }, [movimientosDeFlujo]);
 
   const years = useMemo(() => {
     const fromData = [...new Set(movimientosConTipo.map((m) => createSafeDate(m.fecha).getFullYear()))].sort(

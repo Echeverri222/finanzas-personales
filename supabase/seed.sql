@@ -129,3 +129,59 @@ insert into public.pagos_recurrentes (usuario_id, nombre, importe, id_tipo_movim
   ('b0000000-0000-0000-0000-000000000001', 'Netflix',        15,  'c0000000-0000-0000-0000-000000000005', 5,  true),
   ('b0000000-0000-0000-0000-000000000001', 'Gimnasio',       40,  'c0000000-0000-0000-0000-000000000007', 1,  true),
   ('b0000000-0000-0000-0000-000000000001', 'Seguro médico',  120, 'c0000000-0000-0000-0000-000000000005', 10, true);
+
+-- ── Patrimonio (M20-M22) ─────────────────────────────────────────────────────
+--    Activado en el usuario demo para que la seccion sea visible sin tener que
+--    ir a Ajustes primero. Ids con prefijo por entidad, igual que arriba.
+update public.usuarios
+   set patrimonio_habilitado = true
+ where id = 'b0000000-0000-0000-0000-000000000001';
+
+-- Faltaba una categoria de tipo 'inversion': sin ella no se puede probar el
+-- aporte al broker, que es el caso que motiva la mitad del diseno.
+insert into public.tipo_movimiento (id, usuario_id, nombre, meta, tipo) values
+  ('c0000000-0000-0000-0000-000000000008', 'b0000000-0000-0000-0000-000000000001', 'Inversiones', 0, 'inversion');
+
+-- Una cuenta de cada tipo, para ejercitar los cuatro caminos de la UI.
+insert into public.cuentas (id, usuario_id, tipo, nombre, banco, saldo, valor_total, tiene_deuda, valor_deuda, moneda) values
+  ('11110000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'ahorros',  'Cuenta principal', 'Bancolombia', 12500000, null, false, null, 'COP'),
+  ('11110000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', 'efectivo', 'Efectivo',          null,            800000, null, false, null, 'COP'),
+  -- Activo CON deuda: el neto debe ser 90.000.000 - 30.000.000 = 60.000.000.
+  ('11110000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 'activo',   'Apartamento',       null,                 0, 90000000, true, 30000000, 'COP'),
+  -- Broker con efectivo propio. Este saldo NO viene de ningun movimiento, y es
+  -- justo el punto: el efectivo de una cuenta de inversion es autonomo.
+  ('11110000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000001', 'inversion','Broker',            'Interactive Brokers', 1500, null, false, null, 'USD');
+
+-- Dos lotes del MISMO ticker a precios distintos: 5 @ 700 y 5 @ 600.
+-- El promedio ponderado debe salir 650, y cada lote rinde distinto.
+insert into public.posiciones (id, usuario_id, cuenta_id, ticker, nombre, clase, cantidad, precio_compra, fecha_compra, moneda, estado) values
+  ('22220000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', '11110000-0000-0000-0000-000000000004', 'VOO', 'Vanguard S&P 500 ETF', 'stocks', 5, 700, '2026-01-15', 'USD', 'abierta'),
+  ('22220000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', '11110000-0000-0000-0000-000000000004', 'VOO', 'Vanguard S&P 500 ETF', 'stocks', 5, 600, '2026-02-20', 'USD', 'abierta'),
+  ('22220000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', '11110000-0000-0000-0000-000000000004', 'X:BTCUSD', 'Bitcoin', 'crypto', 0.05, 62000, '2026-03-05', 'USD', 'abierta');
+
+-- Una posicion CERRADA, para que el historial de rentabilidad realizada no
+-- este vacio al abrir la pantalla por primera vez.
+insert into public.posiciones (id, usuario_id, cuenta_id, ticker, nombre, clase, cantidad, precio_compra, fecha_compra, moneda, estado, precio_venta, fecha_venta) values
+  ('22220000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000001', '11110000-0000-0000-0000-000000000004', 'AAPL', 'Apple Inc.', 'stocks', 10, 180, '2026-01-10', 'USD', 'cerrada', 205, '2026-04-18');
+
+-- Precios de cierre semilla. Existen para que /inversiones y /patrimonio
+-- rendericen SIN llamar a Massive: la degradacion por API caida o sin llave
+-- tiene que ser probable en local.
+insert into public.precios_mercado (ticker, fecha, cierre, moneda, clase, fuente) values
+  ('VOO',      '2026-09-03', 710.72,  'USD', 'stocks', 'seed'),
+  ('X:BTCUSD', '2026-09-03', 79675.12,'USD', 'crypto', 'seed'),
+  -- La tasa para pasar dolares a pesos. Llega gratis en el grouped de FX.
+  ('C:USDCOP', '2026-09-03', 3131.92, 'COP', 'fx',     'seed');
+
+-- Dos movimientos EXISTENTES se asocian a la cuenta de ahorros, para ver el
+-- trigger de M21 en accion. Se asocian en vez de crearse nuevos a proposito:
+-- insertar movimientos cambiaria el total de dinero del seed y con ello la
+-- seccion 2 de invariants.sql ("THE MONEY MUST NOT MOVE"), que es justamente
+-- la red que protege al dashboard de esta feature. Asociar no mueve ese total
+-- -- que es, literalmente, lo que esta migracion promete.
+update public.movimientos
+   set cuenta_id = '11110000-0000-0000-0000-000000000001'
+ where id in (
+   'e0000000-0000-0000-0000-000000000701',  -- Salario julio (ingreso, +3900)
+   'e0000000-0000-0000-0000-000000000402'   -- Zapatos nuevos (gasto,  -150)
+ );

@@ -6,6 +6,9 @@ import { useTiposMovimiento } from '../../hooks/useTiposMovimiento';
 import { useMovimientos } from '../../hooks/useMovimientos';
 import { useTags } from '../../hooks/useTags';
 import { useMovimientoTags } from '../../hooks/useMovimientoTags';
+import { useCuentas } from '../../hooks/useCuentas';
+import { usePatrimonioFlag } from '../../hooks/usePatrimonioFlag';
+import { esLiquida } from '@/types/domain';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +16,8 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect as Select } from '@/components/ui/native-select';
 import { Field } from '@/components/ui/field';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { TIPO } from '@/lib/constants';
 
 export default function NuevoMovimientoPage() {
   const router = useRouter();
@@ -24,6 +29,8 @@ export default function NuevoMovimientoPage() {
     nombre: '',
     importe: '',
     id_tipo_movimiento: '',
+    cuenta_id: '',
+    sale_de_ahorros: false,
     tagIds: [],
   });
   const [errors, setErrors] = useState({});
@@ -33,10 +40,30 @@ export default function NuevoMovimientoPage() {
   const { createMovimiento } = useMovimientos();
   const { tags } = useTags();
   const { setMovimientoTags } = useMovimientoTags();
+  const { habilitado: patrimonioHabilitado } = usePatrimonioFlag();
+  const { cuentas } = useCuentas();
+
+  // Un activo no tiene efectivo del que descontar; ver el comentario del campo.
+  const cuentasLiquidas = cuentas.filter((c) => esLiquida(c) && c.activa !== false);
+  const categoriaSeleccionada = tiposMovimiento.find(
+    (tipo) => String(tipo.id) === String(formData.id_tipo_movimiento)
+  );
+  const categoriaEsSalida = [TIPO.GASTO, TIPO.INVERSION, TIPO.PRESTAMO].includes(
+    categoriaSeleccionada?.tipo
+  );
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === 'id_tipo_movimiento') {
+        const categoria = tiposMovimiento.find((tipo) => String(tipo.id) === String(value));
+        if (![TIPO.GASTO, TIPO.INVERSION, TIPO.PRESTAMO].includes(categoria?.tipo)) {
+          next.sale_de_ahorros = false;
+        }
+      }
+      return next;
+    });
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
@@ -71,6 +98,10 @@ export default function NuevoMovimientoPage() {
         nombre: formData.nombre.trim(),
         importe: Number(formData.importe),
         id_tipo_movimiento: formData.id_tipo_movimiento,
+        sale_de_ahorros: formData.sale_de_ahorros,
+        // Solo se incluye si tiene valor. Un movimiento SIN cuenta es válido y
+        // no mueve ningún saldo -- todo el histórico está en ese estado.
+        ...(formData.cuenta_id ? { cuenta_id: formData.cuenta_id } : {}),
       };
       const { data: created, error } = await createMovimiento(movimientoData);
       if (error) throw new Error(error);
@@ -87,7 +118,15 @@ export default function NuevoMovimientoPage() {
   };
 
   const resetForm = () => {
-    setFormData({ fecha: today, nombre: '', importe: '', id_tipo_movimiento: '', tagIds: [] });
+    setFormData({
+      fecha: today,
+      nombre: '',
+      importe: '',
+      id_tipo_movimiento: '',
+      cuenta_id: '',
+      sale_de_ahorros: false,
+      tagIds: [],
+    });
     setErrors({});
     setTagsOpen(false);
   };
@@ -190,6 +229,59 @@ export default function NuevoMovimientoPage() {
                   <p className="mt-1 text-sm text-destructive">{errors.id_tipo_movimiento}</p>
                 )}
               </Field>
+
+              {/* Opcional siempre, y ausente por completo si Patrimonio está
+                  apagado. Se ofrecen solo las cuentas líquidas: un activo (un
+                  carro, una casa) no tiene efectivo del que descontar, y el
+                  trigger de M21 rechazaría la asociación -- ofrecerla sería
+                  prometer algo que la base de datos va a negar. */}
+              {patrimonioHabilitado && cuentasLiquidas.length > 0 && (
+                <Field label="Cuenta (opcional)" htmlFor="cuenta_id">
+                  <Select
+                    id="cuenta_id"
+                    name="cuenta_id"
+                    value={formData.cuenta_id}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">Sin cuenta</option>
+                    {cuentasLiquidas.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                        {c.banco ? ` · ${c.banco}` : ''}
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Si eliges una, el saldo de esa cuenta se ajusta solo.
+                  </p>
+                </Field>
+              )}
+
+              <div className="flex items-start justify-between gap-4 rounded-lg border p-4 md:col-span-2">
+                <div>
+                  <label htmlFor="sale_de_ahorros" className="text-sm font-medium">
+                    Sale de ahorros
+                  </label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Resta del ahorro acumulado y conserva el movimiento, pero no cuenta
+                    como gasto ni afecta el balance del mes.
+                  </p>
+                  {!categoriaEsSalida && (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                      Selecciona una categoría de salida para usar esta opción.
+                    </p>
+                  )}
+                </div>
+                <Switch
+                  id="sale_de_ahorros"
+                  checked={formData.sale_de_ahorros}
+                  disabled={!categoriaEsSalida}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, sale_de_ahorros: checked }))
+                  }
+                  aria-label="Marcar como consumo de ahorros"
+                />
+              </div>
 
               {tags?.length > 0 && (
                 <div className="space-y-2 md:col-span-2">

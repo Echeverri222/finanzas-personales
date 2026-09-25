@@ -134,3 +134,58 @@ export type Tag = Pick<Row<'tags'>, 'id' | 'nombre' | 'created_at'>;
 
 /** movimiento id -> tag ids, as built by `useMovimientoTags`. */
 export type MovimientoTagMap = Record<string, string[]>;
+
+// ── patrimonio ─────────────────────────────────────────────────────────────
+
+/**
+ * Qué clase de cuenta es: 'ahorros' | 'efectivo' | 'activo' | 'inversion'.
+ *
+ * Ramifica sobre ESTO, nunca sobre `nombre` -- que es texto libre editable por
+ * el usuario, exactamente como `tipo_movimiento.nombre` (ver M2). El tipo
+ * también decide qué columnas de la fila son no-nulas; los CHECK de M20 las
+ * imponen, así que las guardas de abajo describen la base de datos, no la
+ * esperanza del cliente.
+ */
+export type TipoCuenta = Enums<'tipo_cuenta'>;
+
+/**
+ * Lo que devuelve `useCuentas` -- no la fila cruda: los tres `numeric` llegan
+ * como string desde Postgres y el hook los pasa por `Number()`.
+ */
+export type Cuenta = Omit<
+  Row<'cuentas'>,
+  'saldo' | 'valor_total' | 'valor_deuda'
+> & {
+  saldo: number;
+  valor_total: number | null;
+  valor_deuda: number | null;
+};
+
+/**
+ * Guardas de tipo, en vez de comparar strings sueltos por toda la UI.
+ *
+ * `esLiquida` es la que más importa: separa las cuentas que tienen efectivo
+ * (y por tanto pueden recibir un movimiento) de los activos, que no lo tienen.
+ * El trigger de M21 rechaza asociar un movimiento a un activo, así que el
+ * formulario debe filtrar con esta misma regla para no ofrecer algo que la
+ * base de datos va a negar.
+ */
+export const esLiquida = (c: Pick<Cuenta, 'tipo'>): boolean =>
+  c.tipo !== 'activo';
+
+export const esInversion = (c: Pick<Cuenta, 'tipo'>): boolean =>
+  c.tipo === 'inversion';
+
+export type PatrimonioSnapshot = Omit<Row<'patrimonio_snapshots'>, 'total'> & {
+  total: number;
+};
+
+/** El desglose que se guarda en `patrimonio_snapshots.desglose`. */
+export type DesglosePatrimonio = {
+  ahorros: number;
+  efectivo: number;
+  inversion: number;
+  activos: number;
+  /** Positivo. Se RESTA del total; no se guarda ya negado. */
+  deuda: number;
+};

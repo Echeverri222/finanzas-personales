@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Git pre-push hook. Enable once per clone with:
+#   git config core.hooksPath .githooks
+# Bypass in an emergency with `git push --no-verify` (and say why in the PR).
+set -euo pipefail
+
+# git passes "<local ref> <local sha> <remote ref> <remote sha>" per ref on stdin.
+targets=""
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  targets+=" ${remote_ref#refs/heads/}"
+done
+export PREPUSH_TARGETS="${targets# }"
+
+exec bash "$(git rev-parse --show-toplevel)/scripts/pre-push-check.sh" ${PREPUSH_FLAGS:-}

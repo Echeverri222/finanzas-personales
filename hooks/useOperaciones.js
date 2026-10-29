@@ -9,6 +9,7 @@
 import useSWR from 'swr';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
+import { mensajeError } from '../lib/errores';
 
 function isMissingTable(error) {
   return error.code === '42P01' || error.message?.includes('does not exist');
@@ -59,7 +60,7 @@ export function useOperaciones(cuentaId = null) {
       await mutate();
       return { error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'ajustar el efectivo' }) };
     }
   };
 

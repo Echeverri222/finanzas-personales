@@ -6,7 +6,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { HeroCard } from '@/components/layout/HeroCard';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { MoneyInput } from '@/components/money/MoneyInput';
+import { useConfirm } from '@/components/feedback/ConfirmProvider';
 import { Amount } from '@/components/money/Amount';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ErrorAlert } from '@/components/feedback/ErrorAlert';
@@ -17,7 +18,7 @@ import { usePatrimonio } from '../../../hooks/usePatrimonio';
 import { useMovimientos } from '../../../hooks/useMovimientos';
 import { useOperaciones } from '../../../hooks/useOperaciones';
 import { valorCuenta, desgloseInversion, rentabilidadNoRealizada } from '../../../lib/patrimonio';
-import { formatDate, formatNumber } from '@/lib/format';
+import { formatDate, formatNumber, formatDecimal } from '@/lib/format';
 
 const ETIQUETA_TIPO = {
   ahorros: 'Cuenta de ahorros',
@@ -39,6 +40,8 @@ export default function CuentaDetallePage() {
   const [guardando, setGuardando] = useState(false);
   const [nuevoSaldo, setNuevoSaldo] = useState('');
   const [errorAjuste, setErrorAjuste] = useState('');
+  const [errorEliminar, setErrorEliminar] = useState('');
+  const confirm = useConfirm();
 
   const cuenta = cuentas.find((c) => c.id === id);
 
@@ -79,15 +82,16 @@ export default function CuentaDetallePage() {
   };
 
   const handleEliminar = async () => {
-    if (
-      !confirm(
-        `¿Eliminar "${cuenta.nombre}"? Los movimientos asociados se conservan, pero dejarán de estar ligados a esta cuenta.`
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: `¿Eliminar "${cuenta.nombre}"?`,
+      description:
+        'Los movimientos asociados se conservan, pero dejarán de estar ligados a esta cuenta.',
+    });
+    if (!ok) return;
     const { error: err } = await deleteCuenta(cuenta.id);
-    if (!err) router.push('/patrimonio');
+    // A failed delete used to do nothing at all: no navigation, no message.
+    if (err) setErrorEliminar(err);
+    else router.push('/patrimonio');
   };
 
   const handleAjuste = async (e) => {
@@ -107,6 +111,8 @@ export default function CuentaDetallePage() {
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Patrimonio
       </Link>
+
+      <ErrorAlert error={errorEliminar} title="No se pudo eliminar la cuenta" />
 
       <PageHeader
         title={cuenta.nombre}
@@ -211,12 +217,10 @@ export default function CuentaDetallePage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <form onSubmit={handleAjuste} className="flex flex-wrap gap-2">
-              <Input
-                type="number"
-                step="0.01"
+              <MoneyInput
                 value={nuevoSaldo}
                 onChange={(e) => setNuevoSaldo(e.target.value)}
-                placeholder={String(cuenta.saldo)}
+                placeholder={formatDecimal(cuenta.saldo)}
                 className="max-w-xs flex-1"
                 aria-label="Nuevo saldo"
                 required

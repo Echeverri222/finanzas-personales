@@ -15,7 +15,8 @@ import { usePosiciones } from '../hooks/usePosiciones';
 import { usePatrimonioFlag } from '../hooks/usePatrimonioFlag';
 import { useSyncPrecios } from '../hooks/useSyncPrecios';
 import { resumenPorTicker, rentabilidadRealizada, rentabilidadNoRealizada } from '../lib/patrimonio';
-import { formatDate, formatNumber } from '@/lib/format';
+import { formatDate, formatNumber, formatDecimal, formatSignedPercent } from '@/lib/format';
+import { StatCard } from '@/components/layout/StatCard';
 
 /** Ganancia con signo y color. El verde/rojo es la lectura de un vistazo. */
 function Rendimiento({ ganancia, porcentaje, moneda }) {
@@ -23,11 +24,9 @@ function Rendimiento({ ganancia, porcentaje, moneda }) {
   return (
     <span className={positivo ? 'text-emerald-600 dark:text-emerald-500' : 'text-destructive'}>
       {positivo ? '+' : '−'}
-      {formatNumber(Math.abs(ganancia).toFixed(2))} {moneda}
-      <span className="ml-1 text-xs opacity-80">
-        ({positivo ? '+' : '−'}
-        {Math.abs(porcentaje).toFixed(1)}%)
-      </span>
+      {formatDecimal(Math.abs(ganancia))} {moneda}
+      {/* es-CO throughout: "+12,4 %", not "+12.4%" next to "699.838,47". */}
+      <span className="ml-1 text-xs opacity-80">({formatSignedPercent(porcentaje)})</span>
     </span>
   );
 }
@@ -35,7 +34,7 @@ function Rendimiento({ ganancia, porcentaje, moneda }) {
 export default function InversionesPage() {
   const router = useRouter();
   const { habilitado, loading: flagLoading } = usePatrimonioFlag();
-  const { cuentas, precios, loading, error, refetch } = usePatrimonio();
+  const { cuentas, precios, desglose, loading, error, refetch } = usePatrimonio();
   const { abiertas, cerradas, comprar, cerrar, refetch: refetchPos } = usePosiciones();
   const { sincronizar, sincronizando, resultado, errorSync } = useSyncPrecios();
 
@@ -164,6 +163,18 @@ export default function InversionesPage() {
         </p>
       )}
 
+      {/* The one number the page was missing: what it all adds up to. In pesos,
+          because tickers mix USD and COP; same figure as Patrimonio. */}
+      {desglose && (
+        <StatCard
+          label="Valor total de tus inversiones"
+          icon={TrendingUp}
+          tone="primary"
+          value={<Amount value={desglose.inversion} size="xl" />}
+          hint="Posiciones a precio de mercado más el efectivo sin invertir de tus cuentas, en pesos."
+        />
+      )}
+
       {comprando && (
         <Card>
           <CardHeader>
@@ -201,14 +212,14 @@ export default function InversionesPage() {
                     {formatNumber(t.cantidad)} ·{' '}
                     {/* El promedio PONDERADO, no la media de los precios:
                         1 acción a 100 y 9 a 200 dan 190, no 150. */}
-                    promedio {t.precioPromedio.toFixed(2)} {t.moneda}
-                    {t.precioActual != null && ` · actual ${t.precioActual.toFixed(2)}`}
+                    promedio {formatDecimal(t.precioPromedio)} {t.moneda}
+                    {t.precioActual != null && ` · actual ${formatDecimal(t.precioActual)}`}
                     {t.estimado && ' · sin precio de mercado'}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium">
-                    {formatNumber(t.valorMercado.toFixed(2))} {t.moneda}
+                    {formatDecimal(t.valorMercado)} {t.moneda}
                   </p>
                   <p className="text-xs">
                     <Rendimiento ganancia={t.ganancia} porcentaje={t.rendimiento} moneda={t.moneda} />
@@ -244,7 +255,7 @@ export default function InversionesPage() {
                     <p className="text-sm font-medium">
                       {p.ticker}{' '}
                       <span className="font-normal text-muted-foreground">
-                        {formatNumber(p.cantidad)} @ {Number(p.precio_compra).toFixed(2)}
+                        {formatNumber(p.cantidad)} @ {formatDecimal(p.precio_compra)}
                       </span>
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -284,8 +295,8 @@ export default function InversionesPage() {
                     <p className="text-sm font-medium">
                       {p.ticker}{' '}
                       <span className="font-normal text-muted-foreground">
-                        {formatNumber(p.cantidad)} · {Number(p.precio_compra).toFixed(2)} →{' '}
-                        {Number(p.precio_venta).toFixed(2)}
+                        {formatNumber(p.cantidad)} · {formatDecimal(p.precio_compra)} →{' '}
+                        {formatDecimal(p.precio_venta)}
                       </span>
                     </p>
                     <p className="text-xs text-muted-foreground">

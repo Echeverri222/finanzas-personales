@@ -8,6 +8,7 @@ import Layout from '../components/Layout';
 import Auth from '../components/Auth';
 import RecurringProcessor from '../components/RecurringProcessor';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { ConfirmProvider } from '../components/feedback/ConfirmProvider';
 import { SWR_CONFIG } from '../lib/swr';
 
 // Self-hosted at build time, replacing the render-blocking Google Fonts <link>
@@ -55,12 +56,14 @@ function AppContent({ Component, pageProps }) {
   return (
     <ErrorBoundary>
       <UserProvider>
-        <RecurringProcessor />
-        <Layout>
-          <ErrorBoundary>
-            <Component {...pageProps} />
-          </ErrorBoundary>
-        </Layout>
+        <ConfirmProvider>
+          <RecurringProcessor />
+          <Layout>
+            <ErrorBoundary>
+              <Component {...pageProps} />
+            </ErrorBoundary>
+          </Layout>
+        </ConfirmProvider>
       </UserProvider>
     </ErrorBoundary>
   );

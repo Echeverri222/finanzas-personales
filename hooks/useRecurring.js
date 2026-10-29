@@ -3,6 +3,8 @@ import useSWR, { mutate as globalMutate } from 'swr';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
 import { userKey } from '../lib/swr';
+import { mensajeError } from '../lib/errores';
+import { todayISO } from '../lib/format';
 
 // Note the absence of `!inner`: unlike the movimientos embed this one is
 // NULLABLE, so every `r.tipo_movimiento.nombre` has to be guarded.
@@ -12,7 +14,7 @@ import { userKey } from '../lib/swr';
 // a category, and its category column rendered blank until the next reload.
 const RECURRENTE_SELECT = `
   *,
-  tipo_movimiento ( id, nombre )
+  tipo_movimiento ( id, nombre, tipo )
 `;
 
 async function fetchRecurring([, usuarioId]) {
@@ -46,14 +48,20 @@ export function useRecurring() {
     try {
       const { data: row, error: e } = await supabase
         .from('pagos_recurrentes')
-        .insert([{ ...payload, usuario_id: usuarioId }])
+        // generar_desde is sent from the browser's LOCAL date. Left to the
+        // column default (current_date, i.e. UTC) a rule created after 19:00
+        // in Bogotá started "tomorrow" and skipped today's charge -- see M25.
+        .insert([{ generar_desde: todayISO(), ...payload, usuario_id: usuarioId }])
         .select(RECURRENTE_SELECT)
         .single();
       if (e) throw e;
       await mutate((prev = []) => [row, ...prev], { revalidate: false });
+      // A rule whose day is today should show up today, not on the next app
+      // load: the generator only runs once per load (RecurringProcessor).
+      await processRecurringForToday();
       return { data: row, error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { duplicado: 'Ya tienes un pago recurrente con ese nombre.', accion: 'crear el pago recurrente' }) };
     }
   };
 
@@ -73,7 +81,7 @@ export function useRecurring() {
       });
       return { data: row, error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { duplicado: 'Ya tienes un pago recurrente con ese nombre.', accion: 'actualizar el pago recurrente' }) };
     }
   };
 
@@ -89,7 +97,7 @@ export function useRecurring() {
       await mutate((prev = []) => prev.filter((r) => r.id !== id), { revalidate: false });
       return { error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'eliminar el pago recurrente' }) };
     }
   };
 
@@ -111,12 +119,7 @@ export function useRecurring() {
   const processRecurringForToday = useCallback(async () => {
     if (!usuarioId) return { data: null, error: null };
 
-    const now = new Date();
-    const hoyLocal = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, '0'),
-      String(now.getDate()).padStart(2, '0'),
-    ].join('-');
+    const hoyLocal = todayISO();
 
     const { data: result, error: rpcError } = await supabase.rpc(
       'generar_recurrentes_del_mes',

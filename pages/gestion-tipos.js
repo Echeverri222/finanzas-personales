@@ -16,6 +16,12 @@ import { ErrorAlert } from '@/components/feedback/ErrorAlert';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ListSkeleton } from '@/components/feedback/skeletons';
 import { TypeIcon } from '@/components/money/TypeIcon';
+import { MoneyInput } from '@/components/money/MoneyInput';
+import { useConfirm } from '@/components/feedback/ConfirmProvider';
+
+/** "Alimentación" and "alimentacion" are the same category to a person. */
+const normalizar = (s) =>
+  (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 import {
   Table,
   TableHeader,
@@ -31,6 +37,7 @@ export default function GestionTiposPage() {
   const [editFormData, setEditFormData] = useState({ nombre: '', meta: '', tipo: TIPO.GASTO });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const confirm = useConfirm();
 
   const { userProfile, loading: userLoading } = useUser();
   const {
@@ -59,6 +66,12 @@ export default function GestionTiposPage() {
     { nombre: 'Emergencia', tipo: TIPO.AHORRO },
     { nombre: 'Inversiones', tipo: TIPO.INVERSION },
   ];
+
+  // A recommendation the user already has (accents and case aside) is hidden:
+  // offering "Transporte" next to their own "Transporte" only led to a
+  // duplicate-name error.
+  const existentes = new Set(tiposMovimiento.map((t) => normalizar(t.nombre)));
+  const recomendadosDisponibles = recomendados.filter((r) => !existentes.has(normalizar(r.nombre)));
 
   // Labels for the tipo selector. Order matches how often they get picked.
   const TIPO_OPCIONES = [
@@ -96,7 +109,7 @@ export default function GestionTiposPage() {
       if (createError) throw new Error(createError);
       setFormData({ nombre: '', meta: '', tipo: TIPO.GASTO });
     } catch (err) {
-      setError('Error al crear tipo: ' + err.message);
+      setError(err.message);
     } finally {
       setSaving(false);
     }
@@ -133,17 +146,20 @@ export default function GestionTiposPage() {
       setEditingId(null);
       setEditFormData({ nombre: '', meta: '', tipo: TIPO.GASTO });
     } catch (err) {
-      setError('Error al actualizar tipo: ' + err.message);
+      setError(err.message);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id, nombre) => {
-    if (confirm(`¿Estás seguro de que quieres eliminar "${nombre}"?`)) {
-      const { error: deleteError } = await deleteTipoMovimiento(id);
-      if (deleteError) setError('Error al eliminar tipo: ' + deleteError);
-    }
+    const ok = await confirm({
+      title: `¿Eliminar la categoría "${nombre}"?`,
+      description: 'Solo se puede si ningún movimiento ni pago recurrente la usa.',
+    });
+    if (!ok) return;
+    const { error: deleteError } = await deleteTipoMovimiento(id);
+    setError(deleteError || '');
   };
 
   const addRecommended = (r) => setFormData((prev) => ({ ...prev, nombre: r.nombre, tipo: r.tipo }));
@@ -207,15 +223,12 @@ export default function GestionTiposPage() {
               <Field label="Meta mensual (opcional)" htmlFor="meta">
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                  <Input
+                  <MoneyInput
                     id="meta"
-                    type="number"
                     name="meta"
                     value={formData.meta}
                     onChange={handleInputChange}
-                    placeholder="0"
-                    step="0.01"
-                    min="0"
+                    placeholder="Ej. 1.500.000"
                     className="pl-7"
                   />
                 </div>
@@ -239,8 +252,11 @@ export default function GestionTiposPage() {
                 undifferentiated wrap gave no clue that picking "Ahorro" and
                 picking "Transporte" produce categories that behave completely
                 differently in every total. */}
+            {recomendadosDisponibles.length === 0 && (
+              <p className="text-sm text-muted-foreground">Ya tienes todas las categorías recomendadas.</p>
+            )}
             {TIPO_OPCIONES.map((opcion) => {
-              const items = recomendados.filter((r) => r.tipo === opcion.value);
+              const items = recomendadosDisponibles.filter((r) => r.tipo === opcion.value);
               if (items.length === 0) return null;
               return (
                 <div key={opcion.value}>
@@ -319,13 +335,10 @@ export default function GestionTiposPage() {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
+                          <MoneyInput
                             value={editFormData.meta}
                             onChange={(e) => setEditFormData((prev) => ({ ...prev, meta: e.target.value }))}
                             className="h-8 text-right"
-                            step="0.01"
-                            min="0"
                             aria-label="Meta mensual"
                           />
                         </TableCell>

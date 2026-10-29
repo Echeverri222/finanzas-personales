@@ -20,7 +20,7 @@ import { Amount } from '@/components/money/Amount';
 import { TypeIcon } from '@/components/money/TypeIcon';
 import { EmptyState, TableEmptyState } from '@/components/feedback/EmptyState';
 import { cn } from '@/lib/utils';
-import { formatDate } from '@/lib/format';
+import { formatDate, formatSignedPercent } from '@/lib/format';
 import {
   Table,
   TableHeader,
@@ -34,6 +34,26 @@ const DashboardCharts = dynamic(
   () => import('../../components/dashboard/DashboardCharts'),
   { ssr: false }
 );
+
+/**
+ * "+12 % vs septiembre" under a stat card. Fills what was a tall empty card,
+ * and answers the first question anyone asks of a monthly total: more or less
+ * than last month? Green/red follows whether the change is good, not its sign.
+ */
+function Comparacion({ actual, anterior, etiqueta, subirEsBueno = false }) {
+  if (anterior === undefined || anterior === null || !etiqueta) return null;
+  if (!anterior) return <span>Sin datos de {etiqueta} para comparar</span>;
+  const cambio = ((actual - anterior) / anterior) * 100;
+  const bueno = subirEsBueno ? cambio >= 0 : cambio <= 0;
+  return (
+    <span>
+      <span className={cn('font-medium', bueno ? 'text-income' : 'text-expense')}>
+        {formatSignedPercent(cambio, 0)}
+      </span>{' '}
+      vs {etiqueta}
+    </span>
+  );
+}
 
 /**
  * One dashboard for every breakpoint.
@@ -58,6 +78,7 @@ export default function DashboardView({ data }) {
     totalIngresos,
     totalGastos,
     balance,
+    mesAnterior,
     recentMovimientos,
     monthlyData,
     categoryData,
@@ -82,6 +103,7 @@ export default function DashboardView({ data }) {
   };
 
   const periodo = `${getSelectedMonthName()} ${getSelectedYearLabel()}`;
+  const esUnMes = filters.monthFilter !== 'all';
 
   return (
     <div className="space-y-5">
@@ -148,7 +170,9 @@ export default function DashboardView({ data }) {
       <div className="grid gap-4 lg:grid-cols-12">
         <HeroCard
           className="lg:col-span-5"
-          label="Balance total"
+          // It is income minus expenses for the selected period, not a
+          // balance of everything you have -- that lives in Patrimonio.
+          label={esUnMes ? 'Balance del mes' : 'Balance del período'}
           value={<Amount value={balance} size="hero" className="text-primary-foreground" />}
           badge={
             <HeroBadge>
@@ -177,12 +201,14 @@ export default function DashboardView({ data }) {
             icon={ArrowDownLeft}
             tone="income"
             value={<Amount value={totalIngresos} size="xl" tipo="ingreso" toned />}
+            hint={<Comparacion actual={totalIngresos} anterior={mesAnterior?.ingresos} etiqueta={mesAnterior?.etiqueta} subirEsBueno />}
           />
           <StatCard
             label="Gastos"
             icon={ArrowUpRight}
             tone="expense"
             value={<Amount value={totalGastos} size="xl" tipo="gasto" toned />}
+            hint={<Comparacion actual={totalGastos} anterior={mesAnterior?.gastos} etiqueta={mesAnterior?.etiqueta} />}
           />
         </div>
       </div>

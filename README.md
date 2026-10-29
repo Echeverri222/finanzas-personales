@@ -45,7 +45,8 @@ Una aplicación web moderna para la gestión de finanzas personales, construida 
    ```env
    NEXT_PUBLIC_SUPABASE_URL=tu_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_key
-   NEXT_PUBLIC_FMP_API_KEY=tu_fmp_api_key
+   # Solo servidor (precios de Inversiones y Análisis de acciones)
+   MASSIVE_API_KEY=tu_massive_api_key
    ```
 
 4. **Configurar base de datos**

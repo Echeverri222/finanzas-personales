@@ -110,15 +110,27 @@ export default function PatrimonioPage() {
       )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Ahorros" value={<Amount value={desglose.ahorros} />} icon={PiggyBank} tone="savings" />
+        {/* "Cuentas de ahorro": the Ahorros page shows ahorro ACUMULADO from
+            movimientos, a different number, and both being labelled "Ahorros"
+            made one of them look wrong. */}
+        <StatCard label="Cuentas de ahorro" value={<Amount value={desglose.ahorros} />} icon={PiggyBank} tone="savings" />
         <StatCard label="Efectivo" value={<Amount value={desglose.efectivo} />} icon={Wallet} tone="neutral" />
         <StatCard label="Inversiones" value={<Amount value={desglose.inversion} />} icon={TrendingUp} tone="primary" />
         <StatCard
-          label="Activos"
+          label={desglose.deuda > 0 ? 'Activos (neto)' : 'Activos'}
           value={<Amount value={desglose.activos - desglose.deuda} />}
           icon={Home}
           tone="income"
-          hint={desglose.deuda > 0 ? <>Menos <Amount value={desglose.deuda} size="sm" /> de deuda</> : null}
+          // The figure is already net of debt. "Menos $X de deuda" read as
+          // debt still to be subtracted from it.
+          hint={
+            desglose.deuda > 0 ? (
+              <>
+                <Amount value={desglose.activos} size="sm" /> en valor, ya restada una deuda de{' '}
+                <Amount value={desglose.deuda} size="sm" />
+              </>
+            ) : null
+          }
         />
       </div>
 
@@ -166,11 +178,21 @@ export default function PatrimonioPage() {
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{cuenta.nombre}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {cuenta.banco || label}
-                        {cuenta.tiene_deuda && ' · con deuda'}
-                        {!cuenta.activa && ' · inactiva'}
-                      </p>
+                      {/* The subtitle used to fall back to the group label, so an
+                          account named "Efectivo" in the Efectivo group read
+                          "Efectivo / Efectivo". Only say what adds information. */}
+                      {(() => {
+                        const partes = [
+                          cuenta.banco && cuenta.banco.trim().toLowerCase() !== cuenta.nombre.trim().toLowerCase()
+                            ? cuenta.banco
+                            : null,
+                          cuenta.tiene_deuda ? 'con deuda' : null,
+                          !cuenta.activa ? 'inactiva' : null,
+                        ].filter(Boolean);
+                        return partes.length ? (
+                          <p className="truncate text-xs text-muted-foreground">{partes.join(' · ')}</p>
+                        ) : null;
+                      })()}
                     </div>
                     <Amount
                       value={valorCuenta(cuenta, posiciones, precios, tasas)}

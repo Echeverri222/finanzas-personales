@@ -283,6 +283,7 @@ export type Database = {
           created_at: string
           dia_mes: number
           generar_desde: string
+          generar_hasta: string | null
           id: string
           id_tipo_movimiento: string
           importe: number
@@ -295,6 +296,7 @@ export type Database = {
           created_at?: string
           dia_mes: number
           generar_desde?: string
+          generar_hasta?: string | null
           id?: string
           id_tipo_movimiento: string
           importe: number
@@ -307,6 +309,7 @@ export type Database = {
           created_at?: string
           dia_mes?: number
           generar_desde?: string
+          generar_hasta?: string | null
           id?: string
           id_tipo_movimiento?: string
           importe?: number

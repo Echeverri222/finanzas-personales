@@ -18,6 +18,7 @@ import useSWR from 'swr';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
 import { userKey } from '../lib/swr';
+import { mensajeError } from '../lib/errores';
 
 const SELECT = `
   id, usuario_id, tipo, nombre, banco, saldo,
@@ -151,7 +152,7 @@ export function useCuentas() {
       );
       return { data: creada, error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { duplicado: 'Ya tienes una cuenta con ese nombre.', accion: 'crear la cuenta' }) };
     }
   };
 
@@ -177,7 +178,7 @@ export function useCuentas() {
       );
       return { data: actualizada, error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { duplicado: 'Ya tienes una cuenta con ese nombre.', accion: 'actualizar la cuenta' }) };
     }
   };
 
@@ -193,7 +194,7 @@ export function useCuentas() {
       await mutate((prev = []) => prev.filter((c) => c.id !== id), { revalidate: false });
       return { error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { enUso: 'Esta cuenta tiene movimientos u operaciones asociadas.', accion: 'eliminar la cuenta' }) };
     }
   };
 

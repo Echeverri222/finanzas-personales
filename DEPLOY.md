@@ -5,7 +5,7 @@
 1. ✅ **Database Hooks Created** - `useMovimientos`, `useTiposMovimiento`, `useStockData`
 2. ✅ **Movimientos Page Connected** - Now uses real Supabase data
 3. ✅ **New Movement Form Connected** - Saves to database
-4. ✅ **Stock Analysis Connected** - Uses real FMP API data
+4. ✅ **Stock Analysis Connected** - Server route `/api/analisis/historico` (Massive + Yahoo)
 5. ✅ **Demo Bypass Removed** - Production-ready authentication
 
 ## 🔧 **ENVIRONMENT SETUP REQUIRED:**
@@ -17,8 +17,9 @@
 NEXT_PUBLIC_SUPABASE_URL=https://vvzadoagclwzjuhgbwgf.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2emFkb2FnY2x3emp1aGdid2dmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2NDY5NTIsImV4cCI6MjA2NDIyMjk1Mn0.NrSY7d1GkwkAFOG5ul7-_MJGrHf1kCA_UFjfPEWuw7U
 
-# Financial Modeling Prep API (YOUR API KEY)
-NEXT_PUBLIC_FMP_API_KEY=FAExoSELA4CoIVTlixYT42586X9MYpSb
+# Precios de mercado (Inversiones y Análisis de acciones). Solo servidor:
+# nunca con prefijo NEXT_PUBLIC_, o terminaría en el bundle del navegador.
+MASSIVE_API_KEY=tu_massive_api_key
 ```
 
 ### Add these to your **Vercel Environment Variables** (Production):
@@ -26,12 +27,12 @@ NEXT_PUBLIC_FMP_API_KEY=FAExoSELA4CoIVTlixYT42586X9MYpSb
 ```
 NEXT_PUBLIC_SUPABASE_URL = https://vvzadoagclwzjuhgbwgf.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2emFkb2FnY2x3emp1aGdid2dmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2NDY5NTIsImV4cCI6MjA2NDIyMjk1Mn0.NrSY7d1GkwkAFOG5ul7-_MJGrHf1kCA_UFjfPEWuw7U
-NEXT_PUBLIC_FMP_API_KEY = FAExoSELA4CoIVTlixYT42586X9MYpSb
+MASSIVE_API_KEY = <tu llave de Massive>
 ```
 
 ## 🧪 **TEST LOCALLY RIGHT NOW:**
 
-1. **Add the FMP API key to your `.env.local`**
+1. **Add `MASSIVE_API_KEY` to your `.env.local`** (server-only; FMP is no longer used)
 2. **Restart your dev server**: `npm run dev`
 3. **Test these features**:
    - ✅ Login with real email (no more demo bypass)
@@ -43,7 +44,7 @@ NEXT_PUBLIC_FMP_API_KEY = FAExoSELA4CoIVTlixYT42586X9MYpSb
 
 ### ✅ **PRODUCTION READY:**
 - **Movimientos** - Fully connected to Supabase
-- **Stock Analysis** - Uses real FMP API data
+- **Stock Analysis** - Server-side market data (Massive + Yahoo)
 - **Authentication** - Real email login only
 - **Environment** - API keys configured
 

@@ -1,22 +1,43 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { LineChart as LineChartIcon } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/lib/supabaseClient';
+import { formatDate, todayISO } from '@/lib/format';
 
-const FMP_API_KEY = process.env.NEXT_PUBLIC_FMP_API_KEY;
-const BASE_URL = 'https://financialmodelingprep.com/api/v3';
+/**
+ * Inicio por defecto: dos años antes de `hasta`. Dos y no uno porque la SMA200
+ * necesita 200 sesiones antes de dar su primer valor; con un año el ratio
+ * 50/200 apenas tendría unas semanas de datos.
+ *
+ * Se opera sobre el texto `yyyy-mm-dd` y no sobre un `Date` para no cruzar por
+ * UTC: el 29 de febrero se corrige al 28 porque dos años antes no existe.
+ */
+function haceDosAnios(iso) {
+  const [y, m, d] = iso.split('-');
+  return `${Number(y) - 2}-${m}-${m === '02' && d === '29' ? '28' : d}`;
+}
+
+/** Mensaje para cada respuesta de error de /api/analisis/historico. */
+function mensajeDeError(status, cuerpo) {
+  if (status === 404) return 'Símbolo no encontrado. Revisa cómo está escrito (ej: AAPL, VOO, PFGRUPOARG.CL).';
+  if (status === 400) return cuerpo?.mensaje || 'Revisa el símbolo y las fechas.';
+  if (status === 401) return 'Tu sesión expiró. Vuelve a iniciar sesión.';
+  return 'No pudimos obtener precios ahora. Inténtalo de nuevo en unos minutos.';
+}
 
 // Custom tooltips for charts
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label, moneda }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
-        <p className="font-semibold">{new Date(label).toLocaleDateString()}</p>
+      <div className="rounded-lg border bg-popover p-4 text-popover-foreground shadow-lg">
+        <p className="font-semibold">{formatDate(label)}</p>
         {payload.map((entry, index) => (
           <p key={index} style={{ color: entry.color }}>
-            {entry.name}: ${entry.value?.toFixed(2)}
+            {entry.name}: {formatPrecio(entry.value, moneda)}
           </p>
         ))}
       </div>
@@ -28,8 +49,8 @@ const CustomTooltip = ({ active, payload, label }) => {
 const RatioTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
-        <p className="font-semibold">{new Date(label).toLocaleDateString()}</p>
+      <div className="rounded-lg border bg-popover p-4 text-popover-foreground shadow-lg">
+        <p className="font-semibold">{formatDate(label)}</p>
         {payload.map((entry, index) => (
           <p key={index} style={{ color: entry.color }}>
             {entry.name}: {entry.value?.toFixed(4)}
@@ -41,17 +62,37 @@ const RatioTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+/** Precio en la moneda en que cotiza el símbolo, con separadores es-CO. */
+function formatPrecio(value, moneda) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '-';
+  try {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: moneda || 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return Number(value).toFixed(2);
+  }
+}
+
+function formatPerformancePercentage(value) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '-';
+  const formatted = `${value.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  return value >= 0 ? `+${formatted}` : formatted;
+}
+
 export default function StockAnalysisPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [stockData, setStockData] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [dateRange, setDateRange] = useState({
-    startDate: '',
-    endDate: new Date().toISOString().split('T')[0]
+  const [dateRange, setDateRange] = useState(() => {
+    const hoy = todayISO();
+    return { startDate: haceDosAnios(hoy), endDate: hoy };
   });
-  const [fundamentalMetrics, setFundamentalMetrics] = useState(null);
   const [performanceData, setPerformanceData] = useState(null);
 
   // Calculate SMA (Simple Moving Average)
@@ -62,7 +103,7 @@ export default function StockAnalysisPage() {
         sma.push(null);
         continue;
       }
-      
+
       let sum = 0;
       for (let j = 0; j < period; j++) {
         sum += data[i - j].close;
@@ -89,11 +130,11 @@ export default function StockAnalysisPage() {
   const calculateLevels = (ratios) => {
     const validRatios = ratios.filter(r => r !== null).sort((a, b) => a - b);
     if (validRatios.length === 0) return { buyLevel: 1, sellLevel: 1, mean: 1 };
-    
+
     const buyLevel = validRatios[Math.floor(validRatios.length * 0.2)]; // 20th percentile
     const sellLevel = validRatios[Math.floor(validRatios.length * 0.8)]; // 80th percentile
     const mean = validRatios[Math.floor(validRatios.length * 0.5)]; // 50th percentile (median)
-    
+
     return { buyLevel, sellLevel, mean };
   };
 
@@ -125,275 +166,160 @@ export default function StockAnalysisPage() {
     };
   };
 
-  // Calculate performance data
+  // Rendimiento por período, medido por FECHA y no por número de filas: el
+  // histórico solo trae días hábiles, así que "30 filas atrás" eran ~6 semanas
+  // y "365 filas" casi año y medio.
   const calculatePerformance = (data) => {
-    if (data.length < 30) return null;
+    if (data.length < 2) return null;
 
-    const currentPrice = data[data.length - 1].close;
-    const oneMonthAgo = data[Math.max(0, data.length - 30)]?.close || currentPrice;
-    const threeMonthsAgo = data[Math.max(0, data.length - 90)]?.close || currentPrice;
-    const sixMonthsAgo = data[Math.max(0, data.length - 180)]?.close || currentPrice;
-    const oneYearAgo = data[Math.max(0, data.length - 365)]?.close || currentPrice;
-
-    return {
-      '1M': ((currentPrice - oneMonthAgo) / oneMonthAgo * 100),
-      '3M': ((currentPrice - threeMonthsAgo) / threeMonthsAgo * 100),
-      '6M': ((currentPrice - sixMonthsAgo) / sixMonthsAgo * 100),
-      '1Y': ((currentPrice - oneYearAgo) / oneYearAgo * 100)
+    const ultimo = data[data.length - 1];
+    const precioEn = (meses) => {
+      const [y, m, d] = ultimo.date.split('-').map(Number);
+      const objetivo = new Date(Date.UTC(y, m - 1 - meses, d)).toISOString().slice(0, 10);
+      // Si el rango no llega tan atrás, ese período no se puede calcular.
+      if (data[0].date > objetivo) return null;
+      let previo = data[0];
+      for (const punto of data) {
+        if (punto.date > objetivo) break;
+        previo = punto;
+      }
+      return previo.close;
     };
+
+    const resultado = {};
+    for (const [periodo, meses] of [['1M', 1], ['3M', 3], ['6M', 6], ['1Y', 12]]) {
+      const base = precioEn(meses);
+      resultado[periodo] = base ? ((ultimo.close - base) / base) * 100 : null;
+    }
+    return resultado;
   };
 
   // Handle search
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!searchTerm.trim() || !FMP_API_KEY) return;
+    const simbolo = searchTerm.trim().toUpperCase();
+    if (!simbolo) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      // Fetch current stock data
-      const quoteResponse = await fetch(
-        `${BASE_URL}/quote/${searchTerm}?apikey=${FMP_API_KEY}`
-      );
-      const quoteResult = await quoteResponse.json();
+      const { data: sesion } = await supabase.auth.getSession();
+      const token = sesion?.session?.access_token;
+      if (!token) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
 
-      if (!quoteResponse.ok || !quoteResult.length) {
-        throw new Error('Símbolo no encontrado');
-      }
+      const params = new URLSearchParams({
+        simbolo,
+        desde: dateRange.startDate || haceDosAnios(dateRange.endDate || todayISO()),
+        hasta: dateRange.endDate || todayISO(),
+      });
 
-      setStockData(quoteResult[0]);
-
-      // Calculate date range (default to 2 years of data)
-      const endDate = dateRange.endDate || new Date().toISOString().split('T')[0];
-      const startDate = dateRange.startDate || 
-        new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-      // Fetch historical data
-      const historicalResponse = await fetch(
-        `${BASE_URL}/historical-price-full/${searchTerm}?from=${startDate}&to=${endDate}&apikey=${FMP_API_KEY}`
-      );
-      const historicalResult = await historicalResponse.json();
-
-      if (!historicalResponse.ok || !historicalResult.historical) {
-        throw new Error('No se pudieron obtener datos históricos');
-      }
-
-      const historical = historicalResult.historical.reverse();
-      setHistoricalData(historical);
-
-      // Calculate performance
-      const performance = calculatePerformance(historical);
-      setPerformanceData(performance);
-
-      // Fetch fundamental data
+      let res;
       try {
-        const fundamentalResponse = await fetch(
-          `${BASE_URL}/key-metrics-ttm/${searchTerm}?apikey=${FMP_API_KEY}`
-        );
-        const fundamentalResult = await fundamentalResponse.json();
-        
-        if (fundamentalResponse.ok && fundamentalResult.length > 0) {
-          setFundamentalMetrics(fundamentalResult[0]);
-        } else {
-          // Try alternative endpoint
-          const altResponse = await fetch(
-            `${BASE_URL}/key-metrics/${searchTerm}?limit=1&apikey=${FMP_API_KEY}`
-          );
-          const altResult = await altResponse.json();
-          
-          if (altResponse.ok && altResult.length > 0) {
-            setFundamentalMetrics(altResult[0]);
-          } else {
-            setFundamentalMetrics(null);
-          }
-        }
-      } catch (fundamentalError) {
-        console.warn('Could not fetch fundamental data:', fundamentalError);
-        setFundamentalMetrics(null);
+        res = await fetch(`/api/analisis/historico?${params}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        throw new Error(mensajeDeError(0));
       }
+      const cuerpo = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(mensajeDeError(res.status, cuerpo));
 
+      setStockData({ symbol: cuerpo.simbolo, moneda: cuerpo.moneda, ...cuerpo.cotizacion });
+      setHistoricalData(cuerpo.historico);
+      setPerformanceData(calculatePerformance(cuerpo.historico));
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err.message);
+      setStockData(null);
+      setHistoricalData([]);
+      setPerformanceData(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // Formatting functions
-  const formatCurrency = (value) => {
-    if (!value) return '-';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
-  };
-
-  const formatLargeNumber = (num) => {
-    if (!num) return '-';
-    if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
-    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
-    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
-    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
-    return num.toFixed(2);
-  };
-
-  const formatNumber = (value) => {
-    if (!value) return '-';
-    return value.toFixed(2);
-  };
-
-  const formatPercentage = (value) => {
-    if (!value) return '-';
-    return (value * 100).toFixed(2) + '%';
-  };
-
-  const formatPerformancePercentage = (value) => {
-    if (!value) return '-';
-    const formatted = value.toFixed(2) + '%';
-    return value >= 0 ? `+${formatted}` : formatted;
-  };
-
-  // Auto-search AAPL on mount if API is configured
-  useEffect(() => {
-    // Removed auto-search for AAPL on mount
-  }, []);
-
-  if (!FMP_API_KEY) {
-    return (
-      <div className="space-y-6">
-        <div className="text-center py-12">
-          <div className="text-rose-600 text-lg">⚠️ FMP API Key not configured</div>
-          <p className="text-muted-foreground mt-2">
-            Please add your Financial Modeling Prep API key to environment variables.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <PageHeader title="Análisis" description="Análisis técnico avanzado con ratios SMA.">
+      <PageHeader title="Análisis de acciones" description="Precio e indicadores técnicos (medias móviles) de cualquier acción o cripto.">
         <form onSubmit={handleSearch} className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
           <Input
             type="date"
+            aria-label="Desde"
             value={dateRange.startDate}
+            max={dateRange.endDate || undefined}
             onChange={(e) => setDateRange((prev) => ({ ...prev, startDate: e.target.value }))}
             className="sm:w-auto"
           />
           <Input
             type="date"
+            aria-label="Hasta"
             value={dateRange.endDate}
+            min={dateRange.startDate || undefined}
             onChange={(e) => setDateRange((prev) => ({ ...prev, endDate: e.target.value }))}
             className="sm:w-auto"
           />
           <Input
             type="text"
+            aria-label="Símbolo"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
             placeholder="Símbolo (ej: AAPL)"
             className="sm:w-48"
           />
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading || !searchTerm.trim()}>
             {loading ? 'Buscando...' : 'Buscar'}
           </Button>
         </form>
       </PageHeader>
 
       {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* Stock Information Cards */}
+      {/* Antes de la primera búsqueda la página quedaba en blanco. */}
+      {!stockData && !error && !loading && (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+            <LineChartIcon className="size-8 text-muted-foreground" aria-hidden="true" />
+            <p className="font-medium text-foreground">Busca un símbolo para empezar</p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Escribe el ticker tal como cotiza: AAPL o VOO para EE. UU., o con el sufijo de
+              la bolsa, como PFGRUPOARG.CL para Colombia. Por defecto se analizan los últimos
+              dos años.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Último cierre. Las métricas fundamentales (P/E, ROE…) venían de FMP y
+          ningún proveedor actual las ofrece, así que se retiraron. */}
       {stockData && (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {/* Current Price */}
           <Card>
             <CardContent>
-              <h3 className="text-sm font-medium text-muted-foreground">Precio Actual</h3>
-              <div className="mt-1 flex items-baseline">
-                <p className="text-2xl font-semibold text-foreground">{formatCurrency(stockData.price)}</p>
-                <p className={`ml-2 flex items-baseline text-sm font-semibold ${
-                  stockData.change >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                }`}>
-                  <span>{stockData.change >= 0 ? '↑' : '↓'}</span>
-                  <span className="ml-1">{Math.abs(stockData.change).toFixed(2)}</span>
-                  <span className="ml-1">({Math.abs(stockData.changesPercentage).toFixed(2)}%)</span>
-                </p>
+              <h3 className="text-sm font-medium text-muted-foreground">Último cierre · {stockData.symbol}</h3>
+              <div className="mt-1 flex flex-wrap items-baseline">
+                <p className="text-2xl font-semibold text-foreground">{formatPrecio(stockData.precio, stockData.moneda)}</p>
+                {stockData.cambio !== null && (
+                  <p className={`ml-2 flex items-baseline text-sm font-semibold ${
+                    stockData.cambio >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                  }`}>
+                    <span>{stockData.cambio >= 0 ? '↑' : '↓'}</span>
+                    <span className="ml-1">{formatPrecio(Math.abs(stockData.cambio), stockData.moneda)}</span>
+                    {stockData.cambioPct !== null && (
+                      <span className="ml-1">
+                        ({Math.abs(stockData.cambioPct).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">{formatDate(stockData.fecha)}</p>
             </CardContent>
           </Card>
-
-          {/* Fundamental Metrics */}
-          {fundamentalMetrics && (
-            <>
-              <Card>
-                <CardContent>
-                  <h3 className="text-sm font-medium text-muted-foreground">Métricas Fundamentales</h3>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">P/E Ratio</span>
-                      <span className="font-semibold">{formatNumber(fundamentalMetrics.peRatioTTM || fundamentalMetrics.peRatio)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Price/Book</span>
-                      <span className="font-semibold">{formatNumber(fundamentalMetrics.pbRatioTTM || fundamentalMetrics.pbRatio)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">PEG Ratio</span>
-                      <span className="font-semibold">{formatNumber(fundamentalMetrics.pegRatioTTM || fundamentalMetrics.pegRatio)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent>
-                  <h3 className="text-sm font-medium text-muted-foreground">Rentabilidad</h3>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">ROE</span>
-                      <span className="font-semibold">{formatPercentage(fundamentalMetrics.roeTTM || fundamentalMetrics.roe)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">ROA</span>
-                      <span className="font-semibold">{formatPercentage(fundamentalMetrics.roaTTM || fundamentalMetrics.roa)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Dividend Yield</span>
-                      <span className="font-semibold">{formatPercentage(fundamentalMetrics.dividendYieldTTM || fundamentalMetrics.dividendYield)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent>
-                  <h3 className="text-sm font-medium text-muted-foreground">Estructura Financiera</h3>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Debt/Equity</span>
-                      <span className="font-semibold">{formatNumber(fundamentalMetrics.debtToEquityTTM || fundamentalMetrics.debtToEquity)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">FCF Yield</span>
-                      <span className="font-semibold">{formatPercentage(fundamentalMetrics.freeCashFlowYieldTTM || fundamentalMetrics.freeCashFlowYield)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Market Cap</span>
-                      <span className="font-semibold">{formatLargeNumber(stockData.marketCap)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
         </div>
       )}
 
@@ -409,7 +335,7 @@ export default function StockAnalysisPage() {
                 <div key={period} className="text-center">
                   <div className="text-sm text-muted-foreground">{period}</div>
                   <div className={`text-lg font-semibold ${
-                    data >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                    data === null ? 'text-muted-foreground' : data >= 0 ? 'text-emerald-600' : 'text-rose-600'
                   }`}>
                     {formatPerformancePercentage(data)}
                   </div>
@@ -444,7 +370,7 @@ export default function StockAnalysisPage() {
                     axisLine={{ stroke: '#E5E7EB' }}
                     domain={['auto', 'auto']}
                   />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip moneda={stockData?.moneda} />} />
                   <Line 
                     type="monotone" 
                     dataKey="close" 

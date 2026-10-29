@@ -44,7 +44,9 @@ const NAV_GROUPS = [
     items: [
       { name: 'Metas', href: '/metas', icon: Target },
       { name: 'Ahorros', href: '/ahorros', icon: PiggyBank },
-      { name: 'Análisis', href: '/stock-analysis', icon: LineChart },
+      // "Análisis" alone read as analysis of YOUR spending; it is a stock
+      // chart tool, so the label says so.
+      { name: 'Análisis de acciones', href: '/stock-analysis', icon: LineChart },
     ],
   },
   // `flag` gatea el grupo entero. Patrimonio es opcional: con el interruptor

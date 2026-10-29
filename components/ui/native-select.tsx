@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { alEditar, alInvalidar } from "@/lib/validacion";
 
 /**
  * Styled native <select>.
@@ -18,13 +19,21 @@ import { cn } from "@/lib/utils";
 const NativeSelect = React.forwardRef<
   HTMLSelectElement,
   React.SelectHTMLAttributes<HTMLSelectElement>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onInvalid, onChange, ...props }, ref) => (
   <select
     ref={ref}
     className={cn(
       "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
       className,
     )}
+    onInvalid={(e) => {
+      alInvalidar(e);
+      onInvalid?.(e);
+    }}
+    onChange={(e) => {
+      alEditar(e);
+      onChange?.(e);
+    }}
     {...props}
   >
     {children}

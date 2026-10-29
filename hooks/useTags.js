@@ -2,6 +2,7 @@ import useSWR from 'swr';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
 import { userKey } from '../lib/swr';
+import { mensajeError } from '../lib/errores';
 
 /** The tags feature is optional: on an installation without the migration the
  *  table simply is not there, and that is not an error worth showing. */
@@ -52,7 +53,7 @@ export function useTags() {
       );
       return { data: row, error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { duplicado: 'Ya existe una etiqueta con ese nombre.', accion: 'crear la etiqueta' }) };
     }
   };
 
@@ -76,7 +77,7 @@ export function useTags() {
       });
       return { data: row, error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { duplicado: 'Ya existe una etiqueta con ese nombre.', accion: 'renombrar la etiqueta' }) };
     }
   };
 
@@ -92,7 +93,7 @@ export function useTags() {
       await mutate((prev = []) => prev.filter((t) => t.id !== id), { revalidate: false });
       return { error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'eliminar la etiqueta' }) };
     }
   };
 

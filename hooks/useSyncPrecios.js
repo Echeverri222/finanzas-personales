@@ -9,6 +9,7 @@
  */
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { mensajeError } from '../lib/errores';
 
 export function useSyncPrecios() {
   const [sincronizando, setSincronizando] = useState(false);
@@ -37,7 +38,7 @@ export function useSyncPrecios() {
       return { data: cuerpo, error: null };
     } catch (err) {
       setErrorSync(err.message);
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'actualizar los precios' }) };
     } finally {
       setSincronizando(false);
     }

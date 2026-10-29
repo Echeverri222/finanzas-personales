@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Search, Plus, Pencil, Trash2, ReceiptText, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, ReceiptText, ArrowUp, ArrowDown, X } from 'lucide-react';
 
 import { groupMovimientosByDate } from '../../lib/api/movimientosView';
 import { cn } from '@/lib/utils';
@@ -8,16 +8,14 @@ import { Card } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect as Select } from '@/components/ui/native-select';
-import { Field } from '@/components/ui/field';
 import { Modal as Dialog } from '@/components/ui/modal';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { MovimientoFields } from '@/components/movimientos/MovimientoFields';
+import { formatDate } from '@/lib/format';
 import { FilterChips } from '@/components/filters/FilterChips';
 import { Amount } from '@/components/money/Amount';
 import { TypeIcon } from '@/components/money/TypeIcon';
 import { EmptyState } from '@/components/feedback/EmptyState';
-import { esLiquida } from '@/types/domain';
-import { TIPO } from '@/lib/constants';
 
 const SORT_OPTIONS = [
   { value: 'fecha', label: 'Fecha' },
@@ -66,6 +64,10 @@ function DayHeading({ group }) {
  * was a third copy of the same form and the reason the two views had drifted.
  */
 export default function MovimientosView({
+  years = [new Date().getFullYear()],
+  onClearFilters,
+  editError,
+  savingEdit,
   sortedMovimientos,
   tiposMovimiento,
   tags,
@@ -87,21 +89,16 @@ export default function MovimientosView({
   onSaveEdit,
   onDelete,
 }) {
-  const handleTagToggle = (tagId) => {
-    const current = editFormData?.tagIds || [];
-    setEditFormData((prev) => ({
-      ...prev,
-      tagIds: current.includes(tagId) ? current.filter((id) => id !== tagId) : [...current, tagId],
-    }));
-  };
-
-  const monthOptions = [];
-  const currentYear = new Date().getFullYear();
-  for (let m = 1; m <= 12; m += 1) {
-    const value = `${currentYear}-${String(m).padStart(2, '0')}`;
-    const label = new Date(2000, m - 1, 1).toLocaleDateString('es-ES', { month: 'long' });
-    monthOptions.push({ value, label: `${label} ${currentYear}` });
-  }
+  // Every month of every year that has data, newest first -- not just the
+  // current year, which left all of 2025 unreachable from this filter.
+  const monthGroups = years.map((year) => ({
+    year,
+    options: Array.from({ length: 12 }, (_, i) => 12 - i).map((m) => ({
+      value: `${year}-${String(m).padStart(2, '0')}`,
+      label: `${new Date(2000, m - 1, 1).toLocaleDateString('es-ES', { month: 'long' })} ${year}`,
+    })),
+  }));
+  const hasFilters = Boolean(searchTerm || typeFilter !== 'all' || monthFilter);
 
   // Radix ToggleGroup values are strings only, so the numeric category ids are
   // stringified on the way in and handed back as-is: the page compares with
@@ -114,22 +111,17 @@ export default function MovimientosView({
   const ascending = sortConfig?.direction === 'asc';
   const DirectionIcon = ascending ? ArrowUp : ArrowDown;
 
-  // Days run newest-first unless the sort is *on* the date, in which case the
-  // direction has to reach the group order or picking "Fecha ascendente" would
-  // visibly do nothing. Sorting by monto or descripción instead orders rows
-  // inside each day.
-  const grouped = groupMovimientosByDate(sortedMovimientos, {
-    dateDirection: sortConfig?.key === 'fecha' ? sortConfig.direction : 'desc',
-  });
+  // Sorted by date: the day-grouped timeline. Sorted by monto or descripción:
+  // one flat list with the date on each row. Grouping a monto sort by day only
+  // reordered rows inside each day, so on a mostly one-per-day list choosing
+  // "Monto" visibly did nothing -- and "what were my biggest expenses?" is the
+  // whole reason to pick it.
+  const byDate = (sortConfig?.key || 'fecha') === 'fecha';
+  const groups = byDate
+    ? groupMovimientosByDate(sortedMovimientos, { dateDirection: sortConfig?.direction || 'desc' })
+    : [{ key: 'flat', heading: null, items: sortedMovimientos }];
   const showEditModal = Boolean(editingId && editFormData?.nombre !== undefined);
   const isEmpty = sortedMovimientos.length === 0;
-  const cuentasLiquidas = (cuentas || []).filter((c) => esLiquida(c) && c.activa !== false);
-  const categoriaEditada = (tiposMovimiento || []).find(
-    (tipo) => String(tipo.id) === String(editFormData?.id_tipo_movimiento)
-  );
-  const categoriaEditadaEsSalida = [TIPO.GASTO, TIPO.INVERSION, TIPO.PRESTAMO].includes(
-    categoriaEditada?.tipo
-  );
 
   return (
     <div className="space-y-5">
@@ -163,8 +155,12 @@ export default function MovimientosView({
             className="sm:w-52"
           >
             <option value="">Todos los meses</option>
-            {monthOptions.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+            {monthGroups.map((g) => (
+              <optgroup key={g.year} label={String(g.year)}>
+                {g.options.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </optgroup>
             ))}
           </Select>
         </div>
@@ -217,18 +213,25 @@ export default function MovimientosView({
                 : 'Registra tu primer movimiento para empezar.'
             }
             action={
-              <Link href="/movimientos/nuevo" className={cn(buttonVariants())}>
-                <Plus className="size-4" />
-                Nuevo movimiento
-              </Link>
+              hasFilters ? (
+                <Button variant="outline" onClick={onClearFilters}>
+                  <X className="size-4" />
+                  Limpiar filtros
+                </Button>
+              ) : (
+                <Link href="/movimientos/nuevo" className={cn(buttonVariants())}>
+                  <Plus className="size-4" />
+                  Nuevo movimiento
+                </Link>
+              )
             }
           />
         </Card>
       ) : (
         <div className="space-y-5">
-          {grouped.map((group) => (
-            <section key={group.date.getTime()}>
-              <DayHeading group={group} />
+          {groups.map((group) => (
+            <section key={group.key ?? group.date.getTime()}>
+              {group.heading ? <DayHeading group={group} /> : null}
               <Card className="overflow-hidden shadow-card">
                 {group.items.map((mov) => (
                   // The action buttons are SIBLINGS of the row button, not
@@ -253,6 +256,9 @@ export default function MovimientosView({
                             above already carries it. */}
                         <span className="block truncate text-xs text-muted-foreground">
                           {mov.tipo_nombre}
+                          {/* In the flat (monto/descripción) list there is no
+                              day heading, so the row carries its own date. */}
+                          {!byDate ? ` · ${formatDate(mov.fecha)}` : ''}
                         </span>
                         {mov.sale_de_ahorros && (
                           <Badge variant="secondary" className="mt-1">
@@ -277,7 +283,7 @@ export default function MovimientosView({
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onDelete(mov.id)}
+                        onClick={() => onDelete(mov)}
                         aria-label={`Eliminar ${mov.nombre}`}
                       >
                         <Trash2 className="size-4 text-destructive" />
@@ -291,136 +297,43 @@ export default function MovimientosView({
         </div>
       )}
 
-      {/* One edit dialog, both breakpoints. */}
+      {/* One edit dialog, both breakpoints, built from the same fields as
+          /movimientos/nuevo. */}
       <Dialog open={showEditModal} onClose={onCancelEdit} title="Editar movimiento">
-        <div className="space-y-4">
-          <Field label="Fecha" htmlFor="mov-fecha">
-            <Input
-              id="mov-fecha"
-              type="date"
-              value={editFormData.fecha}
-              onChange={(e) => setEditFormData((p) => ({ ...p, fecha: e.target.value }))}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSaveEdit();
+          }}
+          className="space-y-4"
+        >
+          {editError ? (
+            <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {editError}
+            </p>
+          ) : null}
+          {showEditModal && (
+            <MovimientoFields
+              key={editingId}
+              data={editFormData}
+              setData={setEditFormData}
+              tiposMovimiento={tiposMovimiento}
+              cuentas={cuentas}
+              patrimonioHabilitado={patrimonioHabilitado}
+              tags={tags}
+              idPrefix="editar"
+              compact
             />
-          </Field>
-          <Field label="Descripción" htmlFor="mov-nombre">
-            <Input
-              id="mov-nombre"
-              type="text"
-              value={editFormData.nombre}
-              onChange={(e) => setEditFormData((p) => ({ ...p, nombre: e.target.value }))}
-              placeholder="Nombre"
-            />
-          </Field>
-          <Field label="Importe" htmlFor="mov-importe">
-            <Input
-              id="mov-importe"
-              type="number"
-              step="0.01"
-              value={editFormData.importe}
-              onChange={(e) => setEditFormData((p) => ({ ...p, importe: e.target.value }))}
-            />
-          </Field>
-          <Field label="Categoría" htmlFor="mov-tipo">
-            <Select
-              id="mov-tipo"
-              value={editFormData.id_tipo_movimiento}
-              onChange={(e) =>
-                setEditFormData((p) => {
-                  const categoria = (tiposMovimiento || []).find(
-                    (tipo) => String(tipo.id) === String(e.target.value)
-                  );
-                  return {
-                    ...p,
-                    id_tipo_movimiento: e.target.value,
-                    sale_de_ahorros: [TIPO.GASTO, TIPO.INVERSION, TIPO.PRESTAMO].includes(
-                      categoria?.tipo
-                    )
-                      ? p.sale_de_ahorros
-                      : false,
-                  };
-                })
-              }
-            >
-              <option value="">Seleccionar</option>
-              {(tiposMovimiento || []).map((t) => (
-                <option key={t.id} value={t.id}>{t.nombre}</option>
-              ))}
-            </Select>
-          </Field>
-          {patrimonioHabilitado && cuentasLiquidas.length > 0 && (
-            <Field label="Cuenta (opcional)" htmlFor="mov-cuenta">
-              <Select
-                id="mov-cuenta"
-                value={editFormData.cuenta_id || ''}
-                onChange={(e) =>
-                  setEditFormData((p) => ({ ...p, cuenta_id: e.target.value }))
-                }
-              >
-                <option value="">Sin cuenta</option>
-                {cuentasLiquidas.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}{c.banco ? ` · ${c.banco}` : ''}
-                  </option>
-                ))}
-              </Select>
-            </Field>
           )}
-          <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
-            <div>
-              <label htmlFor="mov-sale-de-ahorros" className="text-sm font-medium">
-                Sale de ahorros
-              </label>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Resta del ahorro acumulado sin afectar los gastos ni el balance del mes.
-              </p>
-            </div>
-            <Switch
-              id="mov-sale-de-ahorros"
-              checked={Boolean(editFormData.sale_de_ahorros)}
-              disabled={!categoriaEditadaEsSalida}
-              onCheckedChange={(checked) =>
-                setEditFormData((p) => ({ ...p, sale_de_ahorros: checked }))
-              }
-              aria-label="Marcar como consumo de ahorros"
-            />
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onCancelEdit} className="flex-1">
+              Cancelar
+            </Button>
+            <Button type="submit" className="flex-1" disabled={savingEdit}>
+              {savingEdit ? 'Guardando...' : 'Guardar'}
+            </Button>
           </div>
-          <div>
-            <p className="mb-2 text-sm font-medium">Etiquetas</p>
-            {(tags || []).length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {tags.map((t) => (
-                  <label
-                    key={t.id}
-                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-secondary"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={(editFormData.tagIds || []).includes(t.id)}
-                      onChange={() => handleTagToggle(t.id)}
-                      className="rounded"
-                    />
-                    <span>{t.nombre}</span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                <Link href="/etiquetas" className="text-primary hover:underline">
-                  Crea etiquetas
-                </Link>{' '}
-                para usarlas aquí.
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="mt-6 flex gap-3">
-          <Button variant="outline" onClick={onCancelEdit} className="flex-1">
-            Cancelar
-          </Button>
-          <Button onClick={onSaveEdit} className="flex-1">
-            Guardar
-          </Button>
-        </div>
+        </form>
       </Dialog>
     </div>
   );

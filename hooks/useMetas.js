@@ -2,6 +2,7 @@ import useSWR from 'swr';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
 import { userKey } from '../lib/swr';
+import { mensajeError } from '../lib/errores';
 
 /**
  * Row -> what the UI sees. The database spells three of these differently
@@ -67,7 +68,7 @@ export function useMetas() {
       await mutate((prev = []) => [created, ...prev], { revalidate: false });
       return { data: created, error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { duplicado: 'Ya tienes una meta con ese nombre.', accion: 'crear la meta' }) };
     }
   };
 
@@ -99,7 +100,7 @@ export function useMetas() {
       });
       return { data: updated, error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'actualizar la meta' }) };
     }
   };
 
@@ -118,7 +119,7 @@ export function useMetas() {
       await mutate((prev = []) => prev.filter((meta) => meta.id !== id), { revalidate: false });
       return { error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'eliminar la meta' }) };
     }
   };
 
@@ -153,7 +154,7 @@ export function useMetas() {
       });
       return { data: updated, error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'añadir el dinero' }) };
     }
   };
 

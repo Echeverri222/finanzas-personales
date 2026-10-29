@@ -208,7 +208,9 @@ if [[ -n "$SKIP_HEAVY" ]]; then
 else
   run_step "typecheck" 300 npm run -s typecheck
   # `next lint` with no config waits on an interactive prompt forever.
-  if ls .eslintrc* eslint.config.* >/dev/null 2>&1; then
+  # compgen, not `ls a* b*`: ls fails when EITHER glob matches nothing, which
+  # reported "no config" while .eslintrc.json was sitting right there.
+  if compgen -G '.eslintrc*' >/dev/null || compgen -G 'eslint.config.*' >/dev/null; then
     run_step "lint" 300 npm run -s lint
   else
     row FAIL "lint" "no ESLint config -- next lint would block on its setup prompt"

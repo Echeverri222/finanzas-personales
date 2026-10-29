@@ -10,7 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field } from '@/components/ui/field';
-import { todayISO, formatNumber } from '@/lib/format';
+import { todayISO, formatNumber, formatDecimal } from '@/lib/format';
+import { MoneyInput } from '@/components/money/MoneyInput';
 
 /**
  * Vender un lote, entero o en parte.
@@ -59,7 +60,7 @@ export function CerrarPosicionDialog({ posicion, precios, onSubmit, onCancel }) 
           <DialogTitle>Vender {posicion.ticker}</DialogTitle>
           <DialogDescription>
             Lote de {formatNumber(posicion.cantidad)} comprado a{' '}
-            {Number(posicion.precio_compra).toFixed(2)} {posicion.moneda}.
+            {formatDecimal(posicion.precio_compra)} {posicion.moneda}.
           </DialogDescription>
         </DialogHeader>
 
@@ -87,11 +88,8 @@ export function CerrarPosicionDialog({ posicion, precios, onSubmit, onCancel }) 
           </Field>
 
           <Field label="Precio de venta *" htmlFor="precioVenta">
-            <Input
+            <MoneyInput
               id="precioVenta"
-              type="number"
-              step="0.01"
-              min="0"
               value={precioVenta}
               onChange={(e) => {
                 setPrecioVenta(e.target.value);
@@ -124,7 +122,7 @@ export function CerrarPosicionDialog({ posicion, precios, onSubmit, onCancel }) 
             Rentabilidad realizada:{' '}
             <span className={ganancia >= 0 ? 'text-emerald-600 dark:text-emerald-500' : 'text-destructive'}>
               {ganancia >= 0 ? '+' : '−'}
-              {formatNumber(Math.abs(ganancia).toFixed(2))} {posicion.moneda}
+              {formatDecimal(Math.abs(ganancia))} {posicion.moneda}
             </span>
           </p>
 

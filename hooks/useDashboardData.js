@@ -108,6 +108,29 @@ export function useDashboardData() {
 
   const balance = totalIngresos - totalGastos;
 
+  // The month before the selected one, with the same category/tag filters and
+  // the same income/expense rule as the totals above -- so the cards can say
+  // "+12 % vs septiembre". Null when the view is a whole year or all years.
+  const mesAnterior = useMemo(() => {
+    if (monthFilter === 'all' || yearFilter === 'all') return null;
+    const m = parseInt(monthFilter, 10);
+    const ref = new Date(yearFilter, m - 1, 1);
+    const totales = { ingresos: 0, gastos: 0 };
+    movimientosConTipo.forEach((mov) => {
+      if (mov.sale_de_ahorros) return;
+      const d = createSafeDate(mov.fecha);
+      if (d.getFullYear() !== ref.getFullYear() || d.getMonth() !== ref.getMonth()) return;
+      if (categoryFilter !== 'all' && mov.tipo_nombre !== categoryFilter) return;
+      if (tagFilter !== 'all' && !(mov.tagIds && mov.tagIds.includes(tagFilter))) return;
+      if (mov.tipo_categoria === TIPO.INGRESO) totales.ingresos += Number(mov.importe);
+      else totales.gastos += Number(mov.importe);
+    });
+    return {
+      ...totales,
+      etiqueta: ref.toLocaleDateString('es-ES', { month: 'long' }),
+    };
+  }, [movimientosConTipo, yearFilter, monthFilter, categoryFilter, tagFilter]);
+
   const ahorrosMes = useMemo(
     () =>
       movimientosDeFlujo
@@ -139,17 +162,31 @@ export function useDashboardData() {
     return Object.values(acc).sort((a, b) => a.timestamp - b.timestamp);
   }, [movimientosDeFlujoAnual, categoryFilter]);
 
+  // One colour slot per non-income category, from the user's whole category
+  // list in alphabetical order: stable from month to month, and distinct for
+  // up to 8 categories. Hashing each name independently (the old way) put
+  // "Gastos fijos" and "Alimentacion" on the same violet.
+  const slotPorCategoria = useMemo(() => {
+    const nombres = tiposMovimiento
+      .filter((t) => t.tipo !== TIPO.INGRESO)
+      .map((t) => t.nombre)
+      .sort((a, b) => a.localeCompare(b, 'es'));
+    return new Map(nombres.map((n, i) => [n, i % 8]));
+  }, [tiposMovimiento]);
+
   const categoryData = useMemo(() => {
     const acc = {};
     movimientosDeFlujo
       .filter((m) => m.tipo_categoria !== TIPO.INGRESO)
       .forEach((mov) => {
         const cat = mov.tipo_nombre;
-        if (!acc[cat]) acc[cat] = { name: cat, value: 0, meta: mov.tipo_meta || 0 };
+        if (!acc[cat]) {
+          acc[cat] = { name: cat, value: 0, meta: mov.tipo_meta || 0, slot: slotPorCategoria.get(cat) };
+        }
         acc[cat].value += mov.importe;
       });
     return Object.values(acc).sort((a, b) => b.value - a.value);
-  }, [movimientosDeFlujo]);
+  }, [movimientosDeFlujo, slotPorCategoria]);
 
   // Weekly bars for "Actividad de Gastos" (last 7 days)
   const weeklyChartData = useMemo(() => {
@@ -214,6 +251,7 @@ export function useDashboardData() {
     totalIngresos,
     totalGastos,
     balance,
+    mesAnterior,
     ahorrosMes,
     filteredMovimientos,
     recentMovimientos: filteredMovimientos.slice(0, 5),

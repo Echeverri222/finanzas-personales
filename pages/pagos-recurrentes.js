@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Repeat, Plus, Pencil, Power, PowerOff, Trash2 } from 'lucide-react';
 import { useRecurring } from '../hooks/useRecurring';
 import { useTiposMovimiento } from '../hooks/useTiposMovimiento';
-import { formatCurrency } from '@/lib/format';
-import { createSafeDate } from '@/lib/dateUtils';
+import { formatCurrency, formatDate, todayISO } from '@/lib/format';
+import { TIPO } from '@/lib/constants';
+import { proximoCobro, cobrosRestantes, totalesMensuales } from '@/lib/recurrentes';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,30 +12,34 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect as Select } from '@/components/ui/native-select';
 import { Field } from '@/components/ui/field';
 import { Modal as Dialog } from '@/components/ui/modal';
+import { MoneyInput } from '@/components/money/MoneyInput';
+import { ErrorAlert } from '@/components/feedback/ErrorAlert';
+import { useConfirm } from '@/components/feedback/ConfirmProvider';
 
 const DAYS_OF_MONTH = Array.from({ length: 31 }, (_, i) => i + 1);
 // A function, not a constant: evaluated once at module load, the default day
 // would freeze at whatever day the tab was opened and be stale after midnight.
 const emptyForm = () => ({
-  nombre: '', importe: '', id_tipo_movimiento: '', dia_mes: new Date().getDate(),
+  nombre: '', importe: '', id_tipo_movimiento: '', dia_mes: new Date().getDate(), generar_hasta: '',
 });
 
-/**
- * generar_desde is the first date a rule may generate. Existing rules were
- * backfilled to the start of next month so releasing the fixed generator did
- * not create movimientos retroactively -- see the recurring_start_date
- * migration. Only worth showing while it is still in the future.
- */
-function startsInFuture(generarDesde) {
-  if (!generarDesde) return false;
-  return createSafeDate(generarDesde) > new Date();
-}
+const esIngreso = (r) => r.tipo_movimiento?.tipo === TIPO.INGRESO;
 
-function formatStartDate(generarDesde) {
-  return createSafeDate(generarDesde).toLocaleDateString('es-ES', {
-    month: 'long',
-    year: 'numeric',
-  });
+/**
+ * One line under the rule's name saying when it next fires. It replaces "Empieza
+ * a generarse desde <mes>", which named the month generar_desde falls in --
+ * not the month of the first charge, so a rule that would skip October still
+ * claimed to start in October.
+ */
+function estadoCobro(r, hoy) {
+  if (!r.activo) return 'Pausado';
+  const proximo = proximoCobro(r, hoy);
+  if (!proximo) return 'Terminado';
+  const cuando = proximo === hoy ? 'hoy' : formatDate(proximo);
+  const restantes = cobrosRestantes(r, hoy);
+  return restantes
+    ? `Próximo cobro: ${cuando} · ${restantes === 1 ? 'último' : `quedan ${restantes}`}`
+    : `Próximo cobro: ${cuando}`;
 }
 
 export default function PagosRecurrentesPage() {
@@ -44,14 +49,20 @@ export default function PagosRecurrentesPage() {
   const [editingItem, setEditingItem] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [formError, setFormError] = useState('');
+  const [listError, setListError] = useState('');
+  const confirm = useConfirm();
+  const hoy = todayISO();
 
   const resetForm = () => {
+    setFormError('');
     setEditingItem(null);
     setForm(emptyForm());
     setShowModal(false);
   };
 
   const openNew = () => {
+    setFormError('');
     setEditingItem(null);
     setForm(emptyForm());
     setShowModal(true);
@@ -64,41 +75,62 @@ export default function PagosRecurrentesPage() {
       importe: String(item.importe ?? ''),
       id_tipo_movimiento: item.id_tipo_movimiento ?? '',
       dia_mes: item.dia_mes ?? new Date().getDate(),
+      generar_hasta: item.generar_hasta ?? '',
     });
+    setFormError('');
     setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const importe = Number(form.importe);
-    if (!form.nombre.trim() || isNaN(importe) || importe === 0 || !form.id_tipo_movimiento) return;
+    if (!form.nombre.trim() || isNaN(importe) || importe <= 0 || !form.id_tipo_movimiento) {
+      setFormError('Completa el nombre, un importe mayor que cero y la categoría.');
+      return;
+    }
+    if (form.generar_hasta && form.generar_hasta < hoy) {
+      setFormError('El último cobro no puede ser una fecha pasada.');
+      return;
+    }
     setSaving(true);
     const payload = {
       nombre: form.nombre.trim(),
       importe,
       id_tipo_movimiento: form.id_tipo_movimiento,
       dia_mes: Number(form.dia_mes),
+      // Only sent when it means something: an empty end date on a new rule is
+      // simply "no end", and leaving the key out keeps older databases happy.
+      ...(form.generar_hasta || editingItem?.generar_hasta
+        ? { generar_hasta: form.generar_hasta || null }
+        : {}),
     };
-    if (editingItem) {
-      const { error: err } = await updateRecurring(editingItem.id, payload);
-      setSaving(false);
-      if (err) return alert('Error al actualizar: ' + err);
-    } else {
-      const { error: err } = await createRecurring({ ...payload, activo: true });
-      setSaving(false);
-      if (err) return alert('Error al crear: ' + err);
+    const { error: err } = editingItem
+      ? await updateRecurring(editingItem.id, payload)
+      : await createRecurring({ ...payload, activo: true });
+    setSaving(false);
+    if (err) {
+      setFormError(err);
+      return;
     }
     resetForm();
   };
 
   const handleToggleActivo = async (item) => {
-    await updateRecurring(item.id, { activo: !item.activo });
+    const { error: err } = await updateRecurring(item.id, { activo: !item.activo });
+    setListError(err || '');
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar este pago recurrente? No se borran los movimientos ya generados.')) return;
-    await deleteRecurring(id);
+  const handleDelete = async (item) => {
+    const ok = await confirm({
+      title: `¿Eliminar "${item.nombre}"?`,
+      description: 'Deja de generarse cada mes. Los movimientos que ya generó se conservan.',
+    });
+    if (!ok) return;
+    const { error: err } = await deleteRecurring(item.id);
+    setListError(err || '');
   };
+
+  const totales = totalesMensuales(list, esIngreso);
 
   const tipoNombre = (r) => r.tipo_movimiento?.nombre ?? '—';
 
@@ -122,10 +154,32 @@ export default function PagosRecurrentesPage() {
         </Button>
       </PageHeader>
 
-      {error && (
-        <div className="rounded-lg border-l-4 border-destructive bg-destructive/10 p-4 text-destructive">
-          {error}
-        </div>
+      <ErrorAlert error={error || listError} />
+
+      {list.length > 0 && (
+        <Card>
+          <CardContent className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 p-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Gastos fijos al mes
+              </p>
+              <p className="font-mono text-2xl font-semibold tabular-nums text-expense">
+                {formatCurrency(totales.gastos)}
+              </p>
+            </div>
+            {totales.ingresos > 0 && (
+              <div className="text-right">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Ingresos fijos al mes
+                </p>
+                <p className="font-mono text-2xl font-semibold tabular-nums text-income">
+                  {formatCurrency(totales.ingresos)}
+                </p>
+              </div>
+            )}
+            <p className="w-full text-xs text-muted-foreground">Solo cuenta los pagos activos.</p>
+          </CardContent>
+        </Card>
       )}
 
       {list.length === 0 ? (
@@ -156,18 +210,19 @@ export default function PagosRecurrentesPage() {
                     <p className="text-sm text-muted-foreground">
                       {tipoNombre(r)} · Día {r.dia_mes} de cada mes
                     </p>
-                    {/* Without this, a rule that has not started yet looks
-                        broken: it simply never generates and says nothing. */}
-                    {startsInFuture(r.generar_desde) && (
-                      <p className="text-xs text-muted-foreground">
-                        Empieza a generarse desde {formatStartDate(r.generar_desde)}
-                      </p>
-                    )}
+                    {/* Without this, a rule that has not started yet (or has
+                        ended) looks broken: it simply never generates. */}
+                    <p className="text-xs text-muted-foreground">{estadoCobro(r, hoy)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="mr-1 text-lg font-semibold tabular-nums">{formatCurrency(Math.abs(r.importe))}</span>
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(r)} title="Editar">
+                  <span
+                    className={`mr-1 font-mono text-lg font-semibold tabular-nums ${esIngreso(r) ? 'text-income' : ''}`}
+                  >
+                    {esIngreso(r) ? '+' : ''}
+                    {formatCurrency(Math.abs(r.importe))}
+                  </span>
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(r)} title="Editar" aria-label={`Editar ${r.nombre}`}>
                     <Pencil className="size-4" />
                   </Button>
                   <Button
@@ -175,6 +230,7 @@ export default function PagosRecurrentesPage() {
                     size="icon"
                     onClick={() => handleToggleActivo(r)}
                     title={r.activo ? 'Pausar' : 'Activar'}
+                    aria-label={`${r.activo ? 'Pausar' : 'Activar'} ${r.nombre}`}
                   >
                     {r.activo ? (
                       <Power className="size-4 text-success" />
@@ -182,7 +238,7 @@ export default function PagosRecurrentesPage() {
                       <PowerOff className="size-4 text-muted-foreground" />
                     )}
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)} title="Eliminar">
+                  <Button variant="ghost" size="icon" onClick={() => handleDelete(r)} title="Eliminar" aria-label={`Eliminar ${r.nombre}`}>
                     <Trash2 className="size-4 text-destructive" />
                   </Button>
                 </div>
@@ -198,6 +254,11 @@ export default function PagosRecurrentesPage() {
         title={editingItem ? 'Editar pago recurrente' : 'Nuevo pago recurrente'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          {formError ? (
+            <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {formError}
+            </p>
+          ) : null}
           <Field label="Nombre *" htmlFor="rec-nombre">
             <Input
               id="rec-nombre"
@@ -209,13 +270,11 @@ export default function PagosRecurrentesPage() {
             />
           </Field>
           <Field label="Importe *" htmlFor="rec-importe">
-            <Input
+            <MoneyInput
               id="rec-importe"
-              type="number"
-              step="0.01"
               value={form.importe}
               onChange={(e) => setForm((f) => ({ ...f, importe: e.target.value }))}
-              placeholder="0"
+              placeholder="Ej. 64.000"
               required
             />
           </Field>
@@ -247,6 +306,18 @@ export default function PagosRecurrentesPage() {
             </Select>
             <p className="mt-1 text-xs text-muted-foreground">
               En meses cortos (ej. febrero), el 29–31 se usa el último día del mes.
+            </p>
+          </Field>
+          <Field label="Último cobro (opcional)" htmlFor="rec-hasta">
+            <Input
+              id="rec-hasta"
+              type="date"
+              min={hoy}
+              value={form.generar_hasta}
+              onChange={(e) => setForm((f) => ({ ...f, generar_hasta: e.target.value }))}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Para cuotas: después de esta fecha deja de generarse solo. Vacío = sin fin.
             </p>
           </Field>
           <div className="flex gap-3 pt-2">

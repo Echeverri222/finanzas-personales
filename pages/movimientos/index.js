@@ -9,6 +9,11 @@ import { usePatrimonioFlag } from '../../hooks/usePatrimonioFlag';
 import MovimientosView from '../../views/movimientos/MovimientosView';
 import { MovimientosSkeleton } from '@/components/feedback/skeletons';
 import { ErrorAlert } from '@/components/feedback/ErrorAlert';
+import { useConfirm } from '@/components/feedback/ConfirmProvider';
+import { toISODate } from '@/lib/format';
+
+// The direction a sort starts in when you pick it: newest, biggest, A-Z.
+const DIRECCION_INICIAL = { fecha: 'desc', importe: 'desc', nombre: 'asc' };
 
 export default function MovimientosPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,6 +22,9 @@ export default function MovimientosPage() {
   const [editingId, setEditingId] = useState(null);
   const [editFormData, setEditFormData] = useState({});
   const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
+  const [editError, setEditError] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const confirm = useConfirm();
 
   const router = useRouter();
   const { movimientos, loading, error, updateMovimiento, deleteMovimiento } = useMovimientos();
@@ -36,18 +44,13 @@ export default function MovimientosPage() {
 
   const handleEdit = (movimiento) => {
     setEditingId(movimiento.id);
-    let fechaString = '';
-    try {
-      if (movimiento.fecha instanceof Date) {
-        fechaString = movimiento.fecha.toISOString().split('T')[0];
-      } else if (typeof movimiento.fecha === 'string') {
-        fechaString = movimiento.fecha.split('T')[0];
-      } else {
-        fechaString = new Date().toISOString().split('T')[0];
-      }
-    } catch {
-      fechaString = new Date().toISOString().split('T')[0];
-    }
+    setEditError('');
+    // Local calendar day, never toISOString(): that is the UTC day, one ahead
+    // in Bogotá every evening.
+    const fechaString =
+      typeof movimiento.fecha === 'string'
+        ? movimiento.fecha.split('T')[0]
+        : toISODate(movimiento.fecha || new Date());
     setEditFormData({
       fecha: fechaString,
       nombre: movimiento.nombre || '',
@@ -113,19 +116,38 @@ export default function MovimientosPage() {
     return 0;
   });
 
+  // Same key: flip the direction. New key: start in that key's natural
+  // direction -- picking "Monto" used to start ascending, i.e. smallest first.
   const handleSort = (key) => {
-    setSortConfig((prev) => ({
-      key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
-    }));
+    setSortConfig((prev) =>
+      prev.key === key
+        ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
+        : { key, direction: DIRECCION_INICIAL[key] || 'asc' }
+    );
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setTypeFilter('all');
+    setMonthFilter('');
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditFormData({});
+    setEditError('');
   };
 
   const handleSaveEdit = async () => {
+    if (!editFormData.fecha || !editFormData.nombre?.trim() || !editFormData.id_tipo_movimiento) {
+      setEditError('Completa la fecha, el nombre y la categoría.');
+      return;
+    }
+    if (!(Number(editFormData.importe) > 0)) {
+      setEditError('Escribe un importe mayor que cero.');
+      return;
+    }
+    setSavingEdit(true);
     try {
       const [year, month, day] = editFormData.fecha.split('-').map(Number);
       const fecha = new Date(Date.UTC(year, month - 1, day));
@@ -143,9 +165,11 @@ export default function MovimientosPage() {
       await setMovimientoTags(editingId, tagIds);
       setEditingId(null);
       setEditFormData({});
+      setEditError('');
     } catch (err) {
-      console.error('Error updating movimiento:', err);
-      alert('Error al actualizar: ' + err.message);
+      setEditError(err.message || 'No pudimos actualizar el movimiento.');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -153,17 +177,36 @@ export default function MovimientosPage() {
   // well, so deleting a movimiento asked twice; the rule is that the owner of
   // the mutation owns the confirmation and presentational components never
   // confirm.
-  const handleDelete = async (id) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este movimiento?')) return;
-    const { error: deleteError } = await deleteMovimiento(id);
-    if (deleteError) alert('Error al eliminar: ' + deleteError);
+  const [deleteError, setDeleteError] = useState('');
+  const handleDelete = async (mov) => {
+    const ok = await confirm({
+      title: `¿Eliminar "${mov.nombre}"?`,
+      description: 'Se borra el movimiento y, si estaba asociado a una cuenta, se revierte su saldo.',
+    });
+    if (!ok) return;
+    const { error: err } = await deleteMovimiento(mov.id);
+    setDeleteError(err || '');
   };
 
   if (loading) return <MovimientosSkeleton />;
   if (error) return <ErrorAlert error={error} title="No se pudieron cargar los movimientos" />;
 
+  // Years present in the data, newest first, always including this one: the
+  // month filter only offered the current year, so 2025 was unreachable.
+  const years = [
+    ...new Set([new Date().getFullYear(), ...movimientos.map((m) => new Date(m.fecha).getFullYear())]),
+  ]
+    .filter((y) => Number.isFinite(y))
+    .sort((a, b) => b - a);
+
   return (
+    <>
+    <ErrorAlert error={deleteError} title="No se pudo eliminar" className="mb-4" />
     <MovimientosView
+      years={years}
+      onClearFilters={clearFilters}
+      editError={editError}
+      savingEdit={savingEdit}
       sortedMovimientos={sortedMovimientos}
       tiposMovimiento={tiposMovimiento}
       tags={tags}
@@ -185,5 +228,6 @@ export default function MovimientosPage() {
       onSaveEdit={handleSaveEdit}
       onDelete={handleDelete}
     />
+    </>
   );
 }

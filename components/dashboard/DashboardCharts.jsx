@@ -131,9 +131,12 @@ export default function DashboardCharts({
 
   return (
     <>
-      <Card className="p-6 lg:col-span-8">
+      {/* flex column + flex-1: the card is stretched to the donut card's height
+          (the legend makes that one tall), and a fixed h-64 chart left a big
+          empty band under the plot. Now the plot takes the height instead. */}
+      <Card className="flex flex-col p-6 lg:col-span-8">
         <h4 className="mb-6 text-lg font-semibold tracking-tight">Evolución mensual</h4>
-        <div className="h-64">
+        <div className="h-64 min-h-64 flex-1">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={monthlyData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
               <defs>
@@ -184,7 +187,7 @@ export default function DashboardCharts({
                     style={{ cursor: 'pointer', outline: 'none' }}
                   >
                     {categoryData.map((entry) => (
-                      <Cell key={entry.name} fill={colors.categorical[slotForCategory(entry.name)]} />
+                      <Cell key={entry.name} fill={colors.categorical[entry.slot ?? slotForCategory(entry.name)]} />
                     ))}
                   </Pie>
                   <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
@@ -210,7 +213,7 @@ export default function DashboardCharts({
                       <span className="flex min-w-0 items-center gap-2">
                         <span
                           className="size-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: colors.categorical[slotForCategory(entry.name)] }}
+                          style={{ backgroundColor: colors.categorical[entry.slot ?? slotForCategory(entry.name)] }}
                         />
                         <span className="truncate">{entry.name}</span>
                       </span>

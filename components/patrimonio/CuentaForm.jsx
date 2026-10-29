@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Field } from '@/components/ui/field';
 import { NativeSelect as Select } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
+import { MoneyInput } from '@/components/money/MoneyInput';
 
 const TIPOS = [
   { value: 'ahorros', label: 'Cuenta de ahorros' },
@@ -115,28 +116,24 @@ export function CuentaForm({ cuenta, onSubmit, onCancel, saving }) {
             label={esInversion ? 'Efectivo disponible' : 'Saldo actual'}
             htmlFor="saldo"
           >
-            <Input
+            <MoneyInput
               id="saldo"
               name="saldo"
-              type="number"
-              step="0.01"
               value={form.saldo}
               onChange={set('saldo')}
-              placeholder="0"
+              placeholder="Ej. 2.500.000"
             />
           </Field>
         )}
 
         {esActivo && (
           <Field label="Valor total *" htmlFor="valor_total">
-            <Input
+            <MoneyInput
               id="valor_total"
               name="valor_total"
-              type="number"
-              step="0.01"
               value={form.valor_total}
               onChange={set('valor_total')}
-              placeholder="0"
+              placeholder="Ej. 2.500.000"
               required
             />
           </Field>
@@ -167,14 +164,12 @@ export function CuentaForm({ cuenta, onSubmit, onCancel, saving }) {
 
           {form.tiene_deuda && (
             <Field label="Valor en deuda *" htmlFor="valor_deuda">
-              <Input
+              <MoneyInput
                 id="valor_deuda"
                 name="valor_deuda"
-                type="number"
-                step="0.01"
                 value={form.valor_deuda}
                 onChange={set('valor_deuda')}
-                placeholder="0"
+                placeholder="Ej. 2.500.000"
                 required
               />
             </Field>

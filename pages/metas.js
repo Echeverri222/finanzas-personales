@@ -1,13 +1,32 @@
 import { useState } from 'react';
 import { Target, CheckCircle2, PiggyBank, Plus, Trash2, CalendarDays } from 'lucide-react';
 import { useMetas } from '../hooks/useMetas';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { formatCurrency, formatDate, todayISO, toISODate } from '@/lib/format';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field } from '@/components/ui/field';
 import { Modal as Dialog } from '@/components/ui/modal';
+import { MoneyInput } from '@/components/money/MoneyInput';
+import { ErrorAlert } from '@/components/feedback/ErrorAlert';
+import { useConfirm } from '@/components/feedback/ConfirmProvider';
+
+/** A year from today: a sensible default deadline the user can move. */
+function enUnAnio() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  return toISODate(d);
+}
+
+const metaVacia = () => ({ nombre: '', objetivo: '', fecha_meta: enUnAnio() });
+
+/** Whole months from today to `fecha` (at least 1), for "≈ $X al mes". */
+function mesesHasta(fecha) {
+  const hoy = new Date();
+  const [y, m] = fecha.split('-').map(Number);
+  return Math.max(1, (y - hoy.getFullYear()) * 12 + (m - 1 - hoy.getMonth()));
+}
 
 export default function MetasPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -17,8 +36,11 @@ export default function MetasPage() {
 
   const { metas, loading, error, createMeta, deleteMeta, addMoneyToMeta } = useMetas();
 
-  const [newMeta, setNewMeta] = useState({ nombre: '', objetivo: '', actual: 0 });
+  const [newMeta, setNewMeta] = useState(metaVacia);
   const [addMoneyForm, setAddMoneyForm] = useState({ cantidad: '' });
+  const [formError, setFormError] = useState('');
+  const [listError, setListError] = useState('');
+  const confirm = useConfirm();
 
   const getProgressPercentage = (actual, objetivo) => Math.min((actual / objetivo) * 100, 100);
 
@@ -31,20 +53,27 @@ export default function MetasPage() {
 
   const handleCreateMeta = async (e) => {
     e.preventDefault();
+    const objetivo = parseFloat(newMeta.objetivo);
+    if (!newMeta.nombre.trim() || !(objetivo > 0) || !newMeta.fecha_meta) {
+      setFormError('Completa el nombre, un objetivo mayor que cero y la fecha.');
+      return;
+    }
     setSaving(true);
     try {
+      // fecha_meta is NOT NULL in the database. The dialog used to have no date
+      // field and sent null, so every "Crear meta" failed with a 400.
       const { error } = await createMeta({
         nombre: newMeta.nombre.trim(),
-        objetivo: parseFloat(newMeta.objetivo),
+        objetivo,
+        fecha_meta: newMeta.fecha_meta,
       });
       if (error) {
-        alert('Error al crear la meta: ' + error);
+        setFormError(error);
         return;
       }
-      setNewMeta({ nombre: '', objetivo: '', actual: 0 });
+      setNewMeta(metaVacia());
+      setFormError('');
       setShowCreateModal(false);
-    } catch (err) {
-      alert('Error al crear la meta: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -52,33 +81,41 @@ export default function MetasPage() {
 
   const handleAddMoney = async (e) => {
     e.preventDefault();
+    const cantidad = parseFloat(addMoneyForm.cantidad);
+    if (isNaN(cantidad) || cantidad <= 0) {
+      setFormError('Escribe una cantidad mayor que cero.');
+      return;
+    }
     setSaving(true);
     try {
-      const cantidad = parseFloat(addMoneyForm.cantidad);
-      if (isNaN(cantidad) || cantidad <= 0) {
-        alert('Por favor ingresa una cantidad válida');
-        return;
-      }
       const { error } = await addMoneyToMeta(selectedMeta.id, cantidad);
       if (error) {
-        alert('Error al añadir dinero: ' + error);
+        setFormError(error);
         return;
       }
       setAddMoneyForm({ cantidad: '' });
+      setFormError('');
       setShowAddMoneyModal(false);
       setSelectedMeta(null);
-    } catch (err) {
-      alert('Error al añadir dinero: ' + err.message);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteMeta = async (id) => {
-    if (confirm('¿Estás seguro de que quieres eliminar esta meta?')) {
-      const { error } = await deleteMeta(id);
-      if (error) alert('Error al eliminar la meta: ' + error);
-    }
+  const handleDeleteMeta = async (meta) => {
+    const ok = await confirm({
+      title: `¿Eliminar la meta "${meta.nombre}"?`,
+      description: 'Se pierde el progreso registrado en ella. Tus movimientos no cambian.',
+    });
+    if (!ok) return;
+    const { error } = await deleteMeta(meta.id);
+    setListError(error || '');
+  };
+
+  const openCreate = () => {
+    setNewMeta(metaVacia());
+    setFormError('');
+    setShowCreateModal(true);
   };
 
   const stats = {
@@ -108,11 +145,13 @@ export default function MetasPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader title="Metas" description="Alcanza tus objetivos financieros.">
-        <Button onClick={() => setShowCreateModal(true)}>
+        <Button onClick={openCreate}>
           <Plus className="size-4" />
           Nueva meta
         </Button>
       </PageHeader>
+
+      <ErrorAlert error={listError} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -154,7 +193,7 @@ export default function MetasPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Crea tu primera meta para empezar a alcanzar tus objetivos financieros.
             </p>
-            <Button className="mt-6" onClick={() => setShowCreateModal(true)}>
+            <Button className="mt-6" onClick={openCreate}>
               <Plus className="size-4" />
               Crear primera meta
             </Button>
@@ -174,16 +213,18 @@ export default function MetasPage() {
                       </div>
                       <div className="min-w-0">
                         <h3 className="truncate font-semibold">{meta.nombre}</h3>
+                        {/* The deadline, not the creation date: "when do I
+                            need this by" is the question a goal answers. */}
                         <p className="flex items-center gap-1 text-xs text-muted-foreground">
                           <CalendarDays className="size-3" />
-                          {formatDate(meta.fechaCreacion)}
+                          {meta.fecha_meta ? `Para el ${formatDate(meta.fecha_meta)}` : formatDate(meta.fechaCreacion)}
                         </p>
                       </div>
                     </div>
                     <button
-                      onClick={() => handleDeleteMeta(meta.id)}
+                      onClick={() => handleDeleteMeta(meta)}
                       className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive"
-                      aria-label="Eliminar"
+                      aria-label={`Eliminar meta ${meta.nombre}`}
                     >
                       <Trash2 className="size-4" />
                     </button>
@@ -203,12 +244,16 @@ export default function MetasPage() {
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Faltan {formatCurrency(Math.max(0, meta.objetivo - meta.actual))}
+                    {meta.fecha_meta && meta.actual < meta.objetivo && meta.fecha_meta >= todayISO()
+                      ? ` · ≈ ${formatCurrency((meta.objetivo - meta.actual) / mesesHasta(meta.fecha_meta))} al mes`
+                      : ''}
                   </p>
                   <Button
                     variant="secondary"
                     className="mt-4 w-full"
                     onClick={() => {
                       setSelectedMeta(meta);
+                      setFormError('');
                       setShowAddMoneyModal(true);
                     }}
                   >
@@ -225,6 +270,11 @@ export default function MetasPage() {
       {/* Create meta modal */}
       <Dialog open={showCreateModal} onClose={() => setShowCreateModal(false)} title="Nueva meta de ahorro">
         <form onSubmit={handleCreateMeta} className="space-y-4">
+          {formError ? (
+            <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {formError}
+            </p>
+          ) : null}
           <Field label="Nombre de la meta *" htmlFor="meta-nombre">
             <Input
               id="meta-nombre"
@@ -236,16 +286,26 @@ export default function MetasPage() {
             />
           </Field>
           <Field label="Objetivo ($) *" htmlFor="meta-objetivo">
-            <Input
+            <MoneyInput
               id="meta-objetivo"
-              type="number"
               value={newMeta.objetivo}
-              onChange={(e) => setNewMeta({ ...newMeta, objetivo: e.target.value })}
-              placeholder="5000"
-              step="0.01"
-              min="0"
+              onChange={(e) => setNewMeta((m) => ({ ...m, objetivo: e.target.value }))}
+              placeholder="Ej. 5.000.000"
               required
             />
+          </Field>
+          <Field label="Fecha objetivo *" htmlFor="meta-fecha">
+            <Input
+              id="meta-fecha"
+              type="date"
+              min={todayISO()}
+              value={newMeta.fecha_meta}
+              onChange={(e) => setNewMeta((m) => ({ ...m, fecha_meta: e.target.value }))}
+              required
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Con ella calculamos cuánto apartar al mes.
+            </p>
           </Field>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)} className="flex-1">
@@ -269,6 +329,11 @@ export default function MetasPage() {
       >
         {selectedMeta && (
           <form onSubmit={handleAddMoney} className="space-y-4">
+            {formError ? (
+              <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {formError}
+              </p>
+            ) : null}
             <div className="rounded-lg bg-secondary p-3">
               <div className="text-sm text-muted-foreground">Progreso actual:</div>
               <div className="text-lg font-semibold tabular-nums">
@@ -276,14 +341,11 @@ export default function MetasPage() {
               </div>
             </div>
             <Field label="Cantidad a añadir ($) *" htmlFor="add-cantidad">
-              <Input
+              <MoneyInput
                 id="add-cantidad"
-                type="number"
                 value={addMoneyForm.cantidad}
                 onChange={(e) => setAddMoneyForm({ cantidad: e.target.value })}
-                placeholder="100"
-                step="0.01"
-                min="0"
+                placeholder="Ej. 200.000"
                 required
               />
             </Field>

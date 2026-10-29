@@ -4,6 +4,7 @@ import { useUser } from '../contexts/UserContext';
 import { userKey } from '../lib/swr';
 import { createSafeDate } from '../lib/dateUtils';
 import { TIPO } from '../lib/constants';
+import { mensajeError } from '../lib/errores';
 
 // The embed is `!inner`, which does two things: an orphan movimiento is
 // unrepresentable, and the SQL layer supplies nombre/tipo so no client-side
@@ -79,7 +80,7 @@ export function useMovimientos() {
       await mutate((prev = []) => [created, ...prev], { revalidate: false });
       return { data: created, error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'guardar el movimiento' }) };
     }
   };
 
@@ -104,7 +105,7 @@ export function useMovimientos() {
       );
       return { data: updated, error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'actualizar el movimiento' }) };
     }
   };
 
@@ -139,7 +140,7 @@ export function useMovimientos() {
       );
       return { error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'eliminar el movimiento' }) };
     }
   };
 

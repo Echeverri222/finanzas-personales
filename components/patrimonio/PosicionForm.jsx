@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Field } from '@/components/ui/field';
 import { NativeSelect as Select } from '@/components/ui/native-select';
 import { todayISO } from '@/lib/format';
+import { MoneyInput } from '@/components/money/MoneyInput';
+import { etiquetaCuenta } from '@/components/movimientos/MovimientoFields';
 
 /**
  * Las clases que Massive sirve, con el prefijo que usa cada una.
@@ -18,26 +20,39 @@ const CLASES = [
   { value: 'crypto', label: 'Cripto', prefijo: 'X:', ejemplo: 'BTCUSD' },
 ];
 
-const VACIO = {
-  cuentaId: '',
+// A function: as a module-level constant, `fecha` froze at whatever day the
+// bundle loaded and was stale after midnight.
+const vacio = (cuenta) => ({
+  cuentaId: cuenta?.id ?? '',
   clase: 'stocks',
   ticker: '',
   nombre: '',
   cantidad: '',
   precio: '',
   fecha: todayISO(),
-  moneda: 'USD',
-};
+  // The account's own currency. Defaulting to USD meant a purchase in a COP
+  // account (Trii, acciones colombianas) was one missed select away from being
+  // recorded in dollars.
+  moneda: cuenta?.moneda || 'COP',
+});
 
 export function PosicionForm({ cuentas, onSubmit, onCancel }) {
-  const [form, setForm] = useState({ ...VACIO, cuentaId: cuentas[0]?.id ?? '' });
+  const [form, setForm] = useState(() => vacio(cuentas[0]));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const clase = CLASES.find((c) => c.value === form.clase) ?? CLASES[0];
 
   const set = (campo) => (e) => {
-    setForm((prev) => ({ ...prev, [campo]: e.target.value }));
+    const value = e.target.value;
+    setForm((prev) => {
+      const next = { ...prev, [campo]: value };
+      // Switching account follows that account's currency.
+      if (campo === 'cuentaId') {
+        next.moneda = cuentas.find((c) => c.id === value)?.moneda || prev.moneda;
+      }
+      return next;
+    });
     setError('');
   };
 
@@ -57,7 +72,7 @@ export function PosicionForm({ cuentas, onSubmit, onCancel }) {
     });
     setSaving(false);
     if (err) setError(err);
-    else setForm({ ...VACIO, cuentaId: form.cuentaId });
+    else setForm(vacio(cuentas.find((c) => c.id === form.cuentaId)));
   };
 
   return (
@@ -67,8 +82,7 @@ export function PosicionForm({ cuentas, onSubmit, onCancel }) {
           <Select id="cuentaId" value={form.cuentaId} onChange={set('cuentaId')} required>
             {cuentas.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.nombre}
-                {c.banco ? ` · ${c.banco}` : ''}
+                {etiquetaCuenta(c)}
               </option>
             ))}
           </Select>
@@ -93,7 +107,7 @@ export function PosicionForm({ cuentas, onSubmit, onCancel }) {
               id="ticker"
               value={form.ticker}
               onChange={set('ticker')}
-              placeholder={clase.ejemplo}
+              placeholder={`Ej. ${clase.ejemplo}`}
               className="flex-1"
               required
             />
@@ -111,7 +125,7 @@ export function PosicionForm({ cuentas, onSubmit, onCancel }) {
             id="nombre"
             value={form.nombre}
             onChange={set('nombre')}
-            placeholder="Vanguard S&P 500 ETF"
+            placeholder="Ej. Vanguard S&P 500 ETF"
           />
         </Field>
 
@@ -125,20 +139,17 @@ export function PosicionForm({ cuentas, onSubmit, onCancel }) {
             min="0"
             value={form.cantidad}
             onChange={set('cantidad')}
-            placeholder="10"
+            placeholder="Ej. 10"
             required
           />
         </Field>
 
         <Field label="Precio de compra *" htmlFor="precio">
-          <Input
+          <MoneyInput
             id="precio"
-            type="number"
-            step="0.01"
-            min="0"
             value={form.precio}
             onChange={set('precio')}
-            placeholder="700"
+            placeholder={form.moneda === 'COP' ? 'Ej. 13.780' : 'Ej. 700,50'}
             required
           />
         </Field>

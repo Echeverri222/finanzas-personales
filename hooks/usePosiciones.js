@@ -19,6 +19,7 @@ import useSWR from 'swr';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
 import { userKey } from '../lib/swr';
+import { mensajeError } from '../lib/errores';
 
 const SELECT = `
   id, usuario_id, cuenta_id, ticker, nombre, clase,
@@ -97,7 +98,7 @@ export function usePosiciones() {
       await mutate();
       return { error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'registrar la compra' }) };
     }
   };
 
@@ -124,7 +125,7 @@ export function usePosiciones() {
       await mutate();
       return { error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'registrar la venta' }) };
     }
   };
 
@@ -140,7 +141,7 @@ export function usePosiciones() {
       await mutate();
       return { error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'eliminar la posición' }) };
     }
   };
 

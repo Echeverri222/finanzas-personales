@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
 import { userKey } from '../lib/swr';
 import { TIPO } from '../lib/constants';
+import { mensajeError } from '../lib/errores';
 
 const NO_PROFILE = 'Perfil de usuario no disponible. Por favor, recarga la página e intenta nuevamente.';
 
@@ -54,7 +55,7 @@ export function useTiposMovimiento() {
       return { data: row, error: null };
     } catch (err) {
       console.error('Error creating categoría:', err);
-      return { error: err.message };
+      return { error: mensajeError(err, { duplicado: 'Ya tienes una categoría con ese nombre.', accion: 'crear la categoría' }) };
     }
   };
 
@@ -84,7 +85,7 @@ export function useTiposMovimiento() {
       return { data: row, error: null };
     } catch (err) {
       console.error('Error updating categoría:', err);
-      return { error: err.message };
+      return { error: mensajeError(err, { duplicado: 'Ya tienes una categoría con ese nombre.', accion: 'actualizar la categoría' }) };
     }
   };
 
@@ -104,7 +105,7 @@ export function useTiposMovimiento() {
       return { error: null };
     } catch (err) {
       console.error('Error deleting categoría:', err);
-      return { error: err.message };
+      return { error: mensajeError(err, { enUso: 'Esta categoría tiene movimientos o pagos recurrentes. Muévelos a otra categoría antes de eliminarla.', accion: 'eliminar la categoría' }) };
     }
   };
 

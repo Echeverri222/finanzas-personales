@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=18.17.0 <21"
+    "node": ">=20.0.0 <25"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.23",
@@ -43,6 +43,8 @@
     "test:ahorros": "node scripts/test-ahorros.mjs",
     "test:patrimonio": "node scripts/test-patrimonio.mjs",
     "test:precios": "node scripts/test-precios.mjs",
+    "test:formularios": "node scripts/test-formularios.mjs",
+    "prepush": "bash scripts/pre-push-check.sh",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",

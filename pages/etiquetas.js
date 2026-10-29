@@ -5,10 +5,11 @@ import { PageHeader } from '@/components/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-// No ErrorAlert here on purpose: the only failure this page surfaces is an
-// empty-name validation error, which belongs beside the field it refers to.
+// No ErrorAlert here on purpose: failures (empty or duplicate name, a failed
+// delete) are shown beside the one field on the page.
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ListSkeleton } from '@/components/feedback/skeletons';
+import { useConfirm } from '@/components/feedback/ConfirmProvider';
 
 export default function EtiquetasPage() {
   const [nombre, setNombre] = useState('');
@@ -16,6 +17,7 @@ export default function EtiquetasPage() {
   const [saving, setSaving] = useState(false);
 
   const { tags, loading, createTag, deleteTag } = useTags();
+  const confirm = useConfirm();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,8 +34,13 @@ export default function EtiquetasPage() {
   };
 
   const handleDelete = async (id, nombreTag) => {
-    if (!confirm(`¿Eliminar la etiqueta "${nombreTag}"?`)) return;
-    await deleteTag(id);
+    const ok = await confirm({
+      title: `¿Eliminar la etiqueta "${nombreTag}"?`,
+      description: 'Se quita de los movimientos que la tengan. Los movimientos no se borran.',
+    });
+    if (!ok) return;
+    const { error: err } = await deleteTag(id);
+    if (err) setError(err);
   };
 
   if (loading) {

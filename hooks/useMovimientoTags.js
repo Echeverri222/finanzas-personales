@@ -2,6 +2,7 @@ import useSWR from 'swr';
 import { supabase } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
 import { userKey } from '../lib/swr';
+import { mensajeError } from '../lib/errores';
 
 function isMissingTable(error) {
   return error.code === '42P01' || error.message?.includes('does not exist');
@@ -67,7 +68,7 @@ export function useMovimientoTags() {
       await mutate();
       return { error: null };
     } catch (err) {
-      return { error: err.message };
+      return { error: mensajeError(err, { accion: 'guardar las etiquetas' }) };
     }
   };
 

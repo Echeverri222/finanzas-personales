@@ -13,6 +13,11 @@ import { buttonVariants } from '@/components/ui/button';
 import { HeroCard } from '@/components/layout/HeroCard';
 import { Amount } from '@/components/money/Amount';
 import { ErrorAlert } from '@/components/feedback/ErrorAlert';
+import { CURRENCY } from '@/lib/constants';
+
+// Same compact es-CO ticks the dashboard uses ("2,4 M"), instead of a
+// hand-rolled "$2400k" that was wider than its 44px axis and lost its "$".
+const compacto = new Intl.NumberFormat(CURRENCY.LOCALE, { notation: 'compact' });
 
 const createSafeDate = (dateString) => {
   if (!dateString) return new Date();
@@ -117,7 +122,10 @@ export default function AhorrosPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <PageHeader title="Ahorros" description="Sigue el crecimiento de tus ahorros." />
+      <PageHeader
+        title="Ahorros"
+        description="Lo que has apartado según tus movimientos de ahorro, menos lo que has usado. Puede diferir del saldo de tus cuentas en Patrimonio."
+      />
 
       {/* A failed fetch used to fall straight through to the hero, which
           rendered $0 -- indistinguishable from "you have no savings". The app
@@ -125,8 +133,11 @@ export default function AhorrosPage() {
       <ErrorAlert error={error} title="No se pudieron cargar tus ahorros" />
 
       {/* Hero */}
+      {/* "Ahorro acumulado", and said where it comes from: Patrimonio shows the
+          balance of your savings ACCOUNTS, a different number, and two screens
+          both calling theirs "ahorros" read as one of them being wrong. */}
       <HeroCard
-        label="Saldo total ahorrado"
+        label="Ahorro acumulado"
         value={<Amount value={totalSavings} size="hero" className="text-primary-foreground" />}
       >
           <Link
@@ -183,8 +194,8 @@ export default function AhorrosPage() {
                   fontSize={12}
                   tickLine={false}
                   axisLine={false}
-                  width={44}
-                  tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                  width={56}
+                  tickFormatter={(value) => compacto.format(value)}
                 />
                 <Tooltip
                   contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))' }}

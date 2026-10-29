@@ -1,40 +1,38 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { ArrowLeft, ChevronDown } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useTiposMovimiento } from '../../hooks/useTiposMovimiento';
 import { useMovimientos } from '../../hooks/useMovimientos';
 import { useTags } from '../../hooks/useTags';
 import { useMovimientoTags } from '../../hooks/useMovimientoTags';
 import { useCuentas } from '../../hooks/useCuentas';
 import { usePatrimonioFlag } from '../../hooks/usePatrimonioFlag';
-import { esLiquida } from '@/types/domain';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { NativeSelect as Select } from '@/components/ui/native-select';
-import { Field } from '@/components/ui/field';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
+import { MovimientoFields } from '@/components/movimientos/MovimientoFields';
+import { todayISO } from '@/lib/format';
 import { TIPO } from '@/lib/constants';
+
+const vacio = () => ({
+  fecha: todayISO(),
+  nombre: '',
+  importe: '',
+  id_tipo_movimiento: '',
+  cuenta_id: '',
+  sale_de_ahorros: false,
+  tagIds: [],
+});
+
+/** `?tipo=ahorros` (the "Ahorrar más" button) preselects the savings category. */
+const TIPO_POR_PARAM = { ahorros: TIPO.AHORRO, ingreso: TIPO.INGRESO, gasto: TIPO.GASTO };
 
 export default function NuevoMovimientoPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const today = new Date().toISOString().split('T')[0];
-
-  const [formData, setFormData] = useState({
-    fecha: today,
-    nombre: '',
-    importe: '',
-    id_tipo_movimiento: '',
-    cuenta_id: '',
-    sale_de_ahorros: false,
-    tagIds: [],
-  });
+  const [formData, setFormData] = useState(vacio);
   const [errors, setErrors] = useState({});
-  const [tagsOpen, setTagsOpen] = useState(() => formData.tagIds.length > 0);
 
   const { tiposMovimiento, loading: tiposLoading, error: tiposError } = useTiposMovimiento();
   const { createMovimiento } = useMovimientos();
@@ -43,44 +41,28 @@ export default function NuevoMovimientoPage() {
   const { habilitado: patrimonioHabilitado } = usePatrimonioFlag();
   const { cuentas } = useCuentas();
 
-  // Un activo no tiene efectivo del que descontar; ver el comentario del campo.
-  const cuentasLiquidas = cuentas.filter((c) => esLiquida(c) && c.activa !== false);
-  const categoriaSeleccionada = tiposMovimiento.find(
-    (tipo) => String(tipo.id) === String(formData.id_tipo_movimiento)
-  );
-  const categoriaEsSalida = [TIPO.GASTO, TIPO.INVERSION, TIPO.PRESTAMO].includes(
-    categoriaSeleccionada?.tipo
-  );
+  // Applied once, when both the query and the categories are in -- and never
+  // again, so it cannot overwrite a category the user then picks by hand.
+  const preseleccionado = useRef(false);
+  useEffect(() => {
+    if (preseleccionado.current || !router.isReady || tiposLoading) return;
+    preseleccionado.current = true;
+    const tipo = TIPO_POR_PARAM[router.query.tipo];
+    const categoria = tipo && tiposMovimiento.find((t) => t.tipo === tipo);
+    if (categoria) setFormData((prev) => ({ ...prev, id_tipo_movimiento: categoria.id }));
+  }, [router.isReady, router.query.tipo, tiposLoading, tiposMovimiento]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => {
-      const next = { ...prev, [name]: value };
-      if (name === 'id_tipo_movimiento') {
-        const categoria = tiposMovimiento.find((tipo) => String(tipo.id) === String(value));
-        if (![TIPO.GASTO, TIPO.INVERSION, TIPO.PRESTAMO].includes(categoria?.tipo)) {
-          next.sale_de_ahorros = false;
-        }
-      }
-      return next;
-    });
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
-  };
-
-  const handleTagToggle = (tagId) => {
-    setFormData((prev) => ({
-      ...prev,
-      tagIds: prev.tagIds.includes(tagId)
-        ? prev.tagIds.filter((id) => id !== tagId)
-        : [...prev.tagIds, tagId],
-    }));
+  const limpiarError = (campo) => {
+    if (errors[campo]) setErrors((prev) => ({ ...prev, [campo]: '' }));
   };
 
   const validateForm = () => {
     const newErrors = {};
     if (!formData.fecha) newErrors.fecha = 'La fecha es requerida';
-    if (!formData.nombre) newErrors.nombre = 'El nombre es requerido';
-    if (!formData.importe) newErrors.importe = 'El importe es requerido';
+    if (!formData.nombre.trim()) newErrors.nombre = 'El nombre es requerido';
+    if (!formData.importe || Number(formData.importe) <= 0) {
+      newErrors.importe = 'Escribe un importe mayor que cero';
+    }
     if (!formData.id_tipo_movimiento) newErrors.id_tipo_movimiento = 'La categoría es requerida';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -99,8 +81,8 @@ export default function NuevoMovimientoPage() {
         importe: Number(formData.importe),
         id_tipo_movimiento: formData.id_tipo_movimiento,
         sale_de_ahorros: formData.sale_de_ahorros,
-        // Solo se incluye si tiene valor. Un movimiento SIN cuenta es válido y
-        // no mueve ningún saldo -- todo el histórico está en ese estado.
+        // Only sent when set. A movimiento WITHOUT an account is valid and moves
+        // no balance -- the whole history is in that state.
         ...(formData.cuenta_id ? { cuenta_id: formData.cuenta_id } : {}),
       };
       const { data: created, error } = await createMovimiento(movimientoData);
@@ -110,25 +92,10 @@ export default function NuevoMovimientoPage() {
       }
       router.push('/movimientos');
     } catch (error) {
-      console.error('Error creating movimiento:', error);
       setErrors({ submit: error.message || 'Error al crear el movimiento' });
     } finally {
       setLoading(false);
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      fecha: today,
-      nombre: '',
-      importe: '',
-      id_tipo_movimiento: '',
-      cuenta_id: '',
-      sale_de_ahorros: false,
-      tagIds: [],
-    });
-    setErrors({});
-    setTagsOpen(false);
   };
 
   if (tiposLoading) {
@@ -164,167 +131,27 @@ export default function NuevoMovimientoPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {errors.submit && (
-              <div className="rounded-lg border-l-4 border-destructive bg-destructive/10 p-4 text-destructive">
+              <div role="alert" className="rounded-lg border-l-4 border-destructive bg-destructive/10 p-4 text-destructive">
                 <p className="font-semibold">Error</p>
                 <p>{errors.submit}</p>
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Fecha *" htmlFor="fecha">
-                <Input
-                  id="fecha"
-                  type="date"
-                  name="fecha"
-                  value={formData.fecha}
-                  onChange={handleInputChange}
-                  className={errors.fecha ? 'border-destructive' : ''}
-                  required
-                />
-                {errors.fecha && <p className="mt-1 text-sm text-destructive">{errors.fecha}</p>}
-              </Field>
-
-              <Field label="Importe *" htmlFor="importe">
-                <Input
-                  id="importe"
-                  name="importe"
-                  type="number"
-                  placeholder="0"
-                  value={formData.importe}
-                  onChange={handleInputChange}
-                  className={errors.importe ? 'border-destructive' : ''}
-                  required
-                />
-                {errors.importe && <p className="mt-1 text-sm text-destructive">{errors.importe}</p>}
-              </Field>
-
-              <Field label="Nombre *" htmlFor="nombre">
-                <Input
-                  id="nombre"
-                  name="nombre"
-                  placeholder="Descripción del movimiento"
-                  value={formData.nombre}
-                  onChange={handleInputChange}
-                  className={errors.nombre ? 'border-destructive' : ''}
-                  required
-                />
-                {errors.nombre && <p className="mt-1 text-sm text-destructive">{errors.nombre}</p>}
-              </Field>
-
-              <Field label="Categoría *" htmlFor="id_tipo_movimiento">
-                <Select
-                  id="id_tipo_movimiento"
-                  name="id_tipo_movimiento"
-                  value={formData.id_tipo_movimiento}
-                  onChange={handleInputChange}
-                  className={errors.id_tipo_movimiento ? 'border-destructive' : ''}
-                  required
-                >
-                  <option value="">Seleccione categoría</option>
-                  {tiposMovimiento.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.nombre}</option>
-                  ))}
-                </Select>
-                {errors.id_tipo_movimiento && (
-                  <p className="mt-1 text-sm text-destructive">{errors.id_tipo_movimiento}</p>
-                )}
-              </Field>
-
-              {/* Opcional siempre, y ausente por completo si Patrimonio está
-                  apagado. Se ofrecen solo las cuentas líquidas: un activo (un
-                  carro, una casa) no tiene efectivo del que descontar, y el
-                  trigger de M21 rechazaría la asociación -- ofrecerla sería
-                  prometer algo que la base de datos va a negar. */}
-              {patrimonioHabilitado && cuentasLiquidas.length > 0 && (
-                <Field label="Cuenta (opcional)" htmlFor="cuenta_id">
-                  <Select
-                    id="cuenta_id"
-                    name="cuenta_id"
-                    value={formData.cuenta_id}
-                    onChange={handleInputChange}
-                  >
-                    <option value="">Sin cuenta</option>
-                    {cuentasLiquidas.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre}
-                        {c.banco ? ` · ${c.banco}` : ''}
-                      </option>
-                    ))}
-                  </Select>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Si eliges una, el saldo de esa cuenta se ajusta solo.
-                  </p>
-                </Field>
-              )}
-
-              <div className="flex items-start justify-between gap-4 rounded-lg border p-4 md:col-span-2">
-                <div>
-                  <label htmlFor="sale_de_ahorros" className="text-sm font-medium">
-                    Sale de ahorros
-                  </label>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Resta del ahorro acumulado y conserva el movimiento, pero no cuenta
-                    como gasto ni afecta el balance del mes.
-                  </p>
-                  {!categoriaEsSalida && (
-                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                      Selecciona una categoría de salida para usar esta opción.
-                    </p>
-                  )}
-                </div>
-                <Switch
-                  id="sale_de_ahorros"
-                  checked={formData.sale_de_ahorros}
-                  disabled={!categoriaEsSalida}
-                  onCheckedChange={(checked) =>
-                    setFormData((prev) => ({ ...prev, sale_de_ahorros: checked }))
-                  }
-                  aria-label="Marcar como consumo de ahorros"
-                />
-              </div>
-
-              {tags?.length > 0 && (
-                <div className="space-y-2 md:col-span-2">
-                  <button
-                    type="button"
-                    onClick={() => setTagsOpen((prev) => !prev)}
-                    aria-expanded={tagsOpen}
-                    aria-controls="etiquetas-panel"
-                    className="flex w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm font-medium hover:bg-secondary"
-                  >
-                    <span className="flex items-center gap-2">
-                      Etiquetas (opcional)
-                      {formData.tagIds?.length > 0 && (
-                        <Badge variant="secondary">{formData.tagIds.length} seleccionada{formData.tagIds.length > 1 ? 's' : ''}</Badge>
-                      )}
-                    </span>
-                    <ChevronDown className={`size-4 shrink-0 transition-transform ${tagsOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                  <div
-                    id="etiquetas-panel"
-                    className={tagsOpen ? 'flex flex-wrap gap-2 pt-1' : 'hidden'}
-                  >
-                    {tags.map((t) => (
-                      <label
-                        key={t.id}
-                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-secondary"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formData.tagIds?.includes(t.id)}
-                          onChange={() => handleTagToggle(t.id)}
-                          className="rounded"
-                        />
-                        <span>{t.nombre}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <MovimientoFields
+              data={formData}
+              setData={setFormData}
+              errors={errors}
+              onFieldEdited={limpiarError}
+              tiposMovimiento={tiposMovimiento}
+              cuentas={cuentas}
+              patrimonioHabilitado={patrimonioHabilitado}
+              tags={tags}
+              idPrefix="nuevo"
+            />
 
             <div className="flex flex-col justify-end gap-3 pt-2 md:flex-row">
-              <Button type="button" variant="outline" onClick={resetForm} disabled={loading}>
+              {/* Cancel leaves; it used to silently reset the form and stay. */}
+              <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={loading}>
